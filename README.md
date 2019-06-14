@@ -36,7 +36,7 @@ Current environment:
     K2HB_KAFKA_RECEIVE_BUFFER_BYTES                     32768
     K2HB_KAFKA_SEND_BUFFER_BYTES                        131072
     K2HB_KAFKA_CONSUMER_TIMEOUT_MS                      0
-    K2HB_KAFKA_CONECTIONS_MAX_IDLE_MS                   540000
+    K2HB_KAFKA_CONNECTIONS_MAX_IDLE_MS                  540000
     K2HB_KAFKA_SSL                                      false
     K2HB_KAFKA_SSL_CHECK_HOSTNAME                       true
     K2HB_KAFKA_SSL_CAFILE

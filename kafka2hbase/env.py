@@ -23,20 +23,6 @@ def boolean(d):
     return lambda v: v.lower() == "true" if v else d
 
 
-class Config(namedtuple("ConfigTuple", ["kafka", "hbase"])):
-    """ Config class for K2HB """
-
-    def as_dict(self):
-        """ Return the config as a set of nested dicts """
-        return {
-            g: {
-                k: v
-                for k, v in n._asdict().items()
-            }
-            for g, n in self._asdict().items()
-        }
-
-
 default_config = {
     "kafka": {
         "bootstrap_servers": delimited("localhost:9092"),
@@ -57,7 +43,7 @@ default_config = {
         "receive_buffer_bytes": integer(32 * 1024),
         "send_buffer_bytes": integer(128 * 1024),
         "consumer_timeout_ms": integer(0),
-        "conections_max_idle_ms": integer(540000),
+        "connections_max_idle_ms": integer(540000),
         "ssl": boolean(False),
         "ssl_check_hostname": boolean(True),
         "ssl_cafile": string(""),
@@ -83,8 +69,39 @@ default_config = {
     },
 }
 
-KafkaConfig = namedtuple("KafkaConfig", default_config["kafka"].keys())  # type: ignore
-HbaseConfig = namedtuple("HbaseConfig", default_config["hbase"].keys())  # type: ignore
+
+def config_as_dict(config):
+    """ Return the config as a set of nested dicts """
+    return {
+        k: v for k, v in config._asdict().items()
+    }
+
+
+class Config(namedtuple("ConfigTuple", ["kafka", "hbase"])):
+    """ Config class for K2HB """
+
+    def as_dict(self):
+        """ Return the config as a dictionary """
+        return {
+            "kafka": config_as_dict(self.kafka),
+            "hbase": config_as_dict(self.hbase),
+        }
+
+
+class KafkaConfig(namedtuple("KafkaConfig", default_config["kafka"].keys())):  # type: ignore
+    """ Config class for Kafka consumer """
+
+    def as_dict(self):
+        """ Return the config as a dictionary """
+        return config_as_dict(self)
+
+
+class HbaseConfig(namedtuple("HbaseConfig", default_config["hbase"].keys())):  # type: ignore
+    """ Config class for Hbase connection """
+
+    def as_dict(self):
+        """ Return the config as a dictionary """
+        return config_as_dict(self)
 
 
 def env_var_for_config_key(g, k):
