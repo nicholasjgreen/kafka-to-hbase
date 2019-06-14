@@ -23,13 +23,25 @@ def boolean(d):
     return lambda v: v.lower() == "true" if v else d
 
 
-Config = namedtuple("Config", ["kafka", "hbase"])
+class Config(namedtuple("ConfigTuple", ["kafka", "hbase"])):
+    """ Config class for K2HB """
+
+    def as_dict(self):
+        """ Return the config as a set of nested dicts """
+        return {
+            g: {
+                k: v
+                for k, v in n._asdict().items()
+            }
+            for g, n in self._asdict().items()
+        }
+
 
 default_config = {
     "kafka": {
-        "bootstrap_servers": delimited(""),
+        "bootstrap_servers": delimited("localhost:9092"),
         "client_id": string("kafka-to-hbase"),
-        "group_id": string(""),
+        "group_id": string("kafka-to-hbase"),
         "fetch_min_bytes": integer(1),
         "fetch_max_wait_ms": integer(500),
         "fetch_max_bytes": integer(50 * 1024 * 1024),
@@ -46,7 +58,7 @@ default_config = {
         "send_buffer_bytes": integer(128 * 1024),
         "consumer_timeout_ms": integer(0),
         "conections_max_idle_ms": integer(540000),
-        "ssl": boolean(True),
+        "ssl": boolean(False),
         "ssl_check_hostname": boolean(True),
         "ssl_cafile": string(""),
         "ssl_certfile": string(""),
@@ -93,17 +105,25 @@ def load_config(environment):
     return Config(kafka=KafkaConfig(**config["kafka"]), hbase=HbaseConfig(**config["hbase"]))
 
 
-def all_env_vars():
+def all_env_vars(environment):
     """ Env vars and defaults """
 
-    def _get_value(f):
-        v = f(None)
+    def _get_value(g, k, f):
+        env_var = env_var_for_config_key(g, k)
+        v = f(environment.get(env_var))
+
         if isinstance(v, list):
             v = ",".join(v)
-        return v
 
-    return {
-        env_var_for_config_key(g, k): _get_value(f)
+        if isinstance(v, bool):
+            v = str(v).lower()
+
+        v = str(v)
+
+        return (env_var, v)
+
+    return dict(
+        _get_value(g, k, f)
         for g in default_config
         for k, f in default_config[g].items()
-    }
+    )
