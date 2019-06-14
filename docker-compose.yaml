@@ -1,0 +1,20 @@
+---
+version: "2"
+
+services:
+  kafka-to-hbase:
+    build: ./
+    image: kafka-to-hbase:latest
+    command: "true"
+
+  kafka:
+    image: harisekhon/kafka
+    ports:
+      - "2181:2181"
+      - "9092:9092"
+
+  hbase:
+    image: harisekhon/hbase
+    ports:
+      - "9090:9090"
+      - "9095:9095"

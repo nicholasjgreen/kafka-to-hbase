@@ -1,0 +1,7 @@
+# Ignore everything
+**
+
+# Allow just enough to install the package
+!/setup.py
+!/scripts
+!/kafka2hbase
