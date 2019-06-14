@@ -19,6 +19,7 @@ setup(
         'dev': [
             'docker-compose==1.24.0',
             'invoke==1.2.0',
+            'pytest==4.6.3',
         ]
     }
 )

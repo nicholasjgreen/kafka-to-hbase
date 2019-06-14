@@ -5,14 +5,7 @@ from invoke import task
 @task
 def install(ctx):
     """ Install the package using dev dependencies and linked source """
-    ctx.run("python3 -m pip install -e .[dev]")
-
-
-@task
-def run(ctx, remove=True):
-    """ Run the kafka-to-hbase command inside a properly configured docker container """
-    rm = '--rm' if remove else ''
-    ctx.run(f"docker-compose run {rm} kafka-to-hbase")
+    ctx.run("python3 -m pip install -e .[dev] --force-reinstall")
 
 
 @task
@@ -21,9 +14,22 @@ def build(ctx):
     ctx.run("docker-compose build")
 
 
-@task
-def up(ctx):
+@task()
+def run(ctx, build_images=True, remove=True):
+    """ Run the kafka-to-hbase command inside a properly configured docker container """
+    if build_images:
+        build(ctx)
+
+    rm = '--rm' if remove else ''
+    ctx.run(f"docker-compose run {rm} app kafka-to-hbase")
+
+
+@task()
+def up(ctx, build_images=True):
     """ Bring up the development stack including Kafka and Hbase """
+    if build_images:
+        build(ctx)
+
     ctx.run("docker-compose up -d")
 
 

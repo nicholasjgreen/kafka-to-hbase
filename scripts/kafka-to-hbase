@@ -1,1 +1,28 @@
-import kafkatohbase
+#!/usr/bin/env python3
+
+""" Kafka To Hbase transfer utility """
+
+import os
+
+import kafka2hbase
+
+
+def dump_config(c):
+    """ Dump the current configuration nicely to the console """
+    print("Current config:")
+
+    max_width = max(
+        len(x)
+        for y in c
+        for x in c[y]
+    )
+
+    for group in c:
+        print("\t{0}:".format(group.capitalize()))
+
+        for k, v in c[group].items():
+            print("\t\t{k: <{fill}}:\t{v}".format(k=k, fill=max_width, v=v))
+
+
+config = kafka2hbase.load_config(os.environ)
+dump_config(config)
