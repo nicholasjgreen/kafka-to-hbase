@@ -8,7 +8,6 @@ services:
     command: "true"
     environment:
       K2HB_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      K2HB_KAFKA_GROUP_ID: kafka-to-hbase-dev
       K2HB_KAFKA_SSL: "false"
 
   kafka:
