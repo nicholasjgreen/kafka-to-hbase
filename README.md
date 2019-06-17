@@ -70,7 +70,8 @@ to other build tools and the configuration is written in pure Python.
 Invoke can be installed from Pypi using Pip:
 
 ```
-pip install invoke ```
+pip install invoke
+```
 
 Once done, all other development tasks can be achieved using the `invoke`
 command.
