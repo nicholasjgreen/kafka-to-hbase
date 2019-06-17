@@ -131,7 +131,7 @@ environment defined in the Docker Compose YAML file.
 
 ### Changing the Docker Compose Configuration
 
-eThe Docker Compose file defines the logical architecture of the 3 service system
+The Docker Compose file defines the logical architecture of the 3 service system
 required to run Kafka To Hbase. To change the Docker Compose configuration of
 Hbase tables or namespaces, or which Kafka topics will be used, use the
 `docker-compose.override.yaml` file. This is read in addition to the base Docker
