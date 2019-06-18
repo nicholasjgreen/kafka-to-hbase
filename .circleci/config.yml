@@ -5,7 +5,7 @@ jobs:
       - image: circleci/python:3.7.3
     steps:
       - checkout
-      - run: apt-get install -y build-essential python3-dev
+      - run: sudo apt-get install -y build-essential python3-dev
       - run: python setup.py bdist_wheel
       - run: pip install dist/kafka_to_hbase-1.0-py3-none-any.whl[dev]
       - run: nosetests
