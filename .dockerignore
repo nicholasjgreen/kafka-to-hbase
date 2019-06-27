@@ -1,0 +1,10 @@
+# Ignore everything
+**
+
+# Allow specifics
+!/src
+!/gradlew
+!/build.gradle.kts
+!/gradle.properties
+!/settings.gradle
+!/gradle/
