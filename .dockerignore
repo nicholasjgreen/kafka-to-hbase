@@ -6,5 +6,6 @@
 !/gradlew
 !/build.gradle.kts
 !/gradle.properties
-!/settings.gradle
+!/settings.gradle.kts
 !/gradle/
+!/entrypoint.sh

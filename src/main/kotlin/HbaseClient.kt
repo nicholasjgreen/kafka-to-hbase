@@ -44,17 +44,18 @@ class HbaseClient(
                     String(family),
                     maxVersions,
                     minVersions,
-                    timeToLive
+                    timeToLive?.seconds ?: 0
                 )
             )
 
-            val timeToLiveSeconds = timeToLive?.toSeconds() ?: HConstants.FOREVER
+            // Can't use toSeconds because in Java8 it was shadows by BigDecimal.toSeconds, which is private
+            val timeToLiveSeconds = timeToLive?.run { toMillis().toInt() / 1000 } ?: HConstants.FOREVER
 
             connection.admin.createTable(HTableDescriptor(TableName.valueOf(namespace.toByteArray(), topic)).apply {
                 this.addFamily(HColumnDescriptor(family).apply {
                     this.minVersions = minVersions
                     this.maxVersions = maxVersions
-                    this.timeToLive = timeToLiveSeconds as Int
+                    this.timeToLive = timeToLiveSeconds
                 })
             })
         }
@@ -62,7 +63,7 @@ class HbaseClient(
 
     fun putVersion(topic: ByteArray, key: ByteArray, body: ByteArray, version: Long) {
         val table = connection.getTable(TableName.valueOf(namespace.toByteArray(), topic))
-        table.put(Put("my_key".toByteArray()).apply {
+        table.put(Put(key).apply {
             this.addColumn(
                 family,
                 column,

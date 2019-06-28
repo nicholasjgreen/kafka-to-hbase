@@ -1,11 +1,17 @@
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.isActive
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import java.time.Duration
 import java.time.LocalDateTime
 
-fun KafkaConsumer<ByteArray, ByteArray>.consume(pollDuration: Duration, maxQuietDuration: Duration) = sequence {
+fun KafkaConsumer<ByteArray, ByteArray>.consume(
+    pollDuration: Duration,
+    maxQuietDuration: Duration,
+    context: CoroutineScope
+) = sequence {
     var startTime = LocalDateTime.now()
 
-    while (true) {
+    while (context.isActive) {
         val records = poll(pollDuration)
 
         if (records.isEmpty) {

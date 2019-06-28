@@ -2,10 +2,41 @@
 version: "2.2"
 
 services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:4.1.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:4.1.0
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
   hbase:
-    image: harisekhon/hbase:1.4
+    image: hbase:latest
+    build: ./docker/hbase
+    environment:
+      ZOOKEEPER_QUORUM: zookeeper
 
   kafka2hbase:
     image: kafka2hbase:latest
     build: ./
-    command: /bin/true
+    depends_on:
+      - kafka
+      - hbase
+
+  integration-test:
+    image: kafka2hbase-integration:latest
+    build:
+      dockerfile: integration.Dockerfile
+      context: ./
+    depends_on:
+      - kafka2hbase
+    command: "true"
+    volumes:
+      - ./:/kafka2hbase
+    environment:
+      SUID: ${UID-1000}
+      SGID: ${GROUPS-1000}

@@ -1,4 +1,4 @@
-# Kafka2Hbase
+# TestKafka2Hbase
 
 Providing a way of migrating data in Kafka topics into tables
 in Hbase, preserving versions based on Kafka message timestamps.

@@ -1,24 +1,30 @@
-import org.apache.hadoop.hbase.*
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.client.ConnectionFactory
-import org.apache.hadoop.hbase.client.Put
-import org.apache.hadoop.hbase.client.Scan
 import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.apache.log4j.*
+import org.apache.kafka.common.serialization.ByteArrayDeserializer
+import org.apache.log4j.ConsoleAppender
+import org.apache.log4j.Level
+import org.apache.log4j.Logger
+import org.apache.log4j.PatternLayout
+import sun.misc.Signal
 import java.time.Duration
 import java.util.*
 
-fun main() {
+suspend fun main() {
     val consoleAppender = ConsoleAppender()
     consoleAppender.layout = PatternLayout("%d [%p|%c|%C{1}] %m%n")
-    consoleAppender.threshold = Level.DEBUG
+    consoleAppender.threshold = Level.INFO
     consoleAppender.activateOptions()
     Logger.getRootLogger().addAppender(consoleAppender)
 
-    val logger = Logger.getLogger("testing-hbase")
-
+    // Connect to Hbase
     val hbase = HbaseClient(
         ConnectionFactory.createConnection(HBaseConfiguration.create().apply {
-            this.set("hbase.zookeeper.quorum", "hbase")
+            this.set("hbase.zookeeper.quorum", "zookeeper")
             this.setInt("hbase.zookeeper.port", 2181)
         })!!,
         "k2hb",
@@ -26,6 +32,7 @@ fun main() {
         "data".toByteArray()
     )
 
+    // Create the topic tables
     hbase.createTopicTable(
         "test-topic".toByteArray(),
         maxVersions = 10,
@@ -33,28 +40,45 @@ fun main() {
         timeToLive = Duration.ofDays(10)
     )
 
+    // Create a Kafka consumer
     val kafka = KafkaConsumer<ByteArray, ByteArray>(Properties().apply {
-        this["bootstrap.servers"] = "kafka:9092"
-        this["group.id"] = "test"
-        this["enable.auto.commit"] = "false"
+        put("bootstrap.servers", "kafka:9092")
+        put("group.id", "test")
+        put("enable.auto.commit", "false")
+        put("key.deserializer", ByteArrayDeserializer::class.java)
+        put("value.deserializer", ByteArrayDeserializer::class.java)
+        put("auto.offset.reset", "earliest")
     }).apply {
         this.subscribe(listOf("test-topic"))
     }
 
-    try {
-        for (record in kafka.consume(
-            pollDuration = Duration.ofSeconds(1),
-            maxQuietDuration = Duration.ofMinutes(1)
-        )) {
-            hbase.putVersion(
-                topic = record.topic,
-                key = record.key,
-                body = record.value,
-                version = record.timestamp
-            )
+    // Read as many messages as possible then quit
+    val job = GlobalScope.launch {
+        while (isActive) {
+            for (record in kafka.consume(
+                pollDuration = Duration.ofSeconds(1),
+                maxQuietDuration = Duration.ofMinutes(1),
+                context = this
+            )) {
+                hbase.putVersion(
+                    topic = record.topic,
+                    key = record.key,
+                    body = record.value,
+                    version = record.timestamp
+                )
+            }
+
+            if (isActive) {
+                delay(1000)
+            }
         }
-    } finally {
-        hbase.close()
-        kafka.close()
     }
+
+    // Handle signals gracefully and wait for completion
+    Signal.handle(Signal("INT")) { job.cancel() }
+    Signal.handle(Signal("TERM")) { job.cancel() }
+    job.join()
+
+    hbase.close()
+    kafka.close()
 }
