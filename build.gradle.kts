@@ -14,7 +14,8 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("org.apache.hbase","hbase-client", "1.4.9")
+    implementation("org.apache.hbase", "hbase-client", "1.4.9")
+    implementation("org.apache.kafka", "kafka-clients", "2.3.0")
 }
 
 application {

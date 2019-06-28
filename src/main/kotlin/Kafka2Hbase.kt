@@ -2,49 +2,59 @@ import org.apache.hadoop.hbase.*
 import org.apache.hadoop.hbase.client.ConnectionFactory
 import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.client.Scan
-import org.apache.log4j.ConsoleAppender
-import org.apache.log4j.Level
-import org.apache.log4j.Logger
-import org.apache.log4j.PatternLayout
+import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.log4j.*
+import java.time.Duration
+import java.util.*
 
 fun main() {
     val consoleAppender = ConsoleAppender()
     consoleAppender.layout = PatternLayout("%d [%p|%c|%C{1}] %m%n")
-    consoleAppender.threshold = Level.INFO
+    consoleAppender.threshold = Level.DEBUG
     consoleAppender.activateOptions()
     Logger.getRootLogger().addAppender(consoleAppender)
 
     val logger = Logger.getLogger("testing-hbase")
 
     val hbase = HbaseClient(
-        "hbase",
-        2181,
+        ConnectionFactory.createConnection(HBaseConfiguration.create().apply {
+            this.set("hbase.zookeeper.quorum", "hbase")
+            this.setInt("hbase.zookeeper.port", 2181)
+        })!!,
         "k2hb",
         "cf".toByteArray(),
         "data".toByteArray()
     )
 
-    val topic = "test-topic".toByteArray()
-    val key = "my_key".toByteArray()
-
     hbase.createTopicTable(
-        topic,
-        10,
-        1,
-        300
+        "test-topic".toByteArray(),
+        maxVersions = 10,
+        minVersions = 1,
+        timeToLive = Duration.ofDays(10)
     )
 
-    hbase.putVersion(
-        topic,
-        key,
-        "my_value_old".toByteArray(),
-        20190626141700
-    )
+    val kafka = KafkaConsumer<ByteArray, ByteArray>(Properties().apply {
+        this["bootstrap.servers"] = "kafka:9092"
+        this["group.id"] = "test"
+        this["enable.auto.commit"] = "false"
+    }).apply {
+        this.subscribe(listOf("test-topic"))
+    }
 
-    hbase.putVersion(
-        topic,
-        key,
-        "my_value_latest".toByteArray(),
-        20190626151200
-    )
+    try {
+        for (record in kafka.consume(
+            pollDuration = Duration.ofSeconds(1),
+            maxQuietDuration = Duration.ofMinutes(1)
+        )) {
+            hbase.putVersion(
+                topic = record.topic,
+                key = record.key,
+                body = record.value,
+                version = record.timestamp
+            )
+        }
+    } finally {
+        hbase.close()
+        kafka.close()
+    }
 }

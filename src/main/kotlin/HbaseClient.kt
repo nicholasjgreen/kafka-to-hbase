@@ -1,31 +1,25 @@
 import org.apache.hadoop.hbase.*
-import org.apache.hadoop.hbase.client.ConnectionFactory
+import org.apache.hadoop.hbase.client.Connection
 import org.apache.hadoop.hbase.client.Put
 import org.apache.log4j.Logger
+import java.time.Duration
 
 class HbaseClient(
-    zookeeperHosts: String,
-    zookeeperPort: Int,
+    private val connection: Connection,
     private val namespace: String,
     private val family: ByteArray,
     private val column: ByteArray
 ) {
-
-    private val hbase = ConnectionFactory.createConnection(HBaseConfiguration.create().apply {
-        this.set("hbase.zookeeper.quorum", zookeeperHosts)
-        this.setInt("hbase.zookeeper.port", zookeeperPort)
-    })!!
-
     private val logger = Logger.getLogger(this.javaClass)!!
 
     init {
-        val allNamespaces = hbase.admin.listNamespaceDescriptors().map { it.name }
+        val allNamespaces = connection.admin.listNamespaceDescriptors().map { it.name }
         logger.debug(allNamespaces)
 
         if (namespace !in allNamespaces) {
             logger.info("Creating namespace %s".format(namespace))
             val namespaceDescriptor = NamespaceDescriptor.create(namespace).build()
-            hbase.admin.createNamespace(namespaceDescriptor)
+            connection.admin.createNamespace(namespaceDescriptor)
         }
     }
 
@@ -33,9 +27,9 @@ class HbaseClient(
         topic: ByteArray,
         maxVersions: Int,
         minVersions: Int = 1,
-        timeToLive: Int = HConstants.FOREVER
+        timeToLive: Duration? = null
     ) {
-        val allTables = hbase.admin.listTableNamesByNamespace(namespace).map { it.qualifier }
+        val allTables = connection.admin.listTableNamesByNamespace(namespace).map { it.qualifier }
         logger.debug(allTables)
 
         if (!allTables.any {
@@ -53,18 +47,21 @@ class HbaseClient(
                     timeToLive
                 )
             )
-            hbase.admin.createTable(HTableDescriptor(TableName.valueOf(namespace.toByteArray(), topic)).apply {
+
+            val timeToLiveSeconds = timeToLive?.toSeconds() ?: HConstants.FOREVER
+
+            connection.admin.createTable(HTableDescriptor(TableName.valueOf(namespace.toByteArray(), topic)).apply {
                 this.addFamily(HColumnDescriptor(family).apply {
                     this.minVersions = minVersions
                     this.maxVersions = maxVersions
-                    this.timeToLive = timeToLive
+                    this.timeToLive = timeToLiveSeconds as Int
                 })
             })
         }
     }
 
     fun putVersion(topic: ByteArray, key: ByteArray, body: ByteArray, version: Long) {
-        val table = hbase.getTable(TableName.valueOf(namespace.toByteArray(), topic))
+        val table = connection.getTable(TableName.valueOf(namespace.toByteArray(), topic))
         table.put(Put("my_key".toByteArray()).apply {
             this.addColumn(
                 family,
@@ -74,4 +71,6 @@ class HbaseClient(
             )
         })
     }
+
+    fun close() = connection.close()
 }
