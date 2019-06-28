@@ -16,98 +16,35 @@ fun main() {
 
     val logger = Logger.getLogger("testing-hbase")
 
-    val conf = HBaseConfiguration.create()
-    conf.set("hbase.zookeeper.quorum", "hbase")
+    val hbase = HbaseClient(
+        "hbase",
+        2181,
+        "k2hb",
+        "cf".toByteArray(),
+        "data".toByteArray()
+    )
 
-    val hbase = ConnectionFactory.createConnection(conf)
+    val topic = "test-topic".toByteArray()
+    val key = "my_key".toByteArray()
 
-    val namespaceName = "k2hb"
-    val allNamespaces = hbase.admin.listNamespaceDescriptors().map { it.name }
-    logger.debug(allNamespaces)
+    hbase.createTopicTable(
+        topic,
+        10,
+        1,
+        300
+    )
 
-    if (namespaceName !in allNamespaces) {
-        logger.info("Creating namespace %s".format(namespaceName))
-        val namespaceDescriptor = NamespaceDescriptor.create(namespaceName).build()
-        hbase.admin.createNamespace(namespaceDescriptor)
-    }
+    hbase.putVersion(
+        topic,
+        key,
+        "my_value_old".toByteArray(),
+        20190626141700
+    )
 
-    val tableName = "k2hb:testtable"
-    val allTables = hbase.admin.listTableNamesByNamespace(namespaceName).map { it.nameAsString }
-    logger.debug(allTables)
-
-    if (tableName !in allTables) {
-        logger.info("Creating table %s".format(tableName))
-        hbase.admin.createTable(HTableDescriptor(TableName.valueOf(tableName)).apply {
-            this.addFamily(HColumnDescriptor("cf").apply {
-                this.minVersions = 1
-                this.maxVersions = 10
-            })
-        })
-    }
-
-    logger.info("Writing two versions")
-    val table = hbase.getTable(TableName.valueOf(tableName))
-    table.put(Put("my_key".toByteArray()).apply {
-        this.addColumn(
-            "cf".toByteArray(),
-            "my_column".toByteArray(),
-            20190626141700,
-            "my_value_old".toByteArray()
-        )
-        this.addColumn(
-            "cf".toByteArray(),
-            "my_column".toByteArray(),
-            20190626151200,
-            "my_value_latest".toByteArray()
-        )
-    })
-
-    logger.info("Scanning for latest version...")
-    val latestScanner = table.getScanner(Scan().apply {
-        this.addColumn("cf".toByteArray(), "my_column".toByteArray())
-    })
-
-    logger.info("Scanning done")
-    for (result in latestScanner) {
-        for (version in result.map.flatMap { familyPair ->
-            familyPair.value.flatMap { qualifierPair ->
-                qualifierPair.value.map { timestampPair ->
-                    "%s:%s @ %d => %s".format(
-                        String(familyPair.key),
-                        String(qualifierPair.key),
-                        timestampPair.key,
-                        String(timestampPair.value)
-                    )
-                }
-            }
-        }) {
-
-            logger.info(version)
-        }
-    }
-
-    logger.info("Scanning for older version...")
-    val olderScanner = table.getScanner(Scan().apply {
-        this.setTimeRange(0, 20190626141800)
-        this.addColumn("cf".toByteArray(), "my_column".toByteArray())
-    })
-
-    logger.info("Scanning done")
-    for (result in olderScanner) {
-        for (version in result.map.flatMap { familyPair ->
-            familyPair.value.flatMap { qualifierPair ->
-                qualifierPair.value.map { timestampPair ->
-                    "%s:%s @ %d => %s".format(
-                        String(familyPair.key),
-                        String(qualifierPair.key),
-                        timestampPair.key,
-                        String(timestampPair.value)
-                    )
-                }
-            }
-        }) {
-
-            logger.info(version)
-        }
-    }
+    hbase.putVersion(
+        topic,
+        key,
+        "my_value_latest".toByteArray(),
+        20190626151200
+    )
 }

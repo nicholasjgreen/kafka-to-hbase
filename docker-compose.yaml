@@ -9,4 +9,3 @@ services:
     image: kafka2hbase:latest
     build: ./
     command: /bin/true
-    scale: 0
