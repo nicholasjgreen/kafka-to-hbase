@@ -1,0 +1,15 @@
+ version: 2
+ jobs:
+   build:
+     docker:
+       - image: circleci/python:3.7.3
+     steps:
+       - setup_remote_docker:
+           # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
+           docker_layer_caching: true
+       - checkout
+       - run: ls -l
+       - run: sudo pip3 install docker-compose
+         # Do not user the docker compose override to prevent invalid bind mounts
+       - run: docker-compose -f docker-compose.yaml up --build -d
+       - run: docker-compose -f docker-compose.yaml run integration-test ./gradlew integration

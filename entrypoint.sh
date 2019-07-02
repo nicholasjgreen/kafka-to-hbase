@@ -11,4 +11,5 @@ then
     useradd --create-home --no-user-group --non-unique --uid "$SUID" --gid "$SGID" user
 fi
 
+chown ${SUID}:${SGID} . -R
 exec gosu user "${@}"

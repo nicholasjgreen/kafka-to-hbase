@@ -1,0 +1,6 @@
+version: "2.2"
+
+services:
+  integration-test:
+    volumes:
+      - ./:/kafka2hbase

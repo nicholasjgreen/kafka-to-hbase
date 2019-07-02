@@ -35,8 +35,6 @@ services:
     depends_on:
       - kafka2hbase
     command: "true"
-    volumes:
-      - ./:/kafka2hbase
     environment:
       SUID: ${UID-1000}
       SGID: ${GROUPS-1000}
