@@ -55,3 +55,5 @@ The logs can be followed so new lines are automatically shown.
 
 To access the HBase shell it's necessary to use a Docker container. This
 can be run as a separate container.
+
+    docker-compose run --rm hbase shell
