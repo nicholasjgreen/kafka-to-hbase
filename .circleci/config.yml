@@ -1,15 +1,42 @@
- version: 2
- jobs:
-   build:
-     docker:
-       - image: circleci/python:3.7.3
-     steps:
-       - setup_remote_docker:
-           # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
-           docker_layer_caching: true
-       - checkout
-       - run: ls -l
-       - run: sudo pip3 install docker-compose
-         # Do not user the docker compose override to prevent invalid bind mounts
-       - run: docker-compose -f docker-compose.yaml up --build -d
-       - run: docker-compose -f docker-compose.yaml run integration-test ./gradlew integration
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/openjdk:8-jdk
+
+    steps:
+      - checkout
+      - restore_cache:
+          key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
+
+      - run: ./gradlew build
+
+      - save_cache:
+          key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
+          paths:
+            - .gradle
+  test:
+    docker:
+      - image: circleci/python:3.7.3
+    steps:
+      - checkout
+      - setup_remote_docker:
+          # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
+          docker_layer_caching: true
+
+        # Do not user the docker compose override to prevent invalid bind mounts
+      - run: sudo pip3 install docker-compose
+      - run: docker-compose -f docker-compose.yaml up --build -d
+      - run: docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew integration
+
+        # Store the test results from inside the container
+      - run: docker cp integration-test:/kafka2hbase/build/test-results .
+      - store_test_results:
+          path: test-results
+
+workflows:
+  version: 2
+  "build & test":
+    jobs:
+      - build
+      - test
