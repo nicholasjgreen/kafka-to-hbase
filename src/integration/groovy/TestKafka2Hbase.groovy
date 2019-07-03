@@ -5,20 +5,21 @@ import org.apache.log4j.PatternLayout
 import spock.lang.Specification
 
 class TestKafka2Hbase extends Specification {
-    def topic = "test-topic".getBytes()
+    byte[] topic = "test-topic".getBytes()
 
     KafkaTestProducer producer
     HbaseTestClient hbase
     Logger log
 
     def setup() {
-        def consoleAppender = new ConsoleAppender()
-        consoleAppender.layout = new PatternLayout("%d [%p|%c|%C{1}] %m%n")
-        consoleAppender.threshold = Level.INFO
-        consoleAppender.activateOptions()
-        Logger.getRootLogger().addAppender(consoleAppender)
+        def appender = new ConsoleAppender()
+        appender.with {
+            layout = new PatternLayout("%d [%p|%c|%C{1}] %m%n")
+            threshold = Level.INFO
+            activateOptions()
+        }
 
-        log = Logger.getLogger(TestKafka2Hbase)
+        Logger.getRootLogger().addAppender appender
 
         producer = new KafkaTestProducer()
         hbase = new HbaseTestClient()
@@ -31,13 +32,28 @@ class TestKafka2Hbase extends Specification {
         def timestamp = RecordData.timestamp()
 
         when: "the message is pushed to kafka"
-        producer.sendRecord(topic, key, body, timestamp)
+        producer.sendRecord topic, key, body, timestamp
 
         then: "the record is written to hbase"
-        def value = Wait.forPredicate() {
-            hbase.getCellAfterTimestamp(topic, key, timestamp)
-        }
+        body == Wait.for() { hbase.getCellAfterTimestamp topic, key, timestamp }
+    }
 
-        value == body
+    def "writes new version of an existing record"() {
+        given: "an existing message has been received"
+        def key = RecordData.uniqueBytes()
+        def firstBody = RecordData.uniqueBytes()
+        def firstTimestamp = RecordData.timestamp()
+        hbase.putCell topic, key, firstTimestamp, firstBody
+
+        when: "a new version of the same record is pushed to kafka"
+        def secondBody = RecordData.uniqueBytes()
+        def secondTimestamp = firstTimestamp + 1
+        producer.sendRecord topic, key, secondBody, secondTimestamp
+
+        then: "the record is written to hbase as an additional version"
+        secondBody == Wait.for() { hbase.getCellAfterTimestamp topic, key, secondTimestamp }
+
+        and: "the original version is still available"
+        firstBody == Wait.for() { hbase.getCellBeforeTimestamp topic, key, secondTimestamp }
     }
 }

@@ -3,7 +3,11 @@ import java.time.LocalDateTime
 import java.util.concurrent.TimeoutException
 
 class Wait {
-    static def forPredicate(Duration interval = Duration.ofSeconds(1), Duration timeout = Duration.ofSeconds(30), Closure predicate) {
+
+    static def 'for'(
+            Duration interval = Duration.ofSeconds(1),
+            Duration timeout = Duration.ofSeconds(30),
+            Closure predicate) {
         def start = LocalDateTime.now()
         def end = start + timeout
 
