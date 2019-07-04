@@ -15,6 +15,16 @@ jobs:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
           paths:
             - .gradle
+
+      - run: |
+          ./gradlew distTar
+          gzip -9 build/distributions/*.tar
+
+      - store_artifacts:
+          path: build/distributions
+          destination: distributions
+
+
   test:
     docker:
       - image: circleci/python:3.7.3
@@ -33,6 +43,9 @@ jobs:
       - run: docker cp integration-test:/kafka2hbase/build/test-results .
       - store_test_results:
           path: test-results
+      - store_artifacts:
+          path: test-results
+          destination: test-results
 
 workflows:
   version: 2
