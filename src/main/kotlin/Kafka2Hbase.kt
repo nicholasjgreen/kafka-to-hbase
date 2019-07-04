@@ -53,26 +53,7 @@ suspend fun main() {
     }
 
     // Read as many messages as possible then quit
-    val job = GlobalScope.launch {
-        while (isActive) {
-            for (record in kafka.consume(
-                pollDuration = Duration.ofSeconds(1),
-                maxQuietDuration = Duration.ofMinutes(1),
-                context = this
-            )) {
-                hbase.putVersion(
-                    topic = record.topic,
-                    key = record.key,
-                    body = record.value,
-                    version = record.timestamp
-                )
-            }
-
-            if (isActive) {
-                delay(1000)
-            }
-        }
-    }
+    val job = Shovel(kafka, hbase)
 
     // Handle signals gracefully and wait for completion
     Signal.handle(Signal("INT")) { job.cancel() }
