@@ -1,7 +1,11 @@
 # Ignore everything
 **
 
-# Allow just enough to install the package
-!/setup.py
-!/scripts
-!/kafka2hbase
+# Allow specifics
+!/src
+!/gradlew
+!/build.gradle.kts
+!/gradle.properties
+!/settings.gradle.kts
+!/gradle/
+!/entrypoint.sh

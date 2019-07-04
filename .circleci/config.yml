@@ -1,16 +1,55 @@
 version: 2
 jobs:
-  build_and_test:
+  build:
+    docker:
+      - image: circleci/openjdk:8-jdk
+
+    steps:
+      - checkout
+      - restore_cache:
+          key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
+
+      - run: ./gradlew build
+
+      - save_cache:
+          key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
+          paths:
+            - .gradle
+
+      - run: |
+          ./gradlew distTar
+          gzip -9 build/distributions/*.tar
+
+      - store_artifacts:
+          path: build/distributions
+          destination: distributions
+
+
+  test:
     docker:
       - image: circleci/python:3.7.3
     steps:
       - checkout
-      - run: sudo apt-get install -y build-essential python3-dev
-      - run: python setup.py bdist_wheel
-      - run: pip install --user dist/kafka_to_hbase-1.0-py3-none-any.whl[dev]
-      - run: nosetests
+      - setup_remote_docker:
+          # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
+          docker_layer_caching: true
+
+        # Do not user the docker compose override to prevent invalid bind mounts
+      - run: sudo pip3 install docker-compose
+      - run: docker-compose -f docker-compose.yaml up --build -d
+      - run: docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew integration
+
+        # Store the test results from inside the container
+      - run: docker cp integration-test:/kafka2hbase/build/test-results .
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+          destination: test-results
+
 workflows:
   version: 2
-  build_and_test:
+  "build & test":
     jobs:
-      - build_and_test
+      - build
+      - test
