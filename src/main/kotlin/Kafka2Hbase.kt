@@ -1,7 +1,3 @@
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.client.ConnectionFactory
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -53,7 +49,7 @@ suspend fun main() {
     }
 
     // Read as many messages as possible then quit
-    val job = Shovel(kafka, hbase)
+    val job = shovelAsync(kafka, hbase)
 
     // Handle signals gracefully and wait for completion
     Signal.handle(Signal("INT")) { job.cancel() }

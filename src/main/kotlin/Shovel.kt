@@ -4,7 +4,7 @@ import kotlinx.coroutines.isActive
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import java.time.Duration
 
-fun Shovel(kafka: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient) = GlobalScope.async {
+fun shovelAsync(kafka: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient) = GlobalScope.async {
     while (isActive) {
         var records = kafka.poll(Duration.ofSeconds(10))
         for (record in records) {
