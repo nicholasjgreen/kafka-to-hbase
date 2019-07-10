@@ -1,5 +1,6 @@
 import org.apache.hadoop.hbase.*
 import org.apache.hadoop.hbase.client.Connection
+import org.apache.hadoop.hbase.client.ConnectionFactory
 import org.apache.hadoop.hbase.client.Put
 import org.apache.log4j.Logger
 import java.time.Duration
@@ -21,6 +22,15 @@ class HbaseClient(
             val namespaceDescriptor = NamespaceDescriptor.create(namespace).build()
             connection.admin.createNamespace(namespaceDescriptor)
         }
+    }
+
+    companion object {
+        fun connect() = HbaseClient(
+            ConnectionFactory.createConnection(HBaseConfiguration.create(Config.Hbase.config)),
+            Config.Hbase.namespace,
+            Config.Hbase.family.toByteArray(),
+            Config.Hbase.qualifier.toByteArray()
+        )
     }
 
     fun createTopicTable(

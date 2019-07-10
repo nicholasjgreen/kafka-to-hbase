@@ -13,7 +13,7 @@ RUN $GRADLE wrapper
 COPY build.gradle.kts .
 COPY settings.gradle.kts .
 COPY gradle.properties .
-RUN $GRADLE build
+RUN $GRADLE build && $GRADLE test
 
 RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
 

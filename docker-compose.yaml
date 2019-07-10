@@ -26,6 +26,8 @@ services:
     depends_on:
       - kafka
       - hbase
+    environment:
+      K2HB_KAFKA_INSECURE: "true"
 
   integration-test:
     image: kafka2hbase-integration:latest
@@ -38,3 +40,4 @@ services:
     environment:
       SUID: ${UID-1000}
       SGID: ${GROUPS-1000}
+      K2HB_KAFKA_INSECURE: "true"

@@ -3,21 +3,41 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.isActive
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import java.time.Duration
+import java.util.logging.Logger
 
-fun shovelAsync(kafka: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient) = GlobalScope.async {
-    while (isActive) {
-        var records = kafka.poll(Duration.ofSeconds(10))
-        for (record in records) {
-            hbase.putVersion(
-                topic = record.topic().toByteArray(),
-                key = record.key(),
-                body = record.value(),
-                version = record.timestamp()
-            )
-        }
-
-        if (!records.isEmpty) {
-            kafka.commitSync()
+fun shovelAsync(kafka: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient, pollTimeout: Duration) =
+    GlobalScope.async {
+        val log = Logger.getLogger("shovelAsync")
+        while (isActive) {
+            var records = kafka.poll(pollTimeout)
+            for (record in records) {
+                try {
+                    hbase.putVersion(
+                        topic = record.topic().toByteArray(),
+                        key = record.key(),
+                        body = record.value(),
+                        version = record.timestamp()
+                    )
+                    log.info(
+                        "Wrote %s:%d:%d with key %s".format(
+                            record.topic(),
+                            record.partition(),
+                            record.offset(),
+                            String(record.key())
+                        )
+                    )
+                } catch (e: Exception) {
+                    log.severe(
+                        "Error while writing message %s:%d:%d with key %s: %s".format(
+                            record.topic(),
+                            record.partition(),
+                            record.offset(),
+                            String(record.key()),
+                            e.toString()
+                        )
+                    )
+                    throw e
+                }
+            }
         }
     }
-}
