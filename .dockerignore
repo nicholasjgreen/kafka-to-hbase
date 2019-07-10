@@ -2,10 +2,10 @@
 **
 
 # Allow specifics
-!/src
-!/gradlew
-!/build.gradle.kts
-!/gradle.properties
-!/settings.gradle.kts
-!/gradle/
-!/entrypoint.sh
+!src
+!gradlew
+!build.gradle.kts
+!gradle.properties
+!settings.gradle.kts
+!gradle
+!entrypoint.sh
