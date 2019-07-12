@@ -140,3 +140,4 @@ configured in full or disabled entirely via `K2HB_KAFKA_INSECURE`.
     Comma delimited list of aliases for the certificate
 * **CERTGEN_LOG_LEVEL**
     The log level of the certificate generator (`CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`)
+
