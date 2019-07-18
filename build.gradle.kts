@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -18,11 +19,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-core", "1.2.2")
     implementation("org.apache.hbase", "hbase-client", "1.4.9")
     implementation("org.apache.kafka", "kafka-clients", "2.3.0")
-    testCompile("io.kotlintest", "kotlintest-runner-junit5", "3.3.0")
+    testImplementation("io.kotlintest", "kotlintest-runner-junit5", "3.3.2")
 }
 
 tasks.withType<Test> {
-    useJUnitPlatform()
+    useJUnitPlatform { }
 }
 
 application {
@@ -47,7 +48,10 @@ tasks.register<Test>("integration") {
     group = "verification"
     testClassesDirs = sourceSets["integration"].output.classesDirs
     classpath = sourceSets["integration"].runtimeClasspath
+
+    useJUnitPlatform { }
     testLogging {
-        events = setOf(TestLogEvent.PASSED, TestLogEvent.FAILED, TestLogEvent.SKIPPED)
+        exceptionFormat = TestExceptionFormat.FULL
+        events = setOf(TestLogEvent.SKIPPED, TestLogEvent.PASSED, TestLogEvent.FAILED)
     }
 }

@@ -1,5 +1,6 @@
 import org.apache.hadoop.conf.Configuration
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
+import org.apache.kafka.common.serialization.ByteArraySerializer
 import java.time.Duration
 import java.util.*
 
@@ -19,12 +20,11 @@ object Config {
             setInt("hbase.zookeeper.port", getEnv("K2HB_HBASE_ZOOKEEPER_PORT")?.toIntOrNull() ?: 2181)
         }
 
-        val namespace = getEnv("K2HB_HBASE_NAMESPACE") ?: "k2hb"
-        val family = getEnv("K2HB_HBASE_FAMILY_NAME") ?: "cf"
-        val qualifier = getEnv("K2HB_HBASE_QUALIFIER") ?: "data"
-        val minVersions = getEnv("K2HB_HBASE_FAMILY_MIN_VERSIONS")?.toInt() ?: 1
-        val maxVersions = getEnv("K2HB_HBASE_FAMILY_MAX_VERSIONS")?.toInt() ?: 10
-        val TTL: Duration = getEnv("K2HB_HBASE_FAMILY_TTL")?.toDuration() ?: Duration.ofDays(10)
+        val dataTable = getEnv("K2HB_HBASE_DATA_TABLE") ?: "k2hb:ingest"
+        val dataFamily = getEnv("K2HB_HBASE_DATA_FAMILY_NAME") ?: "topic"
+        val topicTable = getEnv("K2HB_HBASE_TOPIC_TABLE") ?: "k2hb:ingest-topic"
+        val topicFamily = getEnv("K2HB_HBASE_TOPIC_FAMILY_NAME") ?: "c"
+        val topicQualifier = getEnv("K2HB_HBASE_TOPIC_QUALIFIER") ?: "msg"
     }
 
     object Kafka {
@@ -44,6 +44,10 @@ object Config {
 
             put("key.deserializer", ByteArrayDeserializer::class.java)
             put("value.deserializer", ByteArrayDeserializer::class.java)
+
+            put("key.serializer", ByteArraySerializer::class.java)
+            put("value.serializer", ByteArraySerializer::class.java)
+
             put("auto.offset.reset", "earliest")
         }
 

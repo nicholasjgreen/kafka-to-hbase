@@ -1,5 +1,21 @@
 #!/bin/bash
 
+function wait_for() {
+    CMD="${@}"
+    RETRIES=30
+    while [[ ${RETRIES} > 0 ]]
+    do
+        if ${CMD}
+        then
+            return
+        fi
+        : $((RETRIES--))
+    done
+    echo "Failed to successfully run ${CMD} after 30 attempts"
+    exit 1
+}
+
+
 set -e
 
 : ${JAVA_HOME:=/usr}
@@ -11,7 +27,7 @@ sed -e "s/{{ZOOKEEPER_PORT}}/${ZOOKEEPER_PORT}/" \
     -e "s/{{ZOOKEEPER_QUORUM}}/${ZOOKEEPER_QUORUM}/" \
     /hbase/conf/hbase-site.template.xml > /hbase/conf/hbase-site.xml
 
-if [[ -t 0 ]]
+if [[ -t 0 || $1 == "shell" ]]
 then
     # Running interactively so assume we are trying to run an Hbase command
     exec /hbase/bin/hbase "${@}"
@@ -21,6 +37,18 @@ pgrep -f proc_rest && pkill -9 -f proc_rest
 
 echo "*** Starting HBase ***"
 /hbase/bin/start-hbase.sh
+
+: ${HBASE_SCRIPT:=}
+if [[ -n ${HBASE_SCRIPT} ]]
+then
+    echo "Waiting for Hbase to start up"
+    wait_for hbase zkcli close || :
+    wait_for hbase canary -t 1000 -f true || :
+
+    echo "Running Hbase initialisation script"
+    echo "${HBASE_SCRIPT}"
+    echo "${HBASE_SCRIPT}" | hbase shell
+fi
 
 trap_func() {
     echo -e "*** Shutting down HBase ***"

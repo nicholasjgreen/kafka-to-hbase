@@ -13,13 +13,11 @@ fun <T> waitFor(
     val start = LocalDateTime.now()
     val end = start + timeout
 
-    while (LocalDateTime.now().isBefore(end)) {
+    while (true) {
         val result = predicate()
-        if (result != null) {
+        if (result != null || LocalDateTime.now().isAfter(end)) {
             return result
         }
         sleep(interval.toMillis())
     }
-
-    throw TimeoutException(String.format("Predicate did not match within %s", timeout.toString()))
 }
