@@ -27,13 +27,13 @@ ARG VERSION=1.0-SNAPSHOT
 ARG DIST=kafka2hbase-$VERSION
 ARG DIST_FILE=$DIST.tar
 
-ENV acm_pca_cert_generator_version 0.4.0
+ENV acm_cert_helper_version 0.7.0
 RUN echo "===> Installing Dependencies ..." \
     && apt-get -qq update \
     && apt-get install -y gosu uuid \
     && echo "===> Installing acm_pca_cert_generator ..." \
     && apt-get install -y gcc python3-pip \
-    && pip3 install https://github.com/dwp/acm-pca-cert-generator/releases/download/${acm_pca_cert_generator_version}/acm_pca_cert_generator-${acm_pca_cert_generator_version}.tar.gz \
+    && pip3 install https://github.com/dwp/acm-pca-cert-generator/releases/download/${acm_cert_helper_version}/acm_cert_helper-${acm_cert_helper_version}.tar.gz \
     && echo "===> Cleaning up ..."  \
     && apt-get remove -y gcc \
     && apt-get autoremove -y \
