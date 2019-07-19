@@ -27,7 +27,7 @@ ARG VERSION=1.0-SNAPSHOT
 ARG DIST=kafka2hbase-$VERSION
 ARG DIST_FILE=$DIST.tar
 
-ENV acm_cert_helper_version 0.7.0
+ENV acm_cert_helper_version 0.8.0
 RUN echo "===> Installing Dependencies ..." \
     && apt-get -qq update \
     && apt-get install -y gosu uuid \
