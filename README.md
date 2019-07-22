@@ -3,33 +3,78 @@
 Providing a way of migrating data in Kafka topics into tables in Hbase,
 preserving versions based on Kafka message timestamps.
 
+Two columns are written to for each message received; one to store the body
+of the message and one to store a count and last received date of the
+topic. These are configured using the `K2HB_KAFKA_TOPIC_*` and
+`K2HB_KAFKA_DATA_*` environment variables.
+
+By default the data table is `k2hb:ingest` with a column family of `topic`.
+The qualifier is the topic name, the body of the cell is the raw message
+received from Kafka and the version is the timestamp of the message in
+milliseconds.
+
+Along with the data of the message a counter is kept for each topic to
+indicate how many messages have been processed and when. This is useful for
+creating a list of topics to process or limiting that list to only topics
+that have received new data since a given time. The default table is
+`k2hb:ingest-topic` and the default column is `c:msg`.
+
+For example, after receiving a single message on `test-topic` the data
+is as follows:
+
+```
+hbase(main):001:0> scan 'k2hb:ingest'
+ROW                                                          COLUMN+CELL
+ 63213667-c5a5-4411-a93b-e2da709c553e                        column=topic:test-topic, timestamp=1563547895682, value=<message body>
+1 row(s) in 0.1090 seconds
+
+hbase(main):002:0> scan 'k2hb:ingest-topic'
+ROW                                                          COLUMN+CELL
+ test-topic                                                  column=c:msg, timestamp=1563547895689, value=\x00\x00\x00\x00\x00\x00\x00\x01
+1 row(s) in 0.0100 seconds
+```
+
+Kafka2Hbase does not create tables or column families. Configuration of
+versioning, TTL and other Hbase tuning parameters is beyond its scope.
+
+## Makefile
+
+A Makefile wraps some of the gradle and docker-compose commands to give a
+more unified basic set of operations. These can be checked by running:
+
+```
+$ make help
+```
+
 ## Build
 
 Ensure a JVM is installed and run the gradle wrapper.
 
-    ./gradlew build
+    make build
 
 ## Distribute
 
 If a standard zip file is required, just use the assembleDist command.
 
-    ./gradlew assembleDist
+    make dist
 
-Otherwise if a tarball is required use the distTar command.
+This produces a zip and a tarball of the latest version.
 
-    ./gradlew distTar
-    
 ## Run full local stack
 
 A full local stack can be run using the provided Dockerfile and Docker
 Compose configuration. The Dockerfile uses a multi-stage build so no
 pre-compilation isrequired.
 
-    docker-compose up --build -d
+    make up
 
-The environment can be completely removed.
+The environment can be stopped without losing any data:
 
-    docker-compose down
+    make down
+
+Or completely removed including all data volumes:
+
+    make destroy
 
 ## Run integration tests
 
@@ -37,8 +82,7 @@ Integration tests can be executed inside a Docker container to make use of
 the Kafka and Hbase instances running in the local stack. The integration
 tests are written in Groovy and use the Spock testing framework.
 
-    docker-compose up --build -d
-    docker-compose run --rm integration ./gradlew integration
+    make integration
 
 ## Getting logs
 
@@ -56,7 +100,7 @@ The logs can be followed so new lines are automatically shown.
 To access the HBase shell it's necessary to use a Docker container. This
 can be run as a separate container.
 
-    docker-compose run --rm hbase shell
+    make hbase-shell
 
 ## Configuration
 
@@ -76,18 +120,16 @@ with at least `1` version and at most `10` versions and a TTL of 10 days.
     Comma separated list of Zookeeper servers
 * **K2HB_HBASE_ZOOKEEPER_PORT**
     The listening port of the Zookeeper servers
-* **K2HB_HBASE_NAMESPACE**
-    The Hbase namespace in which to create topic tables
-* **K2HB_HBASE_FAMILY_NAME**
+* **K2HB_HBASE_DATA_TABLE**
+    The name of the table to store message bodies in
+* **K2HB_HBASE_DATA_FAMILY**
     The name of the column family to store message bodies in
-* **K2HB_HBASE_QUALIFIER**
-    The name of the column qualifier to store message bodies in
-* **K2HB_HBASE_FAMILY_MIN_VERSIONS**
-    The min versions value to use when creating the topic table
-* **K2HB_HBASE_FAMILY_MAX_VERSIONS**
-    The max versions value to use when creating the topic table
-* **K2HB_HBASE_FAMILY_TTL**
-    The TTL of versions in seconds to use when creating the topic table
+* **K2HB_HBASE_TOPIC_TABLE**
+    The name of the table to store topic message counts in
+* **K2HB_HBASE_TOPIC_FAMILY**
+    The name of the column family to store topic message counts in
+* **K2HB_HBASE_TOPIC_QUALIFIER**
+    The name of the column qualifier to store topic message counts in
 
 #### Kafka
 

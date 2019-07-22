@@ -44,7 +44,7 @@ sourceSets {
 }
 
 tasks.register<Test>("integration") {
-    description = "Runs the integration tests."
+    description = "Runs the integration tests"
     group = "verification"
     testClassesDirs = sourceSets["integration"].output.classesDirs
     classpath = sourceSets["integration"].runtimeClasspath

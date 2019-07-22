@@ -21,9 +21,9 @@ object Config {
         }
 
         val dataTable = getEnv("K2HB_HBASE_DATA_TABLE") ?: "k2hb:ingest"
-        val dataFamily = getEnv("K2HB_HBASE_DATA_FAMILY_NAME") ?: "topic"
+        val dataFamily = getEnv("K2HB_HBASE_DATA_FAMILY") ?: "topic"
         val topicTable = getEnv("K2HB_HBASE_TOPIC_TABLE") ?: "k2hb:ingest-topic"
-        val topicFamily = getEnv("K2HB_HBASE_TOPIC_FAMILY_NAME") ?: "c"
+        val topicFamily = getEnv("K2HB_HBASE_TOPIC_FAMILY") ?: "c"
         val topicQualifier = getEnv("K2HB_HBASE_TOPIC_QUALIFIER") ?: "msg"
     }
 
