@@ -64,7 +64,7 @@ This produces a zip and a tarball of the latest version.
 
 A full local stack can be run using the provided Dockerfile and Docker
 Compose configuration. The Dockerfile uses a multi-stage build so no
-pre-compilation isrequired.
+pre-compilation is required.
 
     make up
 
@@ -146,12 +146,19 @@ consumer group. It will poll the `test-topic` topic with a poll timeout of
 * **K2HB_KAFKA_POLL_TIMEOUT**
     The maximum time to wait for messages in ISO-8601 duration format (e.g. `PT10S`)
 * **K2HB_KAFKA_INSECURE**
-    Disable SSL entirely (useful for dev / test)
-
-#### SSL Mutual Authentication
+    Disable SSL entirely (useful for dev / test) with `K2HB_KAFKA_INSECURE=true`
+* **K2HB_KAFKA_CERT_MODE**
+    If SSL is enabled, either create certs in ACM-PCA with value `CERTGEN` or retrieve 
+    them from ACM with value `RETRIEVE`
+    
+#### SSL Mutual Authentication (CERTGEN mode)
 
 By default the SSL is enabled but has no defaults. These must either be
-configured in full or disabled entirely via `K2HB_KAFKA_INSECURE`.
+configured in full or disabled entirely via `K2HB_KAFKA_INSECURE=FALSE` 
+and `K2HB_KAFKA_CERT_MODE=CERTGEN`.
+
+For an authoritative full list of arguments see the tool help; Arguments not listed here are 
+defaulted in the `entrypoint.sh` script.
 
 * **CERTGEN_KEY_TYPE**
     The type of private key (`RSA` or `DSA`)
@@ -183,3 +190,25 @@ configured in full or disabled entirely via `K2HB_KAFKA_INSECURE`.
 * **CERTGEN_LOG_LEVEL**
     The log level of the certificate generator (`CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`)
 
+
+#### SSL Mutual Authentication (RETRIEVE mode)
+
+By default the SSL is enabled but has no defaults. These must either be
+configured in full or disabled entirely via `K2HB_KAFKA_INSECURE=FALSE` 
+and `K2HB_KAFKA_CERT_MODE=RETRIEVE`.
+
+For an authoritative full list of arguments see the tool help; Arguments not listed here are 
+defaulted in the `entrypoint.sh` script.
+
+* **RETRIEVER_ACM_CERT_ARN**
+    ARN in AWS ACM to use to fetch the required cert, cert chain, and key
+* **RETRIEVER_ADD_DOWNLOADED_CHAIN**
+    Whether or not to add the downloaded cert chain from the ARN to the trust store
+    Allowed missing, `true`, `false`, `yes`, `no`, `1` or `0`
+    If missing defaults to false
+* **RETRIEVE_TRUSTSTORE_CERTS**
+    Comma delimited list of S3 URIs pointing to certificates to be included in the trust store
+* **RETRIEVE_TRUSTSTORE_ALIASES**
+    Comma delimited list of aliases for the certificate
+* **RETRIEVE_LOG_LEVEL**
+    The log level of the certificate generator (`CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`)

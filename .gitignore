@@ -2,3 +2,6 @@
 /.idea
 /.gradle
 /.kotlintest
+
+.DS_Store
+
