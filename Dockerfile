@@ -38,7 +38,8 @@ RUN echo "===> Installing Dependencies ..." \
     && apt-get remove -y gcc \
     && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /tmp/* /var/lib/apt/lists/*
+    && rm -rf /tmp/* /var/lib/apt/lists/* \
+    && echo "==Dependencies done=="
 
 COPY ./entrypoint.sh /
 
