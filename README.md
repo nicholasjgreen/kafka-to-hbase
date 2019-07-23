@@ -34,8 +34,11 @@ ROW                                                          COLUMN+CELL
 1 row(s) in 0.0100 seconds
 ```
 
-Kafka2Hbase does not create tables or column families. Configuration of
-versioning, TTL and other Hbase tuning parameters is beyond its scope.
+Kafka2Hbase will attempt to create the required namespaces, tables and
+column families on startup. If they already exist, nothing will happen. By
+default the data table column family has a maximum of MAXINT versions
+(approximately 2.1 billion) and a minimum of 1 version. There is no TTL.
+The topic counter column family has no versioning or TTL.
 
 ## Makefile
 

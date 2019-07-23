@@ -38,18 +38,6 @@ pgrep -f proc_rest && pkill -9 -f proc_rest
 echo "*** Starting HBase ***"
 /hbase/bin/start-hbase.sh
 
-: ${HBASE_SCRIPT:=}
-if [[ -n ${HBASE_SCRIPT} ]]
-then
-    echo "Waiting for Hbase to start up"
-    wait_for hbase zkcli close || :
-    wait_for hbase canary -t 1000 -f true || :
-
-    echo "Running Hbase initialisation script"
-    echo "${HBASE_SCRIPT}"
-    echo "${HBASE_SCRIPT}" | hbase shell
-fi
-
 trap_func() {
     echo -e "*** Shutting down HBase ***"
     /hbase/bin/local-regionservers.sh stop 1 || :
