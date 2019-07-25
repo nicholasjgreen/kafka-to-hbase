@@ -16,7 +16,8 @@ fun String.toDuration(): Duration {
 object Config {
     object Hbase {
         val config = Configuration().apply {
-            set("hbase.zookeeper.znode.parent", getEnv("K2HB_HBASE_ZOOKEEPER_PARENT") ?: "/hbase")
+            // See also https://hbase.apache.org/book.html#hbase_default_configurations
+            set("zookeeper.znode.parent", getEnv("K2HB_HBASE_ZOOKEEPER_PARENT") ?: "/hbase")
             set("hbase.zookeeper.quorum", getEnv("K2HB_HBASE_ZOOKEEPER_QUORUM") ?: "zookeeper")
             setInt("hbase.zookeeper.port", getEnv("K2HB_HBASE_ZOOKEEPER_PORT")?.toIntOrNull() ?: 2181)
         }
