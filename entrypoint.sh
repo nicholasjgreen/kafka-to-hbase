@@ -70,6 +70,8 @@ then
         echo "K2HB_KAFKA_CERT_MODE must be one of 'CERTGEN,RETRIEVE' but was ${K2HB_KAFKA_CERT_MODE}"
         exit 1
     fi
+    chown ${SUID}:${SGID} ${K2HB_KEYSTORE_PATH}
+    chown ${SUID}:${SGID} ${K2HB_TRUSTSTORE_PATH}
 else
     echo "Skipping cert generation for host ${HOSTNAME}"
 fi
