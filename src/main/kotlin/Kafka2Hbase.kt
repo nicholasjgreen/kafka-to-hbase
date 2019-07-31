@@ -10,7 +10,6 @@ suspend fun main() {
 
     // Create a Kafka consumer
     val kafka = KafkaConsumer<ByteArray, ByteArray>(Config.Kafka.props)
-    kafka.subscribe(Config.Kafka.topics)
 
     // Read as many messages as possible until a signal is received
     val job = shovelAsync(kafka, hbase, Config.Kafka.pollTimeout)

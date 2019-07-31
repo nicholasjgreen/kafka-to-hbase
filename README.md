@@ -83,7 +83,7 @@ Or completely removed including all data volumes:
 
 Integration tests can be executed inside a Docker container to make use of
 the Kafka and Hbase instances running in the local stack. The integration
-tests are written in Groovy and use the Spock testing framework.
+tests are written in Kotlin and use the standard `kotlintest` testing framework.
 
     make integration
 
@@ -120,7 +120,7 @@ and create tables in the `k2hb` namespace. The data will be stored in `cf:data`
 with at least `1` version and at most `10` versions and a TTL of 10 days.
 
 * **K2HB_HBASE_ZOOKEEPER_PARENT**
-    The hbase parant uri, defaults to `/hbase` but should be set to ``/hbase-unsecure`` for AWS HBase
+    The hbase parent uri, defaults to `/hbase` but should be set to `/hbase-unsecure` for AWS HBase
 * **K2HB_HBASE_ZOOKEEPER_QUORUM**
     Comma separated list of Zookeeper servers
 * **K2HB_HBASE_ZOOKEEPER_PORT**
@@ -140,16 +140,22 @@ with at least `1` version and at most `10` versions and a TTL of 10 days.
 
 By default Kafka2Hbase will connect to Kafka at `kafka:9092` in the `k2hb`
 consumer group. It will poll the `test-topic` topic with a poll timeout of
-`10` seconds.
+`10` days, and refresh the topics list every 10 seconds (`10000` ms).
 
 * **K2HB_KAFKA_BOOTSTRAP_SERVERS**
     Comma separated list of Kafka servers and ports
 * **K2HB_KAFKA_CONSUMER_GROUP**
     The name of the consumer group to join
-* **K2HB_KAFKA_TOPICS**
-    The list of topics to listen to
+* **K2HB_KAFKA_TOPIC_REGEX**
+    A regex that will fetch a list of topics to listen to, e.g. `db.*`. Defaults to `test-topic.*`
+* **K2HB_KAFKA_META_REFRESH_MS** (Optional)
+    The frequency that the consumer will ask the broker for metadata updates, which also checks for new topics. 
+    Defaults to `10000` ms (10 seconds).
+    Typically, should be an order of magnitude less than `K2HB_KAFKA_POLL_TIMEOUT`, else new topics will not be discovered within each polling interval.
 * **K2HB_KAFKA_POLL_TIMEOUT**
-    The maximum time to wait for messages in ISO-8601 duration format (e.g. `PT10S`)
+    The maximum time to wait for messages in ISO-8601 duration format (e.g. `PT10S`). 
+    Defaults to 1 Hour.
+    Should be greater than `K2HB_KAFKA_META_REFRESH_MS`, else new topics will not be discovered within each polling interval.
 * **K2HB_KAFKA_INSECURE**
     Disable SSL entirely (useful for dev / test) with `K2HB_KAFKA_INSECURE=true`
 * **K2HB_KAFKA_CERT_MODE**
