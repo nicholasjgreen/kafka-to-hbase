@@ -15,6 +15,18 @@ fun shovelAsync(kafka: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient, 
             kafka.subscribe(Config.Kafka.topicRegex)
             val records = kafka.poll(pollTimeout)
             for (record in records) {
+
+                val newKey: ByteArray = record.key() ?: ByteArray(0)
+                if (newKey.isEmpty()) {
+                    log.warning(
+                        "Empty key was skipped for %s:%d:%d".format(
+                            record.topic() ?: "null",
+                            record.partition(),
+                            record.offset()
+                        ))
+                    continue
+                }
+
                 try {
                     hbase.putVersion(
                         topic = record.topic().toByteArray(),
@@ -23,20 +35,20 @@ fun shovelAsync(kafka: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient, 
                         version = record.timestamp()
                     )
                     log.info(
-                        "Wrote %s:%d:%d with key %s".format(
-                            record.topic(),
+                        "Wrote key %s data %s:%d:%d".format(
+                            newKey,
+                            record.topic() ?: "null",
                             record.partition(),
-                            record.offset(),
-                            String(record.key())
+                            record.offset()
                         )
                     )
                 } catch (e: Exception) {
                     log.severe(
-                        "Error while writing message %s:%d:%d with key %s: %s".format(
-                            record.topic(),
+                        "Error while writing key %s data %s:%d:%: %s".format(
+                            newKey,
+                            record.topic() ?: "null",
                             record.partition(),
                             record.offset(),
-                            String(record.key()),
                             e.toString()
                         )
                     )
