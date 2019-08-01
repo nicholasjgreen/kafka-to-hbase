@@ -84,6 +84,7 @@ workflows:
       - publish-github-release:
           requires:
             - build
+            - test
           filters:
             branches:
               only: master
