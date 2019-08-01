@@ -54,21 +54,10 @@ class Kafka2Hbase : StringSpec({
 
         val body = uniqueBytes()
         val timestamp = timestamp()
-        val key = ByteArray(0)
-        hbase.putVersion(topic, key, body, timestamp)
-
-        val newBody = uniqueBytes()
-        val newTimestamp = timestamp() + 1 // Add one to ensure different timestamp
-        producer.sendRecord(topic, key, newBody, newTimestamp)
-
-        val storedNewValue = waitFor { hbase.getCellAfterTimestamp(topic, key, newTimestamp) }
-        storedNewValue shouldBe newBody
-
-        val storedPreviousValue = waitFor { hbase.getCellBeforeTimestamp(topic, key, newTimestamp) }
-        storedPreviousValue shouldBe body
+        producer.sendRecord(topic, ByteArray(0), body, timestamp)
 
         val counter = waitFor { hbase.getCount(topic) }
-        counter shouldBe startingCounter + 2
+        counter shouldBe startingCounter
     }
 
 })
