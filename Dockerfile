@@ -1,9 +1,10 @@
+ARG http_proxy_value=""
+ARG https_proxy_value=""
+
+# Multi stage docker build - stage 1 builds jar file
 FROM zenika/kotlin:1.3-jdk8-slim as build
 
 WORKDIR /kafka2hbase
-
-ARG http_proxy_value=""
-ARG https_proxy_value=""
 
 # Upper and local case is needed because different tools respect either ones
 ENV http_proxy=${http_proxy_value}
@@ -29,8 +30,18 @@ COPY src/ ./src
 
 RUN $GRADLE distTar
 
+# Second build stage starts here
 FROM openjdk:8-slim
 
+# Vars needed again for setting build
+ENV http_proxy=${http_proxy_value}
+ENV https_proxy=${https_proxy_value}
+ENV HTTP_PROXY=${http_proxy_value}
+ENV HTTPS_PROXY=${https_proxy_value}
+
+# Copy proxy set script and execute it
+COPY set-proxy.sh .
+RUN ./set-proxy.sh
 
 ARG VERSION=1.0-SNAPSHOT
 ARG DIST=kafka2hbase-$VERSION

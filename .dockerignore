@@ -9,3 +9,4 @@
 !settings.gradle.kts
 !gradle
 !entrypoint.sh
+!set-proxy.sh
