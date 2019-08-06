@@ -2,6 +2,15 @@ FROM zenika/kotlin:1.3-jdk8-slim as build
 
 WORKDIR /kafka2hbase
 
+ARG http_proxy_value=""
+ARG https_proxy_value=""
+
+# Upper and local case is needed because different tools respect either ones
+ENV http_proxy=${http_proxy_value}
+ENV https_proxy=${https_proxy_value}
+ENV HTTP_PROXY=${http_proxy_value}
+ENV HTTPS_PROXY=${https_proxy_value}
+
 ENV GRADLE "/kafka2hbase/gradlew --no-daemon"
 
 # Copy and generate the gradle wrapper
