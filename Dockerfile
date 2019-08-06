@@ -53,6 +53,13 @@ ARG VERSION=1.0-SNAPSHOT
 ARG DIST=kafka2hbase-$VERSION
 ARG DIST_FILE=$DIST.tar
 
+RUN echo "Apt.conf contents:" \
+    && echo $(cat /etc/apt/apt.conf) \
+    && echo "ENV http: $http_proxy" \
+    && echo "ENV https: $https_proxy" \
+    && echo "ENV HTTP: $HTTP_PROXY" \
+    && echo "ENV HTTPS: $HTTPS_PROXY"
+
 ENV acm_cert_helper_version 0.8.0
 RUN echo "===> Installing Dependencies ..." \
     && apt-get -qq update \
