@@ -1,5 +1,6 @@
 ARG http_proxy_value=""
 ARG https_proxy_value=""
+ARG gradle_opts_value=""
 
 # Multi stage docker build - stage 1 builds jar file
 FROM zenika/kotlin:1.3-jdk8-slim as build
@@ -11,6 +12,9 @@ ENV http_proxy=${http_proxy_value}
 ENV https_proxy=${https_proxy_value}
 ENV HTTP_PROXY=${http_proxy_value}
 ENV HTTPS_PROXY=${https_proxy_value}
+
+# Set gradle opts if passed in
+ENV GRADLE_OPTS=${gradle_opts_value}
 
 ENV GRADLE "/kafka2hbase/gradlew --no-daemon"
 
