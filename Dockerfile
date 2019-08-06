@@ -1,20 +1,22 @@
-ARG http_proxy_value=""
-ARG https_proxy_value=""
-ARG gradle_opts_value=""
+ARG http_proxy_host=""
+ARG https_proxy_host=""
+ARG http_proxy_port=""
+ARG https_proxy_port=""
 
 # Multi stage docker build - stage 1 builds jar file
 FROM zenika/kotlin:1.3-jdk8-slim as build
 
 WORKDIR /kafka2hbase
 
-# Upper and local case is needed because different tools respect either ones
-ENV http_proxy=${http_proxy_value}
-ENV https_proxy=${https_proxy_value}
-ENV HTTP_PROXY=${http_proxy_value}
-ENV HTTPS_PROXY=${https_proxy_value}
+# Set environment variables to pass to proxy script
+ENV http_proxy_host=${http_proxy_host}
+ENV https_proxy_host=${https_proxy_host}
+ENV http_proxy_port=${http_proxy_port}
+ENV https_proxy_port=${https_proxy_port}
 
-# Set gradle opts if passed in
-ENV GRADLE_OPTS=${gradle_opts_value}
+# Copy proxy set script and execute it
+COPY set-proxy.sh .
+RUN ./set-proxy.sh
 
 ENV GRADLE "/kafka2hbase/gradlew --no-daemon"
 
@@ -37,13 +39,13 @@ RUN $GRADLE distTar
 # Second build stage starts here
 FROM openjdk:8-slim
 
-# Vars needed again for setting build
-ENV http_proxy=${http_proxy_value}
-ENV https_proxy=${https_proxy_value}
-ENV HTTP_PROXY=${http_proxy_value}
-ENV HTTPS_PROXY=${https_proxy_value}
+# Set environment variables to pass to proxy script
+ENV http_proxy_host=${http_proxy_host}
+ENV https_proxy_host=${https_proxy_host}
+ENV http_proxy_port=${http_proxy_port}
+ENV https_proxy_port=${https_proxy_port}
 
-# Copy proxy set script and execute it
+# Copy proxy set script and execute it (needed for apt-get here)
 COPY set-proxy.sh .
 RUN ./set-proxy.sh
 
