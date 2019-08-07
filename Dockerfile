@@ -1,9 +1,8 @@
-ARG http_proxy_host=""
-ARG http_proxy_port=""
-ARG http_proxy_full=""
-
 # Multi stage docker build - stage 1 builds jar file
 FROM zenika/kotlin:1.3-jdk8-slim as build
+
+ARG http_proxy_host=""
+ARG http_proxy_port=""
 
 WORKDIR /kafka2hbase
 
@@ -13,8 +12,7 @@ ENV GRADLE_OPTS="${GRADLE_OPTS} -Dhttps.proxyHost=$http_proxy_host -Dhttps.proxy
 
 RUN echo "ENV gradle: ${GRADLE_OPTS}" \
     && echo "ARG host: ${http_proxy_host}" \
-    && echo "ARG port: ${http_proxy_port}" \
-    && echo "ARG full: ${http_proxy_full}"
+    && echo "ARG port: ${http_proxy_port}"
 
 ENV GRADLE "/kafka2hbase/gradlew --no-daemon"
 
@@ -37,6 +35,8 @@ RUN $GRADLE distTar
 # Second build stage starts here
 FROM openjdk:8-slim
 
+ARG http_proxy_full=""
+
 # Set environment variables for apt-get
 ENV http_proxy=${http_proxy_full}
 ENV https_proxy=${http_proxy_full}
@@ -50,7 +50,8 @@ ARG DIST_FILE=$DIST.tar
 RUN echo "ENV http: ${http_proxy}" \
     && echo "ENV https: ${https_proxy}" \
     && echo "ENV HTTP: ${HTTP_PROXY}" \
-    && echo "ENV HTTPS: ${HTTPS_PROXY}"
+    && echo "ENV HTTPS: ${HTTPS_PROXY}" \
+    && echo "ARG full: ${http_proxy_full}"
 
 ENV acm_cert_helper_version 0.8.0
 RUN echo "===> Installing Dependencies ..." \
