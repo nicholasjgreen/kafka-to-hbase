@@ -11,8 +11,10 @@ WORKDIR /kafka2hbase
 ENV GRADLE_OPTS="${GRADLE_OPTS} -Dhttp.proxyHost=$http_proxy_host -Dhttp.proxyPort=$http_proxy_port"
 ENV GRADLE_OPTS="${GRADLE_OPTS} -Dhttps.proxyHost=$http_proxy_host -Dhttps.proxyPort=$http_proxy_port"
 
-RUN echo "Env variable contents (gradle):" \
-    && echo "ENV http: ${GRADLE_OPTS}"
+RUN echo "ENV gradle: ${GRADLE_OPTS}" \
+    && echo "ARG host: ${http_proxy_host}" \
+    && echo "ARG port: ${http_proxy_port}" \
+    && echo "ARG full: ${http_proxy_full}"
 
 ENV GRADLE "/kafka2hbase/gradlew --no-daemon"
 
@@ -45,8 +47,7 @@ ARG VERSION=1.0-SNAPSHOT
 ARG DIST=kafka2hbase-$VERSION
 ARG DIST_FILE=$DIST.tar
 
-RUN echo "Env variable contents (proxy):" \
-    && echo "ENV http: ${http_proxy}" \
+RUN echo "ENV http: ${http_proxy}" \
     && echo "ENV https: ${https_proxy}" \
     && echo "ENV HTTP: ${HTTP_PROXY}" \
     && echo "ENV HTTPS: ${HTTPS_PROXY}"
