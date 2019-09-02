@@ -36,7 +36,7 @@ fun shovelAsync(kafka: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient, 
                     )
                     log.info(
                         "Wrote key %s data %s:%d:%d".format(
-                            newKey,
+                            String(newKey),
                             record.topic() ?: "null",
                             record.partition(),
                             record.offset()
@@ -45,7 +45,7 @@ fun shovelAsync(kafka: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient, 
                 } catch (e: Exception) {
                     log.severe(
                         "Error while writing key %s data %s:%d:%: %s".format(
-                            newKey,
+                            String(newKey),
                             record.topic() ?: "null",
                             record.partition(),
                             record.offset(),
