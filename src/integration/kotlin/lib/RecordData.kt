@@ -1,12 +1,44 @@
 package lib
 
+import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.*
 
 fun uniqueBytes(): ByteArray {
-    return UUID.randomUUID().toString().toByteArray()
+    val json_string = "{\n" +
+        "        \"traceId\": \"00001111-abcd-4567-1234-1234567890ab\",\n" +
+        "        \"unitOfWorkId\": \"00002222-abcd-4567-1234-1234567890ab\",\n" +
+        "        \"@type\": \"V4\",\n" +
+        "        \"version\": \"core-X.release_XXX.XX\",\n" +
+        "        \"timestamp\": \"2018-12-14T15:01:02.000+0000\",\n" +
+        "        \"message\": {\n" +
+        "            \"@type\": \"MONGO_UPDATE\",\n" +
+        "            \"collection\": \"exampleCollectionName\",\n" +
+        "            \"db\": \"exampleDbName\",\n" +
+        "            \"_id\": {\n" +
+        "                \"exampleId\": \"aaaa1111-abcd-4567-1234-1234567890ab\"\n" +
+        "            },\n" +
+        "            \"_lastModifiedDateTime\": \"${getISO8601Timestamp()} \",\n" +
+        "            \"encryption\": {\n" +
+        "                \"encryptionKeyId\": \"55556666-abcd-89ab-1234-1234567890ab\",\n" +
+        "                \"encryptedEncryptionKey\": \"bHJjhg2Jb0uyidkl867gtFkjl4fgh9Ab\",\n" +
+        "                \"initialisationVector\": \"kjGyvY67jhJHVdo2\",\n" +
+        "                \"keyEncryptionKeyId\": \"example-key_2019-12-14_01\"\n" +
+        "            },\n" +
+        "            \"dbObject\": \"bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A\"\n" +
+        "        }\n" +
+        "    }"
+
+    return json_string.toByteArray()
+}
+
+fun getISO8601Timestamp(): String {
+    val tz = TimeZone.getTimeZone("UTC")
+    val df = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZZZ")
+    df.timeZone = tz
+    return df.format(Date())
 }
 
 fun timestamp(): Long {

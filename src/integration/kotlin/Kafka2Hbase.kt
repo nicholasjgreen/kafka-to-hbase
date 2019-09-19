@@ -14,11 +14,14 @@ class Kafka2Hbase : StringSpec({
         val startingCounter = waitFor { hbase.getCount(topic) }
 
         val body = uniqueBytes()
-        val timestamp = timestamp()
-        val key = uniqueBytes()
+        val timestamp = getTimestampAsLong(getISO8601Timestamp())
+        val key = "key1".toByteArray()
         producer.sendRecord(topic, key, body, timestamp)
 
-        val storedValue = waitFor { hbase.getCellAfterTimestamp(topic, key, timestamp) }
+        Thread.sleep(100)
+        val referenceTimestamp = getTimestampAsLong(getISO8601Timestamp())
+
+        val storedValue = waitFor { hbase.getCellBeforeTimestamp(topic, key, referenceTimestamp) }
         storedValue shouldBe body
 
         val counter = waitFor { hbase.getCount(topic) }
@@ -29,20 +32,23 @@ class Kafka2Hbase : StringSpec({
         val topic = uniqueTopicName()
         val startingCounter = waitFor { hbase.getCount(topic) }
 
-        val body = uniqueBytes()
-        val timestamp = timestamp()
-        val key = uniqueBytes()
-        hbase.putVersion(topic, key, body, timestamp)
+        val body1 = uniqueBytes()
+        val kafkaTimestamp1 = getTimestampAsLong(getISO8601Timestamp())
+        val key = "key2".toByteArray()
+        hbase.putVersion(topic, key, body1, kafkaTimestamp1)
 
-        val newBody = uniqueBytes()
-        val newTimestamp = timestamp() + 1 // Add one to ensure different timestamp
-        producer.sendRecord(topic, key, newBody, newTimestamp)
+        Thread.sleep(100)
+        val referenceTimestamp = getTimestampAsLong(getISO8601Timestamp())
 
-        val storedNewValue = waitFor { hbase.getCellAfterTimestamp(topic, key, newTimestamp) }
-        storedNewValue shouldBe newBody
+        val body2 = uniqueBytes()
+        val kafkaTimestamp2 = getTimestampAsLong(getISO8601Timestamp())
+        producer.sendRecord(topic, key, body2, kafkaTimestamp2)
 
-        val storedPreviousValue = waitFor { hbase.getCellBeforeTimestamp(topic, key, newTimestamp) }
-        storedPreviousValue shouldBe body
+        val storedNewValue = waitFor { hbase.getCellAfterTimestamp(topic, key, referenceTimestamp) }
+        storedNewValue shouldBe body2
+
+        val storedPreviousValue = waitFor { hbase.getCellBeforeTimestamp(topic, key, referenceTimestamp) }
+        storedPreviousValue shouldBe body1
 
         val counter = waitFor { hbase.getCount(topic) }
         counter shouldBe startingCounter + 2
@@ -59,5 +65,4 @@ class Kafka2Hbase : StringSpec({
         val counter = waitFor { hbase.getCount(topic) }
         counter shouldBe startingCounter
     }
-
 })

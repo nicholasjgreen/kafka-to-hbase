@@ -9,7 +9,7 @@ jobs:
       - restore_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
 
-      - run: ./gradlew build
+      - run: ./gradlew build unit
 
       - save_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
