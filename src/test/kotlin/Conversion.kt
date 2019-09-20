@@ -1,11 +1,11 @@
-import com.beust.klaxon.JsonObject
-import io.kotlintest.matchers.beInstanceOf
-import io.kotlintest.properties.assertAll
 import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNotBe
 import io.kotlintest.shouldThrow
+import io.kotlintest.properties.assertAll
+import io.kotlintest.matchers.beInstanceOf
 import io.kotlintest.specs.StringSpec
+import com.beust.klaxon.JsonObject
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
@@ -13,11 +13,12 @@ import java.util.*
 
 class Conversion : StringSpec({
     configureLogging()
+    
+    val converter = Converter()
 
     "valid input converts to json" {
-        val json_string = "{\"testOne\":\"test1\", \"testTwo\":2}"
-
-        val json: JsonObject = convertToJson(json_string.toByteArray())
+        val jsonString = "{\"testOne\":\"test1\", \"testTwo\":2}"
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
 
         json should beInstanceOf<JsonObject>()
         json.string("testOne") shouldBe "test1"
@@ -25,49 +26,55 @@ class Conversion : StringSpec({
     }
 
     "valid nested input converts to json" {
-        val json_string = "{\"testOne\":{\"testTwo\":2}}"
-
-        val json: JsonObject = convertToJson(json_string.toByteArray())
-        val json_two: JsonObject = json.obj("testOne") as JsonObject
+        val jsonString = "{\"testOne\":{\"testTwo\":2}}"
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val jsonTwo: JsonObject = json.obj("testOne") as JsonObject
 
         json should beInstanceOf<JsonObject>()
-        json_two.int("testTwo") shouldBe 2
+        jsonTwo.int("testTwo") shouldBe 2
     }
 
     "invalid nested input throws exception" {
-        val json_string = "{\"testOne\":"
+        val jsonString = "{\"testOne\":"
 
         val exception = shouldThrow<IllegalArgumentException> {
-            convertToJson(json_string.toByteArray())
+            converter.convertToJson(jsonString.toByteArray())
         }
-
         exception.message shouldBe "Cannot parse invalid JSON"
     }
 
     "can generate consistent base64 encoded string" {
-        val json_string_with_fake_hash = "82&%\$dsdsd{\"testOne\":\"test1\", \"testTwo\":2}"
-
-        val encodedStringOne = encodeToBase64(json_string_with_fake_hash)
-        val encodedStringTwo = encodeToBase64(json_string_with_fake_hash)
+        val jsonStringWithFakeHash = "82&%\$dsdsd{\"testOne\":\"test1\", \"testTwo\":2}"
+        val encodedStringOne = converter.encodeToBase64(jsonStringWithFakeHash)
+        val encodedStringTwo = converter.encodeToBase64(jsonStringWithFakeHash)
 
         encodedStringOne shouldBe encodedStringTwo
     }
 
     "can encode and decode string with base64" {
-        val json_string_with_fake_hash = "82&%\$dsdsd{\"testOne\":\"test1\", \"testTwo\":2}"
+        val jsonStringWithFakeHash = "82&%\$dsdsd{\"testOne\":\"test1\", \"testTwo\":2}"
+        val encodedString = converter.encodeToBase64(jsonStringWithFakeHash)
+        val decodedString = converter.decodeFromBase64(encodedString)
 
-        val encodedString = encodeToBase64(json_string_with_fake_hash)
-        val decodedString = decodeFromBase64(encodedString)
-
-        decodedString shouldBe json_string_with_fake_hash
+        decodedString shouldBe jsonStringWithFakeHash
     }
 
     "sorts json by key name" {
-        val jsonStringUnsorted = "{\"testA\":\"test1\", \"testC\":2, \"testb\":true}"
-        val jsonObjectUnsorted: JsonObject = convertToJson(jsonStringUnsorted.toByteArray())
-        val jsonStringSorted = "testA=test1,testb=true,testC=2"
+        val jsonStringUnsorted = "{\"testA\":\"test1\", \"testC\":2, \"testB\":true}"
+        val jsonObjectUnsorted: JsonObject = converter.convertToJson(jsonStringUnsorted.toByteArray())
+        val jsonStringSorted = "{\"testA\":\"test1\",\"testB\":true,\"testC\":2}"
 
-        val sortedJson = sortJsonByKey(jsonObjectUnsorted)
+        val sortedJson = converter.sortJsonByKey(jsonObjectUnsorted)
+
+        sortedJson shouldBe jsonStringSorted
+    }
+
+    "sorts json by key name case sensitively" {
+        val jsonStringUnsorted = "{\"testb\":true, \"testA\":\"test1\", \"testC\":2}"
+        val jsonObjectUnsorted: JsonObject = converter.convertToJson(jsonStringUnsorted.toByteArray())
+        val jsonStringSorted = "{\"testA\":\"test1\",\"testC\":2,\"testb\":true}"
+
+        val sortedJson = converter.sortJsonByKey(jsonObjectUnsorted)
 
         sortedJson shouldBe jsonStringSorted
     }
@@ -75,30 +82,30 @@ class Conversion : StringSpec({
     "checksums are different with different inputs" {
         val jsonStringOne = "{\"testOne\":\"test1\", \"testTwo\":2}"
         val jsonStringTwo = "{\"testOne\":\"test2\", \"testTwo\":2}"
-        val checksum = generateFourByteChecksum(jsonStringOne)
-        val checksumTwo = generateFourByteChecksum(jsonStringTwo)
+        val checksum = converter.generateFourByteChecksum(jsonStringOne)
+        val checksumTwo = converter.generateFourByteChecksum(jsonStringTwo)
 
         checksum shouldNotBe checksumTwo
     }
 
     "can generate consistent checksums from json" {
-        val json_string = "{\"testOne\":\"test1\", \"testTwo\":2}"
-        val json: JsonObject = convertToJson(json_string.toByteArray())
-        val checksumOne = generateFourByteChecksum(json.toString())
-        val checksumTwo = generateFourByteChecksum(json.toString())
+        val jsonString = "{\"testOne\":\"test1\", \"testTwo\":2}"
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val checksumOne = converter.generateFourByteChecksum(json.toString())
+        val checksumTwo = converter.generateFourByteChecksum(json.toString())
 
         checksumOne shouldBe checksumTwo
     }
 
     "generated checksums are four bytes" {
-        assertAll({ input: String ->
-            val checksum = generateFourByteChecksum(input)
+        assertAll { input: String ->
+            val checksum = converter.generateFourByteChecksum(input)
             checksum.size shouldBe 4
-        })
+        }
     }
 
     "valid timestamp format in the message gets parsed as long correctly" {
-        val json_string = "{\n" +
+        val jsonString = "{\n" +
             "        \"traceId\": \"00001111-abcd-4567-1234-1234567890ab\",\n" +
             "        \"unitOfWorkId\": \"00002222-abcd-4567-1234-1234567890ab\",\n" +
             "        \"@type\": \"V4\",\n" +
@@ -122,81 +129,81 @@ class Conversion : StringSpec({
             "        }\n" +
             "    }"
 
-        val json: JsonObject = convertToJson(json_string.toByteArray())
-        val timestamp = getLastModifiedTimestamp(json)
-        val timeStampAsLong = getTimestampAsLong(timestamp)
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val timestamp = converter.getLastModifiedTimestamp(json)
+        val timeStampAsLong = converter.getTimestampAsLong(timestamp)
         timestamp shouldBe "2018-12-14T15:01:02.000+0000"
         timeStampAsLong shouldBe 1544799662000
     }
 
     "Invalid timestamp format in the message throws Exception" {
-        val json_string = "{\n" +
+        val jsonString = "{\n" +
             "        \"message\": {\n" +
             "            \"_lastModifiedDateTime\": \"2018-12-14\",\n" +
             "        }\n" +
             "    }"
 
-        val json: JsonObject = convertToJson(json_string.toByteArray())
-        val timestamp = getLastModifiedTimestamp(json)
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val timestamp = converter.getLastModifiedTimestamp(json)
         timestamp shouldBe "2018-12-14"
         shouldThrow<ParseException> {
-            getTimestampAsLong(timestamp)
+            converter.getTimestampAsLong(timestamp)
         }
     }
 
     "Invalid json with missing message attribute  throws Exception" {
-        val json_string = "{\n" +
+        val jsonString = "{\n" +
             "        \"message1\": {\n" +
             "           \"_lastModifiedDateTime\": \"2018-12-14T15:01:02.000+0000\",\n" +
             "        }\n" +
             "    }"
 
-        val json: JsonObject = convertToJson(json_string.toByteArray())
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         shouldThrow<RuntimeException> {
-            val lastModifiedTimestamp = getLastModifiedTimestamp(json)
-            getTimestampAsLong(lastModifiedTimestamp)
+            val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+            converter.getTimestampAsLong(lastModifiedTimestamp)
         }
     }
 
     "Invalid json with missing _lastModifiedDateTime attribute  throws Exception" {
-        val json_string = "{\n" +
+        val jsonString = "{\n" +
             "        \"message\": {\n" +
             "           \"_lastModifiedDateTime1\": \"2018-12-14T15:01:02.000+0000\",\n" +
             "        }\n" +
             "    }"
 
-        val json: JsonObject = convertToJson(json_string.toByteArray())
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         shouldThrow<RuntimeException> {
-            val lastModifiedTimestamp = getLastModifiedTimestamp(json)
-            getTimestampAsLong(lastModifiedTimestamp)
+            val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+            converter.getTimestampAsLong(lastModifiedTimestamp)
         }
     }
 
     "Invalid json with  _lastModifiedDateTime attribute value as empty  throws Exception" {
-        val json_string = "{\n" +
+        val jsonString = "{\n" +
             "        \"message\": {\n" +
             "           \"_lastModifiedDateTime\": \"\",\n" +
             "        }\n" +
             "    }"
 
-        val json: JsonObject = convertToJson(json_string.toByteArray())
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         shouldThrow<RuntimeException> {
-            val lastModifiedTimestamp = getLastModifiedTimestamp(json)
-            getTimestampAsLong(lastModifiedTimestamp)
+            val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+            converter.getTimestampAsLong(lastModifiedTimestamp)
         }
     }
 
     "Invalid json with  _lastModifiedDateTime attribute value as blank  throws Exception" {
-        val json_string = "{\n" +
+        val jsonString = "{\n" +
             "        \"message\": {\n" +
             "           \"_lastModifiedDateTime\": \"   \",\n" +
             "        }\n" +
             "    }"
 
-        val json: JsonObject = convertToJson(json_string.toByteArray())
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         shouldThrow<RuntimeException> {
-            val lastModifiedTimestamp = getLastModifiedTimestamp(json)
-            getTimestampAsLong(lastModifiedTimestamp)
+            val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+            converter.getTimestampAsLong(lastModifiedTimestamp)
         }
     }
 

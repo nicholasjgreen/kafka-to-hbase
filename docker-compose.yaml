@@ -42,7 +42,7 @@ services:
   integration-test:
     image: kafka2hbase-integration:latest
     build:
-      dockerfile: integration.Dockerfile
+      dockerfile: Dockerfile_integration
       context: ./
     depends_on:
       - kafka2hbase

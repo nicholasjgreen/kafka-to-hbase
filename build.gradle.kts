@@ -22,6 +22,8 @@ dependencies {
     implementation("org.apache.kafka", "kafka-clients", "2.3.0")
     implementation("com.beust", "klaxon", "4.0.2")
     testImplementation("io.kotlintest", "kotlintest-runner-junit5", "3.3.2")
+    testImplementation("com.nhaarman.mockitokotlin2", "mockito-kotlin", "2.2.0")
+    testImplementation("org.mockito", "mockito-core", "2.8.9")
 }
 
 tasks.withType<Test> {

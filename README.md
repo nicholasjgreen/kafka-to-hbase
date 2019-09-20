@@ -85,7 +85,15 @@ Integration tests can be executed inside a Docker container to make use of
 the Kafka and Hbase instances running in the local stack. The integration
 tests are written in Kotlin and use the standard `kotlintest` testing framework.
 
-    make integration
+    make integration-all -> to run from a clean build
+    make integration -> to run just the tests again with everything running
+
+## Run unit tests
+
+The unit tests use JUnit to run and are written using specification language.
+They can be executed with the following command.
+
+    make test
 
 ## Getting logs
 
