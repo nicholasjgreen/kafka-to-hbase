@@ -13,6 +13,7 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
     jcenter()
+    maven(url="https://jitpack.io")
 }
 
 dependencies {
@@ -21,6 +22,7 @@ dependencies {
     implementation("org.apache.hbase", "hbase-client", "1.4.9")
     implementation("org.apache.kafka", "kafka-clients", "2.3.0")
     implementation("com.beust", "klaxon", "4.0.2")
+    implementation("com.github.everit-org.json-schema", "org.everit.json.schema", "1.12.0")
     testImplementation("io.kotlintest", "kotlintest-runner-junit5", "3.3.2")
     testImplementation("com.nhaarman.mockitokotlin2", "mockito-kotlin", "2.2.0")
     testImplementation("org.mockito", "mockito-core", "2.8.9")

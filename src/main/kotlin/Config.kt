@@ -18,6 +18,12 @@ object Config {
 
     val metaDataRefreshKey = "metadata.max.age.ms"
 
+    object Validator {
+        val properties = Properties().apply {
+            put("schema.location", getEnv("K2HB_VALIDATOR_SCHEMA") ?: "message.schema.json")
+        }
+    }
+
     object Hbase {
         val config = Configuration().apply {
             // See also https://hbase.apache.org/book.html#hbase_default_configurations
