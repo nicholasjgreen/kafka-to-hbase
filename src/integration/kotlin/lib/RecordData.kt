@@ -16,52 +16,52 @@ fun getId(): String {
 
 fun uniqueBytes(): ByteArray {
     val jsonString = "{\n" +
-        "        \"traceId\": \"00001111-abcd-4567-1234-1234567890ab\",\n" +
-        "        \"unitOfWorkId\": \"00002222-abcd-4567-1234-1234567890ab\",\n" +
-        "        \"@type\": \"V4\",\n" +
-        "        \"version\": \"core-X.release_XXX.XX\",\n" +
-        "        \"timestamp\": \"2018-12-14T15:01:02.000+0000\",\n" +
-        "        \"message\": {\n" +
-        "            \"@type\": \"MONGO_UPDATE\",\n" +
-        "            \"collection\": \"exampleCollectionName\",\n" +
-        "            \"db\": \"exampleDbName\",\n" +
-        "            \"_id\": ${getId()},\n" +
-        "            \"_lastModifiedDateTime\": \"${getISO8601Timestamp()} \",\n" +
-        "            \"encryption\": {\n" +
-        "                \"encryptionKeyId\": \"55556666-abcd-89ab-1234-1234567890ab\",\n" +
-        "                \"encryptedEncryptionKey\": \"bHJjhg2Jb0uyidkl867gtFkjl4fgh9Ab\",\n" +
-        "                \"initialisationVector\": \"kjGyvY67jhJHVdo2\",\n" +
-        "                \"keyEncryptionKeyId\": \"example-key_2019-12-14_01\"\n" +
-        "            },\n" +
-        "            \"dbObject\": \"bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A\"\n" +
-        "        }\n" +
-        "    }"
+            "        \"traceId\": \"00001111-abcd-4567-1234-1234567890ab\",\n" +
+            "        \"unitOfWorkId\": \"00002222-abcd-4567-1234-1234567890ab\",\n" +
+            "        \"@type\": \"V4\",\n" +
+            "        \"version\": \"core-X.release_XXX.XX\",\n" +
+            "        \"timestamp\": \"2018-12-14T15:01:02.000+0000\",\n" +
+            "        \"message\": {\n" +
+            "            \"@type\": \"MONGO_UPDATE\",\n" +
+            "            \"collection\": \"exampleCollectionName\",\n" +
+            "            \"db\": \"exampleDbName\",\n" +
+            "            \"_id\": ${getId()},\n" +
+            "            \"_lastModifiedDateTime\": \"${getISO8601Timestamp()} \",\n" +
+            "            \"encryption\": {\n" +
+            "                \"encryptionKeyId\": \"55556666-abcd-89ab-1234-1234567890ab\",\n" +
+            "                \"encryptedEncryptionKey\": \"bHJjhg2Jb0uyidkl867gtFkjl4fgh9Ab\",\n" +
+            "                \"initialisationVector\": \"kjGyvY67jhJHVdo2\",\n" +
+            "                \"keyEncryptionKeyId\": \"example-key_2019-12-14_01\"\n" +
+            "            },\n" +
+            "            \"dbObject\": \"bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A\"\n" +
+            "        }\n" +
+            "    }"
 
     return jsonString.toByteArray()
 }
 
 fun uniqueBytesNoId(): ByteArray {
     val jsonString = "{\n" +
-        "        \"traceId\": \"00001111-abcd-4567-1234-1234567890ab\",\n" +
-        "        \"unitOfWorkId\": \"00002222-abcd-4567-1234-1234567890ab\",\n" +
-        "        \"@type\": \"V4\",\n" +
-        "        \"version\": \"core-X.release_XXX.XX\",\n" +
-        "        \"timestamp\": \"2018-12-14T15:01:02.000+0000\",\n" +
-        "        \"message\": {\n" +
-        "            \"@type\": \"MONGO_UPDATE\",\n" +
-        "            \"collection\": \"exampleCollectionName\",\n" +
-        "            \"db\": \"exampleDbName\",\n" +
-        "            \"id\": ${getId()},\n" +
-        "            \"_lastModifiedDateTime\": \"${getISO8601Timestamp()} \",\n" +
-        "            \"encryption\": {\n" +
-        "                \"encryptionKeyId\": \"55556666-abcd-89ab-1234-1234567890ab\",\n" +
-        "                \"encryptedEncryptionKey\": \"bHJjhg2Jb0uyidkl867gtFkjl4fgh9Ab\",\n" +
-        "                \"initialisationVector\": \"kjGyvY67jhJHVdo2\",\n" +
-        "                \"keyEncryptionKeyId\": \"example-key_2019-12-14_01\"\n" +
-        "            },\n" +
-        "            \"dbObject\": \"bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A\"\n" +
-        "        }\n" +
-        "    }"
+            "        \"traceId\": \"00001111-abcd-4567-1234-1234567890ab\",\n" +
+            "        \"unitOfWorkId\": \"00002222-abcd-4567-1234-1234567890ab\",\n" +
+            "        \"@type\": \"V4\",\n" +
+            "        \"version\": \"core-X.release_XXX.XX\",\n" +
+            "        \"timestamp\": \"2018-12-14T15:01:02.000+0000\",\n" +
+            "        \"message\": {\n" +
+            "            \"@type\": \"MONGO_UPDATE\",\n" +
+            "            \"collection\": \"exampleCollectionName\",\n" +
+            "            \"db\": \"exampleDbName\",\n" +
+            "            \"id\": ${getId()},\n" +
+            "            \"_lastModifiedDateTime\": \"${getISO8601Timestamp()} \",\n" +
+            "            \"encryption\": {\n" +
+            "                \"encryptionKeyId\": \"55556666-abcd-89ab-1234-1234567890ab\",\n" +
+            "                \"encryptedEncryptionKey\": \"bHJjhg2Jb0uyidkl867gtFkjl4fgh9Ab\",\n" +
+            "                \"initialisationVector\": \"kjGyvY67jhJHVdo2\",\n" +
+            "                \"keyEncryptionKeyId\": \"example-key_2019-12-14_01\"\n" +
+            "            },\n" +
+            "            \"dbObject\": \"bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A\"\n" +
+            "        }\n" +
+            "    }"
 
     return jsonString.toByteArray()
 }
@@ -78,5 +78,6 @@ fun timestamp(): Long {
 }
 
 fun uniqueTopicName(): ByteArray {
-    return "test-topic-%s".format(Instant.now().toEpochMilli()).toByteArray()
+    val time = Instant.now().toEpochMilli()
+    return "test-topic-$time".toByteArray()
 }

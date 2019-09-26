@@ -1,13 +1,12 @@
-import java.util.logging.Logger
-import java.util.Base64
-import java.util.zip.CRC32
-import java.nio.ByteBuffer
-import com.beust.klaxon.Parser
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.KlaxonException
+import com.beust.klaxon.Parser
 import com.beust.klaxon.lookup
-import java.lang.RuntimeException
+import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
+import java.util.*
+import java.util.logging.Logger
+import java.util.zip.CRC32
 
 class Converter() {
     private val log: Logger = Logger.getLogger("Converter")
@@ -21,10 +20,7 @@ class Converter() {
             return json
         } catch (e: KlaxonException) {
             log.warning(
-                "Error while parsing message body of '%s' in to json: %s".format(
-                    String(body),
-                    e.toString()
-                )
+                    "Error while parsing message in to json: ${e.toString()}"
             )
             throw IllegalArgumentException("Cannot parse invalid JSON")
         }
@@ -33,7 +29,7 @@ class Converter() {
     fun sortJsonByKey(unsortedJson: JsonObject): String {
         val sortedEntries = unsortedJson.toSortedMap(compareBy<String> { it })
         val json: JsonObject = JsonObject(sortedEntries)
-        
+
         return json.toJsonString()
     }
 

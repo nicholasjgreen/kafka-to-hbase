@@ -1,7 +1,7 @@
+import com.beust.klaxon.JsonObject
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
-import com.beust.klaxon.JsonObject
 
 class MessageParserTest : StringSpec({
     configureLogging()
@@ -11,7 +11,7 @@ class MessageParserTest : StringSpec({
     "generated keys are consistent for identical inputs" {
         val parser = MessageParser()
         val json: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":2}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(json)
         val keyTwo: ByteArray = parser.generateKey(json)
 
@@ -22,7 +22,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":2}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":3}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(jsonOne)
         val keyTwo: ByteArray = parser.generateKey(jsonTwo)
 
@@ -33,7 +33,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":2}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{\"testTwo\":2, \"testOne\":\"test1\"}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(jsonOne)
         val keyTwo: ByteArray = parser.generateKey(jsonTwo)
 
@@ -44,7 +44,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":2}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{    \"testOne\":              \"test1\",            \"testTwo\":  2}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(jsonOne)
         val keyTwo: ByteArray = parser.generateKey(jsonTwo)
 
@@ -55,7 +55,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":2}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{    \"testTwo\":              2,            \"testOne\":  \"test1\"}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(jsonOne)
         val keyTwo: ByteArray = parser.generateKey(jsonTwo)
 
@@ -66,7 +66,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":2}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{\"testOne\":\"test 1\", \"testTwo\":2}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(jsonOne)
         val keyTwo: ByteArray = parser.generateKey(jsonTwo)
 
@@ -77,7 +77,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":2}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":\"2\"}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(jsonOne)
         val keyTwo: ByteArray = parser.generateKey(jsonTwo)
 
@@ -88,7 +88,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":2.0}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":\"2.0\"}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(jsonOne)
         val keyTwo: ByteArray = parser.generateKey(jsonTwo)
 
@@ -99,7 +99,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":false}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":\"false\"}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(jsonOne)
         val keyTwo: ByteArray = parser.generateKey(jsonTwo)
 
@@ -110,7 +110,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":null}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":\"null\"}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKey(jsonOne)
         val keyTwo: ByteArray = parser.generateKey(jsonTwo)
 
@@ -163,7 +163,7 @@ class MessageParserTest : StringSpec({
         val parser = MessageParser()
         val jsonOne: JsonObject = convertor.convertToJson("{\"message\":{\"_id\":{\"test_key_a\":\"test_value_a\",\"test_key_b\"    :\"test_value_b\"}}}".toByteArray())
         val jsonTwo: JsonObject = convertor.convertToJson("{\"message\":{\"_id\":{\"test_key_b\":     \"test_value_b\",\"test_key_a\":\"test_value_a\"}}}".toByteArray())
-        
+
         val keyOne: ByteArray = parser.generateKeyFromRecordBody(jsonOne)
         val keyTwo: ByteArray = parser.generateKeyFromRecordBody(jsonTwo)
 

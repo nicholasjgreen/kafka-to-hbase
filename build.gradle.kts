@@ -26,6 +26,7 @@ dependencies {
     testImplementation("io.kotlintest", "kotlintest-runner-junit5", "3.3.2")
     testImplementation("com.nhaarman.mockitokotlin2", "mockito-kotlin", "2.2.0")
     testImplementation("org.mockito", "mockito-core", "2.8.9")
+    testImplementation("io.mockk", "mockk", "1.9.3")
 }
 
 tasks.withType<Test> {

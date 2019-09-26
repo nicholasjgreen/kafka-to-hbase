@@ -1,9 +1,8 @@
-import io.kotlintest.matchers.string.shouldStartWith
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 
-class ValidatorTest: StringSpec({
+class ValidatorTest : StringSpec({
 
     configureLogging()
 
@@ -63,7 +62,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe   "Message failed schema validation: '#: required key [message] not found'."
+        exception.message shouldBe "Message failed schema validation: '#: required key [message] not found'."
     }
 
     "Incorrect '#/message' type causes validation failure." {
@@ -75,7 +74,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe   "Message failed schema validation: '#/message: expected type: JSONObject, found: Integer'."
+        exception.message shouldBe "Message failed schema validation: '#/message: expected type: JSONObject, found: Integer'."
     }
 
     "Missing '#/message/@type' field causes validation failure." {
@@ -100,7 +99,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe   "Message failed schema validation: '#/message: required key [@type] not found'."
+        exception.message shouldBe "Message failed schema validation: '#/message: required key [@type] not found'."
     }
 
     "Incorrect '#/message/@type' type causes validation failure." {
@@ -149,7 +148,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe   "Message failed schema validation: '#/message: required key [_id] not found'."
+        exception.message shouldBe "Message failed schema validation: '#/message: required key [_id] not found'."
     }
 
     "Incorrect '#/message/_id' type causes validation failure." {
@@ -173,7 +172,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe   "Message failed schema validation: '#/message/_id: expected type: JSONObject, found: JSONArray'."
+        exception.message shouldBe "Message failed schema validation: '#/message/_id: expected type: JSONObject, found: JSONArray'."
     }
 
     "Empty '#/message/_id' type causes validation failure." {
@@ -293,7 +292,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe   "Message failed schema validation: '#/message: required key [db] not found'."
+        exception.message shouldBe "Message failed schema validation: '#/message: required key [db] not found'."
     }
 
     "Incorrect '#/message/db' type  causes validation failure." {
@@ -319,7 +318,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe  "Message failed schema validation: '#/message/db: expected type: String, found: JSONArray'."
+        exception.message shouldBe "Message failed schema validation: '#/message/db: expected type: String, found: JSONArray'."
     }
 
     "Empty '#/message/db' causes validation failure." {
@@ -370,7 +369,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe   "Message failed schema validation: '#/message: required key [collection] not found'."
+        exception.message shouldBe "Message failed schema validation: '#/message: required key [collection] not found'."
     }
 
     "Incorrect '#/message/collection' type  causes validation failure." {
@@ -396,7 +395,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe  "Message failed schema validation: '#/message/collection: expected type: String, found: Integer'."
+        exception.message shouldBe "Message failed schema validation: '#/message/collection: expected type: String, found: Integer'."
     }
 
     "Empty '#/message/collection' causes validation failure." {
@@ -474,7 +473,7 @@ class ValidatorTest: StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe  "Message failed schema validation: '#/message/dbObject: expected type: String, found: JSONObject'."
+        exception.message shouldBe "Message failed schema validation: '#/message/dbObject: expected type: String, found: JSONObject'."
     }
 
     "Empty '#/message/dbObject' causes validation failure." {

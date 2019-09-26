@@ -1,5 +1,5 @@
-import java.util.logging.Logger
 import com.beust.klaxon.JsonObject
+import java.util.logging.Logger
 
 open class MessageParser() {
 
@@ -24,7 +24,7 @@ open class MessageParser() {
     fun generateKey(json: JsonObject): ByteArray {
         val jsonOrdered = converter.sortJsonByKey(json)
         val checksumBytes: ByteArray = converter.generateFourByteChecksum(jsonOrdered)
-        
+
         return checksumBytes.plus(jsonOrdered.toByteArray())
     }
 }

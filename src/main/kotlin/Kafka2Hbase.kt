@@ -9,7 +9,7 @@ suspend fun main() {
     hbase.migrate()
 
     // Create a Kafka consumer
-    val kafka = KafkaConsumer<ByteArray, ByteArray>(Config.Kafka.props)
+    val kafka = KafkaConsumer<ByteArray, ByteArray>(Config.Kafka.consumerProps)
 
     // Read as many messages as possible until a signal is received
     val job = shovelAsync(kafka, hbase, Config.Kafka.pollTimeout)

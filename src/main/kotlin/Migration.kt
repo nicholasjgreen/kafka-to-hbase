@@ -13,8 +13,8 @@ fun HbaseClient.migrate() {
         val topicTableName = TableName.valueOf(topicTable)
 
         val missingNamespaces = setOf(
-            dataTableName.namespaceAsString,
-            topicTableName.namespaceAsString
+                dataTableName.namespaceAsString,
+                topicTableName.namespaceAsString
         ).subtract(namespaces)
 
         // Create all namespaces not already in the list of namespaces

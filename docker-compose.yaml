@@ -35,9 +35,10 @@ services:
     environment:
       JAVA_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
       K2HB_KAFKA_INSECURE: "true"
-      K2HB_KAFKA_TOPIC_REGEX: "^test-(.*)"
+      K2HB_KAFKA_TOPIC_REGEX: "^test-topic(.*)"
       K2HB_KAFKA_META_REFRESH_MS: "1000"
       K2HB_KAFKA_POLL_TIMEOUT: "PT10S"
+      K2HB_KAFKA_DLQ_TOPIC: "test-dlq-topic"
 
   integration-test:
     image: kafka2hbase-integration:latest
@@ -51,3 +52,6 @@ services:
       SUID: ${UID-1000}
       SGID: ${GROUPS-1000}
       K2HB_KAFKA_INSECURE: "true"
+      K2HB_KAFKA_META_REFRESH_MS: "1000"
+      K2HB_KAFKA_POLL_TIMEOUT: "PT10S"
+      K2HB_KAFKA_DLQ_TOPIC: "test-dlq-topic"

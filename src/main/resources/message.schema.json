@@ -64,5 +64,7 @@
       ]
     }
   },
-  "required": ["message"]
+  "required": [
+    "message"
+  ]
 }
