@@ -97,8 +97,8 @@ object Config {
 
         fun reportTopicSubscriptionDetails(): String {
             return "Subscribing to topics ${topicRegex.pattern()} " +
-                    "with poll timeout ${pollTimeout} " +
-                    "and matadata refresh every ${consumerProps.getProperty(metaDataRefreshKey)} ms"
+                "with poll timeout ${pollTimeout} " +
+                "and matadata refresh every ${consumerProps.getProperty(metaDataRefreshKey)} ms"
         }
     }
 }

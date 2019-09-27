@@ -5,9 +5,9 @@ import java.time.Duration
 import java.time.LocalDateTime
 
 fun <T> waitFor(
-        interval: Duration = Duration.ofSeconds(1),
-        timeout: Duration = Duration.ofSeconds(30),
-        predicate: () -> T
+    interval: Duration = Duration.ofSeconds(1),
+    timeout: Duration = Duration.ofSeconds(30),
+    predicate: () -> T
 ): T {
     val start = LocalDateTime.now()
     val end = start + timeout

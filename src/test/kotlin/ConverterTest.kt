@@ -11,7 +11,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 
-class Conversion : StringSpec({
+class ConverterTest : StringSpec({
     configureLogging()
 
     val converter = Converter()
@@ -106,28 +106,28 @@ class Conversion : StringSpec({
 
     "valid timestamp format in the message gets parsed as long correctly" {
         val jsonString = "{\n" +
-                "        \"traceId\": \"00001111-abcd-4567-1234-1234567890ab\",\n" +
-                "        \"unitOfWorkId\": \"00002222-abcd-4567-1234-1234567890ab\",\n" +
-                "        \"@type\": \"V4\",\n" +
-                "        \"version\": \"core-X.release_XXX.XX\",\n" +
-                "        \"timestamp\": \"2018-12-14T15:01:02.000+0000\",\n" +
-                "        \"message\": {\n" +
-                "            \"@type\": \"MONGO_UPDATE\",\n" +
-                "            \"collection\": \"exampleCollectionName\",\n" +
-                "            \"db\": \"exampleDbName\",\n" +
-                "            \"_id\": {\n" +
-                "                \"exampleId\": \"aaaa1111-abcd-4567-1234-1234567890ab\"\n" +
-                "            },\n" +
-                "            \"_lastModifiedDateTime\": \"2018-12-14T15:01:02.000+0000\",\n" +
-                "            \"encryption\": {\n" +
-                "                \"encryptionKeyId\": \"55556666-abcd-89ab-1234-1234567890ab\",\n" +
-                "                \"encryptedEncryptionKey\": \"bHJjhg2Jb0uyidkl867gtFkjl4fgh9Ab\",\n" +
-                "                \"initialisationVector\": \"kjGyvY67jhJHVdo2\",\n" +
-                "                \"keyEncryptionKeyId\": \"example-key_2019-12-14_01\"\n" +
-                "            },\n" +
-                "            \"dbObject\": \"bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A\"\n" +
-                "        }\n" +
-                "    }"
+            "        \"traceId\": \"00001111-abcd-4567-1234-1234567890ab\",\n" +
+            "        \"unitOfWorkId\": \"00002222-abcd-4567-1234-1234567890ab\",\n" +
+            "        \"@type\": \"V4\",\n" +
+            "        \"version\": \"core-X.release_XXX.XX\",\n" +
+            "        \"timestamp\": \"2018-12-14T15:01:02.000+0000\",\n" +
+            "        \"message\": {\n" +
+            "            \"@type\": \"MONGO_UPDATE\",\n" +
+            "            \"collection\": \"exampleCollectionName\",\n" +
+            "            \"db\": \"exampleDbName\",\n" +
+            "            \"_id\": {\n" +
+            "                \"exampleId\": \"aaaa1111-abcd-4567-1234-1234567890ab\"\n" +
+            "            },\n" +
+            "            \"_lastModifiedDateTime\": \"2018-12-14T15:01:02.000+0000\",\n" +
+            "            \"encryption\": {\n" +
+            "                \"encryptionKeyId\": \"55556666-abcd-89ab-1234-1234567890ab\",\n" +
+            "                \"encryptedEncryptionKey\": \"bHJjhg2Jb0uyidkl867gtFkjl4fgh9Ab\",\n" +
+            "                \"initialisationVector\": \"kjGyvY67jhJHVdo2\",\n" +
+            "                \"keyEncryptionKeyId\": \"example-key_2019-12-14_01\"\n" +
+            "            },\n" +
+            "            \"dbObject\": \"bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A\"\n" +
+            "        }\n" +
+            "    }"
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         val timestamp = converter.getLastModifiedTimestamp(json)
@@ -138,10 +138,10 @@ class Conversion : StringSpec({
 
     "Invalid timestamp format in the message throws Exception" {
         val jsonString = "{\n" +
-                "        \"message\": {\n" +
-                "            \"_lastModifiedDateTime\": \"2018-12-14\",\n" +
-                "        }\n" +
-                "    }"
+            "        \"message\": {\n" +
+            "            \"_lastModifiedDateTime\": \"2018-12-14\",\n" +
+            "        }\n" +
+            "    }"
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         val timestamp = converter.getLastModifiedTimestamp(json)
@@ -153,10 +153,10 @@ class Conversion : StringSpec({
 
     "Invalid json with missing message attribute  throws Exception" {
         val jsonString = "{\n" +
-                "        \"message1\": {\n" +
-                "           \"_lastModifiedDateTime\": \"2018-12-14T15:01:02.000+0000\",\n" +
-                "        }\n" +
-                "    }"
+            "        \"message1\": {\n" +
+            "           \"_lastModifiedDateTime\": \"2018-12-14T15:01:02.000+0000\",\n" +
+            "        }\n" +
+            "    }"
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         shouldThrow<RuntimeException> {
@@ -167,10 +167,10 @@ class Conversion : StringSpec({
 
     "Invalid json with missing _lastModifiedDateTime attribute  throws Exception" {
         val jsonString = "{\n" +
-                "        \"message\": {\n" +
-                "           \"_lastModifiedDateTime1\": \"2018-12-14T15:01:02.000+0000\",\n" +
-                "        }\n" +
-                "    }"
+            "        \"message\": {\n" +
+            "           \"_lastModifiedDateTime1\": \"2018-12-14T15:01:02.000+0000\",\n" +
+            "        }\n" +
+            "    }"
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         shouldThrow<RuntimeException> {
@@ -181,10 +181,10 @@ class Conversion : StringSpec({
 
     "Invalid json with  _lastModifiedDateTime attribute value as empty  throws Exception" {
         val jsonString = "{\n" +
-                "        \"message\": {\n" +
-                "           \"_lastModifiedDateTime\": \"\",\n" +
-                "        }\n" +
-                "    }"
+            "        \"message\": {\n" +
+            "           \"_lastModifiedDateTime\": \"\",\n" +
+            "        }\n" +
+            "    }"
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         shouldThrow<RuntimeException> {
@@ -195,10 +195,10 @@ class Conversion : StringSpec({
 
     "Invalid json with  _lastModifiedDateTime attribute value as blank  throws Exception" {
         val jsonString = "{\n" +
-                "        \"message\": {\n" +
-                "           \"_lastModifiedDateTime\": \"   \",\n" +
-                "        }\n" +
-                "    }"
+            "        \"message\": {\n" +
+            "           \"_lastModifiedDateTime\": \"   \",\n" +
+            "        }\n" +
+            "    }"
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
         shouldThrow<RuntimeException> {

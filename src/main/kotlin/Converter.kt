@@ -8,10 +8,10 @@ import java.util.*
 import java.util.logging.Logger
 import java.util.zip.CRC32
 
-class Converter() {
+open class Converter() {
     private val log: Logger = Logger.getLogger("Converter")
 
-    fun convertToJson(body: ByteArray): JsonObject {
+    open fun convertToJson(body: ByteArray): JsonObject {
 
         try {
             val parser: Parser = Parser.default()
@@ -20,7 +20,7 @@ class Converter() {
             return json
         } catch (e: KlaxonException) {
             log.warning(
-                    "Error while parsing message in to json: ${e.toString()}"
+                "Error while parsing message in to json: ${e.toString()}"
             )
             throw IllegalArgumentException("Cannot parse invalid JSON")
         }
@@ -51,13 +51,13 @@ class Converter() {
         return String(decodedBytes);
     }
 
-    fun getTimestampAsLong(timeStampAsStr: String?, timeStampPattern: String = "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZ"): Long {
+    open fun getTimestampAsLong(timeStampAsStr: String?, timeStampPattern: String = "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZ"): Long {
         val df = SimpleDateFormat(timeStampPattern);
         return df.parse(timeStampAsStr).time
     }
 
-    fun getLastModifiedTimestamp(json: JsonObject): String? {
-        val lastModifiedTimestampStr = json.lookup<String?>("message._lastModifiedDateTime").get(0)
+    open fun getLastModifiedTimestamp(json: JsonObject?): String? {
+        val lastModifiedTimestampStr = json?.lookup<String?>("message._lastModifiedDateTime")?.get(0)
         if (lastModifiedTimestampStr.isNullOrBlank()) throw RuntimeException("Last modified date time is null or blank")
         return lastModifiedTimestampStr
     }

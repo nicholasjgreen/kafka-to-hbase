@@ -28,7 +28,7 @@ class Kafka2Hbase : StringSpec({
         val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
 
         val storedValue = waitFor { hbase.getCellBeforeTimestamp(topic, key, referenceTimestamp) }
-        storedValue shouldBe body
+        String(storedValue ?: "null".toByteArray()) shouldBe String(body)
 
         val counter = waitFor { hbase.getCount(topic) }
         counter shouldBe startingCounter + 1
@@ -69,32 +69,42 @@ class Kafka2Hbase : StringSpec({
         counter shouldBe startingCounter + 2
     }
 
-    "messages with empty id are skipped" {
-        val topic = uniqueTopicName()
-        val startingCounter = waitFor { hbase.getCount(topic) }
 
-        val body = uniqueBytesNoId()
-        val timestamp = timestamp()
-        producer.sendRecord(topic, "key".toByteArray(), body, timestamp)
-
-        val counter = waitFor { hbase.getCount(topic) }
-        counter shouldBe startingCounter
-    }
-
-    "Invalid json messages are written to dlq topic" {
+    "Malformed json messages are written to dlq topic" {
         val topic = uniqueTopicName()
 
         val key = parser.generateKey(converter.convertToJson(getId().toByteArray()))
         val body = "junk".toByteArray()
         val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
         producer.sendRecord(topic, "key3".toByteArray(), body, timestamp)
-
         consumer.subscribe(mutableListOf(Config.Kafka.dlqTopic))
         val records = consumer.poll(pollTimeout)
-
-        val malformedRecord = MalformedRecord("key3", String(body), "Not a valid json")
+        val malformedRecord = MalformedRecord("key3", String(body), "Invalid json")
         val expected = Klaxon().toJsonString(malformedRecord)
         val actual = String(records.elementAt(0).value())
-        expected shouldBe actual
+        actual shouldBe expected
     }
+
+    "Invalid json messages as per the schema are written to dlq topic" {
+        val topic = uniqueTopicName()
+
+        val key = parser.generateKey(converter.convertToJson(getId().toByteArray()))
+        val body = """
+            {
+                "key": "value"
+            }
+        """.trimIndent().toByteArray()
+
+        val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
+        producer.sendRecord(topic, "key3".toByteArray(), body, timestamp)
+        consumer.subscribe(mutableListOf(Config.Kafka.dlqTopic))
+        val records = consumer.poll(pollTimeout)
+        val malformedRecord = MalformedRecord("key3", String(body),
+            "Invalid schema for key3:${String(topic)}:0:0: Message failed schema validation: '#: required key [message] not found'.")
+        val expected = Klaxon().toJsonString(malformedRecord)
+
+        val actual = String(records.elementAt(0).value())
+        actual shouldBe expected
+    }
+
 })

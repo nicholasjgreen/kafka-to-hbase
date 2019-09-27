@@ -1,13 +1,13 @@
 import com.beust.klaxon.JsonObject
 import java.util.logging.Logger
 
-open class MessageParser() {
+open class MessageParser {
 
     private val converter = Converter()
     private val log: Logger = Logger.getLogger("messageParser")
 
-    open fun generateKeyFromRecordBody(body: JsonObject): ByteArray {
-        val id: JsonObject? = getId(body)
+    open fun generateKeyFromRecordBody(body: JsonObject?): ByteArray {
+        val id: JsonObject? = body?.let { getId(it) }
         return if (id == null) ByteArray(0) else generateKey(id)
     }
 
