@@ -1,3 +1,1 @@
-class InvalidMessageException : Exception {
-    constructor(message: String, cause: Throwable) : super(message, cause)
-}
+class InvalidMessageException(message: String, cause: Throwable) : Exception(message, cause)

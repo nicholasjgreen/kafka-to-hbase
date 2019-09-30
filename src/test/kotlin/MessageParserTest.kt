@@ -4,7 +4,6 @@ import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
 
 class MessageParserTest : StringSpec({
-    configureLogging()
 
     val convertor = Converter()
 

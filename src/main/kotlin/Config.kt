@@ -1,4 +1,5 @@
 import org.apache.hadoop.conf.Configuration
+import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import java.time.Duration
@@ -59,16 +60,12 @@ object Config {
             put("key.deserializer", ByteArrayDeserializer::class.java)
             put("value.deserializer", ByteArrayDeserializer::class.java)
 
-            put("key.serializer", ByteArraySerializer::class.java)
-            put("value.serializer", ByteArraySerializer::class.java)
-
             put("auto.offset.reset", "earliest")
             put(metaDataRefreshKey, getEnv("K2HB_KAFKA_META_REFRESH_MS") ?: "10000")
         }
 
         val producerProps = Properties().apply {
             put("bootstrap.servers", getEnv("K2HB_KAFKA_BOOTSTRAP_SERVERS") ?: "kafka:9092")
-            put("group.id", getEnv("K2HB_KAFKA_CONSUMER_GROUP") ?: "test")
 
             val sslVal = getEnv("K2HB_KAFKA_INSECURE") ?: "true"
             val useSSL = sslVal != "true"
@@ -81,24 +78,19 @@ object Config {
                 put("ssl.key.password", getEnv("K2HB_PRIVATE_KEY_PASSWORD"))
             }
 
-            put("key.deserializer", ByteArrayDeserializer::class.java)
-            put("value.deserializer", ByteArrayDeserializer::class.java)
-
             put("key.serializer", ByteArraySerializer::class.java)
             put("value.serializer", ByteArraySerializer::class.java)
-
-            put("auto.offset.reset", "earliest")
             put(metaDataRefreshKey, getEnv("K2HB_KAFKA_META_REFRESH_MS") ?: "10000")
         }
 
         val pollTimeout: Duration = getEnv("K2HB_KAFKA_POLL_TIMEOUT")?.toDuration() ?: Duration.ofHours(1)
-        val topicRegex: Pattern = Pattern.compile(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: "test-topic.*")
-        val dlqTopic = getEnv("K2HB_KAFKA_DLQ_TOPIC") ?: "test-dlq-topic"
+        var topicRegex: Pattern = Pattern.compile(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: "test-topic.*")
+        var dlqTopic = getEnv("K2HB_KAFKA_DLQ_TOPIC") ?: "dead-letter-queue"
 
         fun reportTopicSubscriptionDetails(): String {
             return "Subscribing to topics ${topicRegex.pattern()} " +
                 "with poll timeout ${pollTimeout} " +
-                "and matadata refresh every ${consumerProps.getProperty(metaDataRefreshKey)} ms"
+                "and metadata refresh every ${consumerProps.getProperty(metaDataRefreshKey)} ms"
         }
     }
 }

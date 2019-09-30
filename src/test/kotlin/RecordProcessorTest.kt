@@ -48,24 +48,19 @@ class RecordProcessorTest : StringSpec() {
     }
 
     init {
-        configureLogging()
 
         "valid record is sent to hbase successfully" {
             reset()
             val messageBody = """{
-        "message": {
-           "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
-           "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
-        }
-    }"""
+                "message": {
+                   "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
+                   "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                }
+            }"""
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("testTopic", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
             whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
-
-
-            processor.processRecord(record, hbaseClient, mockMessageParser, logger)
-
+            processor.processRecord(record, hbaseClient, mockMessageParser)
             verify(hbaseClient).putVersion("testTopic".toByteArray(), testByteArray, messageBody.toByteArray(), 1544799662000)
-            verify(logger).info(any<String>())
         }
 
         "record value with invalid json is not sent to hbase" {
@@ -73,7 +68,7 @@ class RecordProcessorTest : StringSpec() {
             val messageBody = """{"message":{"_id":{"test_key_a":,"test_key_b":"test_value_b"}}}"""
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("testTopic", 1, 11, 111, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
             whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
-            processor.processRecord(record, hbaseClient, mockMessageParser, logger)
+            processor.processRecord(record, hbaseClient, mockMessageParser)
 
             verifyZeroInteractions(hbaseClient)
         }
@@ -129,48 +124,45 @@ class RecordProcessorTest : StringSpec() {
             whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
 
             shouldThrow<DlqException> {
-                processor.processRecord(record, hbaseClient, mockMessageParser, logger)
+                processor.processRecord(record, hbaseClient, mockMessageParser)
             }
 
             verifyZeroInteractions(hbaseClient)
-            verify(logger, times(1)).warning(any<String>())
         }
 
         "record value with invalid _id field is not sent to hbase" {
             reset()
             val messageBody = """{
-        "message": {
-           "id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
-           "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
-        }
-    }"""
+                "message": {
+                   "id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
+                   "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                }
+            }"""
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("testTopic", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
             whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(ByteArray(0))
 
-            processor.processRecord(record, hbaseClient, mockMessageParser, logger)
+            processor.processRecord(record, hbaseClient, mockMessageParser)
 
             verifyZeroInteractions(hbaseClient)
-            verify(logger, atLeastOnce()).warning(any<String>())
         }
 
         "exception in hbase communication causes severe log message" {
             reset()
             val messageBody = """{
-        "message": {
-           "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
-           "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
-        }
-    }"""
+                "message": {
+                   "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
+                   "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                }
+            }"""
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("testTopic", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
             whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
 
             whenever(hbaseClient.putVersion("testTopic".toByteArray(), testByteArray, messageBody.toByteArray(), 1544799662000)).doThrow(RuntimeException("testException"))
 
             try {
-                processor.processRecord(record, hbaseClient, mockMessageParser, logger)
+                processor.processRecord(record, hbaseClient, mockMessageParser)
                 fail("test did not throw an exception")
             } catch (e: RuntimeException) {
-                verify(logger, atLeastOnce()).severe(any<String>())
             }
         }
 
@@ -195,11 +187,10 @@ class RecordProcessorTest : StringSpec() {
             doThrow(InvalidMessageException("oops!!", Exception())).`when`(mockValidator).validate(jsonObject.toJsonString())
             //whenever(mockValidator.validate(jsonObject.toJsonString())).thenThrow(InvalidMessageException("oops!!", Exception()))
 
-            processor.processRecord(record, hbaseClient, mockMessageParser, logger)
+            processor.processRecord(record, hbaseClient, mockMessageParser)
 
             verifyZeroInteractions(hbaseClient)
             verify(processor, times(1)).sendMessageToDlq(eq(record), eq("Invalid schema for key:testTopic:1:11: oops!!"))
-            verify(logger).warning(any<String>())
         }
 
         "Invalid Json that fails parsing is sent to the dlq" {
@@ -211,12 +202,11 @@ class RecordProcessorTest : StringSpec() {
             doThrow(IllegalArgumentException()).`when`(mockConverter).convertToJson(record.value())
             //whenever(mockConverter.convertToJson(record.value())).thenThrow(IllegalArgumentException())
 
-            processor.processRecord(record, hbaseClient, mockMessageParser, logger)
+            processor.processRecord(record, hbaseClient, mockMessageParser)
 
             verifyZeroInteractions(hbaseClient)
             verify(processor, times(1)).sendMessageToDlq(eq(record), eq("Invalid json"))
             verifyZeroInteractions(mockValidator)
-            verify(logger).warning(any<String>())
         }
     }
 

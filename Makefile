@@ -10,6 +10,10 @@ build: ## Build Kafka2Hbase
 dist: ## Assemble distribution files in build/dist
 	./gradlew assembleDist
 
+.PHONY: services
+services: ## Bring up Kafka2Hbase in Docker with supporting services
+	docker-compose up -d zookeeper kafka hbase
+
 .PHONY: up
 up: ## Bring up Kafka2Hbase in Docker with supporting services
 	docker-compose up --build -d
@@ -41,4 +45,3 @@ hbase-shell: ## Open an Hbase shell onto the running Hbase container
 .PHONY: test
 test: ## Run the unit tests
 	./gradlew --rerun-tasks unit
-

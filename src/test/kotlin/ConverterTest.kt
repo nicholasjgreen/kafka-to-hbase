@@ -12,7 +12,6 @@ import java.util.*
 
 
 class ConverterTest : StringSpec({
-    configureLogging()
 
     val converter = Converter()
 

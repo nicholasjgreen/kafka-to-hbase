@@ -4,7 +4,6 @@ import io.kotlintest.specs.StringSpec
 
 class ValidatorTest : StringSpec({
 
-    configureLogging()
 
     "Valid message passes validation." {
         Validator().validate("""

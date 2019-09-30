@@ -2,8 +2,6 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import sun.misc.Signal
 
 suspend fun main() {
-    configureLogging()
-
     // Connect to Hbase and create the topic tables
     val hbase = HbaseClient.connect()
     hbase.migrate()

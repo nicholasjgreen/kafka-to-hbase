@@ -95,6 +95,29 @@ They can be executed with the following command.
 
     make test
 
+## Run in an IDE
+
+Both Kafka2HBase and the integration tests can be run in an IDE to facilitate
+quicker feedback then a containerized approach. This is useful during active development.
+
+To do this first bring up the hbase, kafka and zookeeper containers:
+
+    make services
+
+On the run configuration for Kafka2Hbase set the following environment variables
+(nb not system properties)
+
+    K2HB_HBASE_ZOOKEEPER_QUORUM=localhost;K2HB_KAFKA_POLL_TIMEOUT=PT2S
+
+And on the run configuration for the integration tests set these:
+
+    K2HB_KAFKA_BOOTSTRAP_SERVERS=localhost:9092;K2HB_HBASE_ZOOKEEPER_QUORUM=localhost
+
+Then insert into your local hosts file the names, IP addresses of the kafka and
+hbase containers:
+
+    ./hosts.sh
+
 ## Getting logs
 
 The services are listed in the `docker-compose.yaml` file and logs can be
@@ -123,7 +146,7 @@ are for configuring the built-in ACM PCA client to perform mutual auth.
 
 #### Hbase
 
-By default Kafka2Hbase will connect to Zookeeper at `zookeeper:2181` use the parent uri `hbase` 
+By default Kafka2Hbase will connect to Zookeeper at `zookeeper:2181` use the parent uri `hbase`
 and create tables in the `k2hb` namespace. The data will be stored in `cf:data`
 with at least `1` version and at most `10` versions and a TTL of 10 days.
 
@@ -157,26 +180,26 @@ consumer group. It will poll the `test-topic` topic with a poll timeout of
 * **K2HB_KAFKA_TOPIC_REGEX**
     A regex that will fetch a list of topics to listen to, e.g. `db.*`. Defaults to `test-topic.*`
 * **K2HB_KAFKA_META_REFRESH_MS** (Optional)
-    The frequency that the consumer will ask the broker for metadata updates, which also checks for new topics. 
+    The frequency that the consumer will ask the broker for metadata updates, which also checks for new topics.
     Defaults to `10000` ms (10 seconds).
     Typically, should be an order of magnitude less than `K2HB_KAFKA_POLL_TIMEOUT`, else new topics will not be discovered within each polling interval.
 * **K2HB_KAFKA_POLL_TIMEOUT**
-    The maximum time to wait for messages in ISO-8601 duration format (e.g. `PT10S`). 
+    The maximum time to wait for messages in ISO-8601 duration format (e.g. `PT10S`).
     Defaults to 1 Hour.
     Should be greater than `K2HB_KAFKA_META_REFRESH_MS`, else new topics will not be discovered within each polling interval.
 * **K2HB_KAFKA_INSECURE**
     Disable SSL entirely (useful for dev / test) with `K2HB_KAFKA_INSECURE=true`
 * **K2HB_KAFKA_CERT_MODE**
-    If SSL is enabled, either create certs in ACM-PCA with value `CERTGEN` or retrieve 
+    If SSL is enabled, either create certs in ACM-PCA with value `CERTGEN` or retrieve
     them from ACM with value `RETRIEVE`
-    
+
 #### SSL Mutual Authentication (CERTGEN mode)
 
 By default the SSL is enabled but has no defaults. These must either be
-configured in full or disabled entirely via `K2HB_KAFKA_INSECURE=FALSE` 
+configured in full or disabled entirely via `K2HB_KAFKA_INSECURE=FALSE`
 and `K2HB_KAFKA_CERT_MODE=CERTGEN`.
 
-For an authoritative full list of arguments see the tool help; Arguments not listed here are 
+For an authoritative full list of arguments see the tool help; Arguments not listed here are
 defaulted in the `entrypoint.sh` script.
 
 * **CERTGEN_CA_ARN**
@@ -217,10 +240,10 @@ defaulted in the `entrypoint.sh` script.
 #### SSL Mutual Authentication (RETRIEVE mode)
 
 By default the SSL is enabled but has no defaults. These must either be
-configured in full or disabled entirely via `K2HB_KAFKA_INSECURE=FALSE` 
+configured in full or disabled entirely via `K2HB_KAFKA_INSECURE=FALSE`
 and `K2HB_KAFKA_CERT_MODE=RETRIEVE`.
 
-For an authoritative full list of arguments see the tool help; Arguments not listed here are 
+For an authoritative full list of arguments see the tool help; Arguments not listed here are
 defaulted in the `entrypoint.sh` script.
 
 * **RETRIEVER_ACM_CERT_ARN**

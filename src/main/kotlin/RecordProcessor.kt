@@ -3,23 +3,26 @@ import com.beust.klaxon.JsonObject
 import com.beust.klaxon.Klaxon
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.log4j.Logger
 import java.io.ByteArrayOutputStream
 import java.io.ObjectOutputStream
-import java.util.logging.Logger
 
 open class RecordProcessor(private val validator: Validator, private val converter: Converter) {
-    open fun processRecord(record: ConsumerRecord<ByteArray, ByteArray>, hbase: HbaseClient, parser: MessageParser, log: Logger) {
+
+    private val log = Logger.getLogger(RecordProcessor::class.toString())
+
+    open fun processRecord(record: ConsumerRecord<ByteArray, ByteArray>, hbase: HbaseClient, parser: MessageParser) {
         val json: JsonObject
         try {
             json = converter.convertToJson(record.value())
             validator.validate(json.toJsonString())
         } catch (e: IllegalArgumentException) {
-            log.warning("Could not parse message body for record with data of ${getDataStringForRecord(record)}")
+            log.warn("Could not parse message body for record with data of ${getDataStringForRecord(record)}")
             sendMessageToDlq(record, "Invalid json")
             return
         } catch (ex: InvalidMessageException) {
             val msg = "Invalid schema for ${getDataStringForRecord(record)}: ${ex.message}"
-            log.warning(msg)
+            log.warn(msg)
             sendMessageToDlq(record, msg)
             return
         }
@@ -28,7 +31,7 @@ open class RecordProcessor(private val validator: Validator, private val convert
 
 
         if (formattedKey.isEmpty()) {
-            log.warning("Empty key was skipped for record with data of ${getDataStringForRecord(record)}")
+            log.warn("Empty key was skipped for record with data of ${getDataStringForRecord(record)}")
             return
         }
 
@@ -41,9 +44,9 @@ open class RecordProcessor(private val validator: Validator, private val convert
                 body = record.value(),
                 version = lastModifiedTimestampLong
             )
-            log.info("Written record '${String(formattedKey)}' to HBase with data of ${getDataStringForRecord(record)}")
+            log.info("Written '${getDataStringForRecord(record)}' to HBase.")
         } catch (e: Exception) {
-            log.severe("Error writing record to HBase with data of ${getDataStringForRecord(record)}")
+            log.error("Error writing record to HBase with data of ${getDataStringForRecord(record)}")
             throw e
         }
     }
@@ -64,7 +67,7 @@ open class RecordProcessor(private val validator: Validator, private val convert
             val metadata = DlqProducer.getInstance()?.send(producerRecord)?.get()
             log.info("metadata topic : ${metadata?.topic()} offset : ${metadata?.offset()}")
         } catch (e: Exception) {
-            log.warning("Error while sending message to dlq : " +
+            log.warn("Error while sending message to dlq : " +
                 "key ${record.key()} from topic ${record.topic()} with offset ${record.offset()} : $e")
             throw DlqException("Exception while sending message to DLQ : $e")
         }
