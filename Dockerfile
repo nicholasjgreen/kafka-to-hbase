@@ -33,11 +33,15 @@ COPY src/ ./src
 RUN $GRADLE distTar
 
 # Second build stage starts here
-FROM openjdk:8-slim
+FROM openjdk:8-alpine
 
 ARG http_proxy_full=""
 
-# Set environment variables for apt-get
+# Set user to run the process as in the docker contianer
+ENV USER_NAME=user
+ENV GROUP_NAME=usergroup
+
+# Set environment variables for apk
 ENV http_proxy=${http_proxy_full}
 ENV https_proxy=${http_proxy_full}
 ENV HTTP_PROXY=${http_proxy_full}
@@ -54,17 +58,15 @@ RUN echo "ENV http: ${http_proxy}" \
     && echo "ARG full: ${http_proxy_full}"
 
 ENV acm_cert_helper_version 0.8.0
+# Note you get an error when trying to add gosu and uuid in the same line
 RUN echo "===> Installing Dependencies ..." \
-    && apt-get -qq update \
-    && apt-get install -y gosu uuid \
+    && apk update \
+    && apk add --no-cache --virtual gosu \
+    && apk add --no-cache --virtual uuid \
     && echo "===> Installing acm_pca_cert_generator ..." \
-    && apt-get install -y gcc python3-pip \
+    && apk add --no-cache g++ python3-dev libffi-dev openssl-dev gcc su-exec \
+    && pip3 install --upgrade pip setuptools \
     && pip3 install https://github.com/dwp/acm-pca-cert-generator/releases/download/${acm_cert_helper_version}/acm_cert_helper-${acm_cert_helper_version}.tar.gz \
-    && echo "===> Cleaning up ..."  \
-    && apt-get remove -y gcc \
-    && apt-get autoremove -y \
-    && apt-get clean \
-    && rm -rf /tmp/* /var/lib/apt/lists/* \
     && echo "==Dependencies done=="
 
 COPY ./entrypoint.sh /

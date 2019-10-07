@@ -1,4 +1,4 @@
-FROM zenika/kotlin:1.3-jdk8-slim as build
+FROM zenika/kotlin:1.3-jdk8-alpine as build
 
 WORKDIR /kafka2hbase
 
@@ -15,7 +15,8 @@ COPY settings.gradle.kts .
 COPY gradle.properties .
 RUN $GRADLE build && $GRADLE test
 
-RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
+RUN apk update \
+    && apk add su-exec
 
 COPY . .
 

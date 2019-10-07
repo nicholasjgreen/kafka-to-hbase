@@ -53,8 +53,8 @@ services:
       - kafka2hbase
     command: "true"
     environment:
-      SUID: ${UID-1000}
-      SGID: ${GROUPS-1000}
+      USER_NAME: "user"
+      GROUP_NAME: "usergroup"
       K2HB_KAFKA_INSECURE: "true"
       K2HB_KAFKA_META_REFRESH_MS: "1000"
       K2HB_KAFKA_POLL_TIMEOUT: "PT10S"

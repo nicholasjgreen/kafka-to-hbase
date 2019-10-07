@@ -47,7 +47,7 @@ jobs:
         # Do not user the docker compose override to prevent invalid bind mounts
       - run: sudo pip3 install docker-compose
       - run: docker-compose -f docker-compose.yaml up --build -d
-      - run: docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew integration
+      - run: docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew --no-daemon integration
 
         # Store the test results from inside the container
       - run: docker cp integration-test:/kafka2hbase/build/test-results .
