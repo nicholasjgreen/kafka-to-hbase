@@ -57,14 +57,17 @@ RUN echo "ENV http: ${http_proxy}" \
     && echo "ENV HTTPS: ${HTTPS_PROXY}" \
     && echo "ARG full: ${http_proxy_full}"
 
+RUN echo "===> Updating base packages ..." \
+    && apk update \
+    && apk upgrade \
+    echo "==Update done=="
+
 ENV acm_cert_helper_version 0.8.0
-# Note you get an error when trying to add gosu and uuid in the same line
 RUN echo "===> Installing Dependencies ..." \
     && apk update \
-    && apk add --no-cache --virtual gosu \
-    && apk add --no-cache --virtual uuid \
+    && apk add --no-cache su-exec util-linux \
     && echo "===> Installing acm_pca_cert_generator ..." \
-    && apk add --no-cache g++ python3-dev libffi-dev openssl-dev gcc su-exec \
+    && apk add --no-cache g++ python3-dev libffi-dev openssl-dev gcc \
     && pip3 install --upgrade pip setuptools \
     && pip3 install https://github.com/dwp/acm-pca-cert-generator/releases/download/${acm_cert_helper_version}/acm_cert_helper-${acm_cert_helper_version}.tar.gz \
     && echo "==Dependencies done=="

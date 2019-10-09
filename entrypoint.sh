@@ -24,13 +24,13 @@ if [ "${K2HB_KAFKA_INSECURE}" != "true" ]
 then
 
     SSL_DIR="$(mktemp -d)"
-    export K2HB_PRIVATE_KEY_PASSWORD="$(uuid -v4)"
+    export K2HB_PRIVATE_KEY_PASSWORD="$(uuidgen)"
 
     export K2HB_KEYSTORE_PATH="${SSL_DIR}/k2hb.keystore"
-    export K2HB_KEYSTORE_PASSWORD="$(uuid -v4)"
+    export K2HB_KEYSTORE_PASSWORD="$(uuidgen)"
 
     export K2HB_TRUSTSTORE_PATH="${SSL_DIR}/k2hb.truststore"
-    export K2HB_TRUSTSTORE_PASSWORD="$(uuid -v4)"
+    export K2HB_TRUSTSTORE_PASSWORD="$(uuidgen)"
 
     if [ "${K2HB_KAFKA_CERT_MODE}" = "CERTGEN" ]; then
 
@@ -50,7 +50,7 @@ then
 
         echo "Retrieving cert from ${RETRIEVER_ACM_CERT_ARN}"
 
-        export RETRIEVER_ACM_KEY_PASSPHRASE="$(uuid -v4)"
+        export RETRIEVER_ACM_KEY_PASSPHRASE="$(uuidgen)"
 
         acm-cert-retriever \
             --acm-key-passphrase "${RETRIEVER_ACM_KEY_PASSPHRASE}" \
@@ -72,4 +72,4 @@ else
 fi
 
 chown ${USER_NAME}:${GROUP_NAME} . -R
-su-exec ${USER_NAME}:${GROUP_NAME} "${@}"
+exec su-exec ${USER_NAME}:${GROUP_NAME} "${@}"
