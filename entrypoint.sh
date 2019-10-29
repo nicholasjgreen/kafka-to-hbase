@@ -2,13 +2,6 @@
 
 set -e
 
-# Create a user to run the process as instead of root
-if ! getent passwd ${USER_NAME} > /dev/null
-then
-    addgroup ${GROUP_NAME}
-    adduser --system --ingroup ${GROUP_NAME} ${USER_NAME}
-fi
-
 # If a proxy is requested, set it up
 
 if [ "${INTERNET_PROXY}" ]; then
@@ -66,10 +59,8 @@ then
         echo "K2HB_KAFKA_CERT_MODE must be one of 'CERTGEN,RETRIEVE' but was ${K2HB_KAFKA_CERT_MODE}"
         exit 1
     fi
-    chown -R ${USER_NAME}:${GROUP_NAME} "${SSL_DIR}"
 else
     echo "Skipping cert generation for host ${HOSTNAME}"
 fi
 
-chown ${USER_NAME}:${GROUP_NAME} . -R
-exec su-exec ${USER_NAME}:${GROUP_NAME} "${@}"
+exec "${@}"

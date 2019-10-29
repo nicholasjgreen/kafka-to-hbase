@@ -14,23 +14,25 @@ RUN echo "ENV gradle: ${GRADLE_OPTS}" \
     && echo "ARG host: ${http_proxy_host}" \
     && echo "ARG port: ${http_proxy_port}"
 
-ENV GRADLE "/kafka2hbase/gradlew --no-daemon"
+ENV GRADLE "/kafka2hbase/gradlew"
 
-# Copy and generate the gradle wrapper
+
+# Copy the gradle wrapper
 COPY gradlew .
 COPY gradle/ ./gradle
-RUN $GRADLE wrapper
 
-# Copy the gradle config and install dependencies
+# Copy the gradle config
 COPY build.gradle.kts .
 COPY settings.gradle.kts .
 COPY gradle.properties .
-RUN $GRADLE build
 
 # Copy the source
 COPY src/ ./src
 
-RUN $GRADLE distTar
+# Generate Wrapper, install dependencies and Create DistTar
+RUN $GRADLE wrapper \
+    && $GRADLE build \
+    && $GRADLE distTar
 
 # Second build stage starts here
 FROM openjdk:8-alpine
@@ -38,8 +40,12 @@ FROM openjdk:8-alpine
 ARG http_proxy_full=""
 
 # Set user to run the process as in the docker contianer
-ENV USER_NAME=user
-ENV GROUP_NAME=usergroup
+ENV USER_NAME=k2hb
+ENV GROUP_NAME=k2hb
+
+# Create group and user to execute task
+RUN addgroup ${GROUP_NAME}
+RUN adduser --system --ingroup ${GROUP_NAME} ${USER_NAME}
 
 # Set environment variables for apk
 ENV http_proxy=${http_proxy_full}
@@ -57,15 +63,13 @@ RUN echo "ENV http: ${http_proxy}" \
     && echo "ENV HTTPS: ${HTTPS_PROXY}" \
     && echo "ARG full: ${http_proxy_full}"
 
-RUN echo "===> Updating base packages ..." \
-    && apk update \
-    && apk upgrade \
-    echo "==Update done=="
-
 ENV acm_cert_helper_version 0.8.0
 RUN echo "===> Installing Dependencies ..." \
+    && echo "===> Updating base packages ..." \
     && apk update \
-    && apk add --no-cache su-exec util-linux \
+    && apk upgrade \
+    && echo "==Update done==" \
+    && apk add --no-cache util-linux \
     && echo "===> Installing acm_pca_cert_generator ..." \
     && apk add --no-cache g++ python3-dev libffi-dev openssl-dev gcc \
     && pip3 install --upgrade pip setuptools \
@@ -79,6 +83,10 @@ WORKDIR /kafka2hbase
 COPY --from=build /kafka2hbase/build/distributions/$DIST_FILE .
 
 RUN tar -xf $DIST_FILE --strip-components=1
+
+RUN chown ${USER_NAME}:${GROUP_NAME} . -R
+
+USER $USER_NAME
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["./bin/kafka2hbase"]
