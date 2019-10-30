@@ -42,7 +42,7 @@ jobs:
       - checkout
       - setup_remote_docker:
           # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
-          docker_layer_caching: true
+          docker_layer_caching: false
 
         # Do not user the docker compose override to prevent invalid bind mounts
       - run: sudo pip3 install docker-compose
@@ -80,10 +80,11 @@ workflows:
   "build & test":
     jobs:
       - build
-      - test
-      - publish-github-release:
+      - test:
           requires:
             - build
+      - publish-github-release:
+          requires:
             - test
           filters:
             branches:
