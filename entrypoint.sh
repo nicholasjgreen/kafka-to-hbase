@@ -7,7 +7,7 @@ set -e
 if [ "${INTERNET_PROXY}" ]; then
   export http_proxy="http://${INTERNET_PROXY}:3128"
   export https_proxy="http://${INTERNET_PROXY}:3128"
-  export no_proxy=169.254.169.254
+  export no_proxy=169.254.169.254,.amazonaws.com
   echo "Using proxy ${INTERNET_PROXY}"
 fi
 
