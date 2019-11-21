@@ -27,7 +27,7 @@ class ValidatorTest : StringSpec({
         """.trimMargin())
     }
 
-    "Valid message altername date format passes validation." {
+    "Valid message alternate date format passes validation." {
         Validator().validate("""
             |{
             |   "message": {
@@ -36,6 +36,29 @@ class ValidatorTest : StringSpec({
             |           "declarationId": 1
             |       },
             |       "_lastModifiedDateTime": "2019-07-04T07:27:35.104",
+            |       "collection" : "addresses",
+            |       "db": "core",
+            |       "dbObject": "asd",
+            |       "encryption": {
+            |           "keyEncryptionKeyId": "cloudhsm:7,14",
+            |           "initialisationVector": "iv",
+            |           "encryptedEncryptionKey": "=="
+            |       }
+            |   }
+            |}
+        """.trimMargin())
+    }
+
+    "Valid message alternate date format number two passes validation." {
+
+        Validator().validate("""
+            |{
+            |   "message": {
+            |       "@type": "hello",
+            |       "_id": {
+            |           "declarationId": 1
+            |       },
+            |       "_lastModifiedDateTime": "2017-06-19T23:00:10.875Z",
             |       "collection" : "addresses",
             |       "db": "core",
             |       "dbObject": "asd",
@@ -288,7 +311,7 @@ class ValidatorTest : StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe "Message failed schema validation: '#/message/_lastModifiedDateTime: string [2019-07-04] does not match pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}(\\+\\d{4})?\$'."
+        exception.message shouldBe "Message failed schema validation: '#/message/_lastModifiedDateTime: string [2019-07-04] does not match pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}(\\+\\d{4}|Z)?\$'."
     }
 
     "Missing '#/message/db' field causes validation failure." {
