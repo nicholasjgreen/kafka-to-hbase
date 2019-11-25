@@ -1,12 +1,18 @@
+import com.amazonaws.ClientConfiguration
+import com.amazonaws.Protocol
+import com.amazonaws.auth.AWSStaticCredentialsProvider
+import com.amazonaws.auth.BasicAWSCredentials
+import com.amazonaws.client.builder.AwsClientBuilder
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.beust.klaxon.Klaxon
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 import lib.*
-import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.log4j.Logger
-import java.time.Duration
+import java.io.BufferedReader
+import java.text.SimpleDateFormat
 import java.util.*
 
 class Kafka2HBaseSpec: StringSpec(){
@@ -21,7 +27,9 @@ class Kafka2HBaseSpec: StringSpec(){
             val converter = Converter()
             val topic = uniqueTopicName()
             val startingCounter = waitFor { hbase.getCount(topic) }
-            val dlqConsumer = dlqConsumer()
+            val s3Client = getS3Client()
+            val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
+            summaries.forEach{s3Client.deleteObject("kafka2s3", it.key)}
             val body = wellformedValidPayload()
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val key = parser.generateKey(converter.convertToJson(getId().toByteArray()))
@@ -36,12 +44,15 @@ class Kafka2HBaseSpec: StringSpec(){
             val counter = waitFor { hbase.getCount(topic) }
             counter shouldBe startingCounter + 1
 
-            val records = dlqConsumer.poll(Duration.ofSeconds(10))
-            records.count() shouldBe 0
+            val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
+            summaries1.size shouldBe 0
         }
 
         "Messages with previously received identifiers are written as new versions to hbase but not to dlq" {
-            val dlqConsumer = dlqConsumer()
+            val s3Client = getS3Client()
+            val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
+            summaries.forEach{s3Client.deleteObject("kafka2s3", it.key)}
+
             val hbase = HbaseClient.connect()
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
 
@@ -63,8 +74,8 @@ class Kafka2HBaseSpec: StringSpec(){
             val kafkaTimestamp2 = converter.getTimestampAsLong(getISO8601Timestamp())
             producer.sendRecord(topic, "key2".toByteArray(), body2, kafkaTimestamp2)
 
-            val records = dlqConsumer.poll(Duration.ofSeconds(10))
-            records.count() shouldBe 0
+           val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
+            summaries1.size shouldBe 0
 
             val storedNewValue = waitFor { hbase.getCellAfterTimestamp(topic, key, referenceTimestamp) }
             storedNewValue shouldBe body2
@@ -77,58 +88,51 @@ class Kafka2HBaseSpec: StringSpec(){
         }
 
         "Malformed json messages are written to dlq topic" {
-            val dlqConsumer = dlqConsumer()
+            val s3Client = getS3Client()
+
             val converter = Converter()
             val topic = uniqueTopicName()
             val body = "junk".toByteArray()
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             producer.sendRecord(topic, "key3".toByteArray(), body, timestamp)
-            val records = dlqConsumer.poll(Duration.ofSeconds(20))
-            records.count() shouldBe 1
             val malformedRecord = MalformedRecord("key3", String(body), "Invalid json")
             val expected = Klaxon().toJsonString(malformedRecord)
-            val actual = String(records.elementAt(0).value())
+            Thread.sleep(10_000)
+            val s3Object =  s3Client.getObject("kafka2s3", "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key3").objectContent
+            val actual = s3Object.bufferedReader().use(BufferedReader::readText)
             actual shouldBe expected
         }
 
         "Invalid json messages as per the schema are written to dlq topic" {
-            //        val log = Logger.getLogger(SchemaSpec::class.toString())
-            val dlqConsumer = dlqConsumer()
+            val s3Client = getS3Client()
             val converter = Converter()
             val topic = uniqueTopicName()
             val body = """{ "key": "value" } """.toByteArray()
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
-            producer.sendRecord(topic, "key3".toByteArray(), body, timestamp)
-            val records = dlqConsumer.poll(Duration.ofSeconds(10))
-            records.count() shouldBe 1
+            producer.sendRecord(topic, "key4".toByteArray(), body, timestamp)
+            Thread.sleep(10_000)
+            val s3Object = s3Client.getObject("kafka2s3", "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key4").objectContent
+            val actual = s3Object.bufferedReader().use(BufferedReader::readText)
             val malformedRecord = MalformedRecord(
-                "key3", String(body),
-                "Invalid schema for key3:${String(topic)}:0:0: Message failed schema validation: '#: required key [message] not found'."
+                "key4", String(body),
+                "Invalid schema for key4:${String(topic)}:0:0: Message failed schema validation: '#: required key [message] not found'."
             )
             val expected = Klaxon().toJsonString(malformedRecord)
-            val actual = String(records.elementAt(0).value())
-            dlqConsumer.commitSync()
             actual shouldBe expected
         }
     }
-    private fun dlqConsumer(): KafkaConsumer<ByteArray, ByteArray> {
-        val dlqConsumer = KafkaConsumer<ByteArray, ByteArray>(testConsumerProperties())
-        val log = Logger.getLogger("clearDown")
-        dlqConsumer.subscribe(mutableListOf(Config.Kafka.dlqTopic))
-        log.info("Clearing down DLQ '${Config.Kafka.dlqTopic}'.")
-        val removed = dlqConsumer.poll(Duration.ofSeconds(10))
-        log.info("Removed: '${removed.count()}' records from the DLQ.")
-        dlqConsumer.commitSync()
-        return dlqConsumer
+
+    private fun getS3Client(): AmazonS3{
+        return  AmazonS3ClientBuilder.standard()
+            .withEndpointConfiguration(AwsClientBuilder.EndpointConfiguration("http://aws-s3:4572", "eu-west-2"))
+            .withClientConfiguration(ClientConfiguration().withProtocol(Protocol.HTTP))
+            .withCredentials(
+                AWSStaticCredentialsProvider(BasicAWSCredentials("aws-access-key", "aws-secret-access-key")))
+            .withPathStyleAccessEnabled(true)
+            .disableChunkedEncoding()
+            .build()
     }
 
-    private fun testConsumerProperties() = Properties().apply {
-        put("bootstrap.servers", getEnv("K2HB_KAFKA_BOOTSTRAP_SERVERS") ?: "kafka:9092")
-        put("key.deserializer", ByteArrayDeserializer::class.java)
-        put("value.deserializer", ByteArrayDeserializer::class.java)
-        put("group.id", UUID.randomUUID().toString())
-        put("metadata.max.age.ms", getEnv("K2HB_KAFKA_META_REFRESH_MS") ?: "10000")
-    }
 }

@@ -44,6 +44,43 @@ services:
       K2HB_KAFKA_POLL_TIMEOUT: "PT10S"
       K2HB_KAFKA_DLQ_TOPIC: "test-dlq-topic"
 
+  kafka2s3:
+    image: dwpdigital/kafka-to-s3:latest
+    depends_on:
+      - kafka
+      - s3-provision
+    environment:
+      K2S3_KAFKA_INSECURE: "true"
+      K2S3_DEAD_LETTER_QUEUE: "test-dlq-topic"
+      K2S3_KAFKA_META_REFRESH_MS: "1000"
+      K2S3_KAFKA_POLL_TIMEOUT: "PT10S"
+      AWS_S3_PREFIX_BASE: "prefix"
+
+  aws-s3:
+    image: localstack/localstack:latest
+    ports:
+      - '4563-4584:4563-4584'
+      - '8055:8080'
+    container_name: aws-s3
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DATA_DIR=/opt/s3/data
+
+  s3-provision:
+      image: s3-bucket-provision
+      build: ./docker/s3
+      container_name: s3-bucket-provision
+      depends_on:
+        - aws-s3
+      environment:
+        - S3_SERVICE_ENDPOINT=http://aws-s3:4572
+        - AWS_REGION=eu-west-2
+        - AWS_DEFAULT_REGION=eu-west-2
+        - AWS_ACCESS_KEY_ID=aws-access-key
+        - AWS_SECRET_ACCESS_KEY=aws-secret-access-key
+        - S3_BUCKET=kafka2s3
+
   integration-test:
     image: kafka2hbase-integration:latest
     build:

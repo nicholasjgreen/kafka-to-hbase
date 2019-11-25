@@ -36,7 +36,7 @@ integration: ## Run the integration tests in a Docker container
 	docker-compose run --rm integration-test ./gradlew --rerun-tasks integration
 
 .PHONY: integration-all ## Build and Run all the tests in containers from a clean start
-integration-all: down destroy build dist up test integration
+integration-all: down destroy build-base build dist up test integration
 
 .PHONY: hbase-shell
 hbase-shell: ## Open an Hbase shell onto the running Hbase container
@@ -45,3 +45,12 @@ hbase-shell: ## Open an Hbase shell onto the running Hbase container
 .PHONY: test
 test: ## Run the unit tests
 	./gradlew --rerun-tasks unit
+
+.PHONY: build-base
+build-base: ## build the base images which certain images extend.
+	@{ \
+    		pushd docker; \
+    		docker build --tag dwp-java:latest --file .java/Dockerfile . ; \
+    		docker build --tag dwp-python-preinstall:latest --file ./python/Dockerfile . ; \
+    		popd; \
+    }

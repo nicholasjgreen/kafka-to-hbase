@@ -53,6 +53,8 @@ jobs:
 
         # Do not user the docker compose override to prevent invalid bind mounts
       - run: sudo pip3 install docker-compose
+      - run: docker build --tag dwp-java:latest --file ./docker/java/Dockerfile .
+      - run: docker build --tag dwp-python-preinstall:latest --file ./docker/python/Dockerfile .
       - run: docker-compose -f docker-compose.yaml up --build -d
       - run: docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew --no-daemon integration
 
