@@ -28,7 +28,7 @@ open class RecordProcessor(private val validator: Validator, private val convert
         }
 
         val formattedKey = parser.generateKeyFromRecordBody(json)
-        log.info("Formatted key for the record '${String(record.key())}' is '${formattedKey.contentToString()}'")
+        log.debug("Formatted key for the record '${String(record.key())}' is '${formattedKey.contentToString()}'")
 
         if (formattedKey.isEmpty()) {
             log.warn("Empty key was skipped for record with data of ${getDataStringForRecord(record)}")
@@ -44,7 +44,7 @@ open class RecordProcessor(private val validator: Validator, private val convert
                 body = record.value(),
                 version = lastModifiedTimestampLong
             )
-            log.info("Written '${getDataStringForRecord(record)}' to HBase with formatted key as '${String(formattedKey)}'.")
+            log.debug("Written '${getDataStringForRecord(record)}' to HBase with formatted key as '${String(formattedKey)}'.")
         } catch (e: Exception) {
             log.error("Error writing record to HBase with data of ${getDataStringForRecord(record)}")
             throw e
