@@ -70,6 +70,11 @@ jobs:
     docker:
       - image: snyk/snyk-cli:1.256.0-gradle-2.8
     steps:
+      - run: mkdir -p ~/.ssh/
+      - run: chmod -R 0700 ~/.ssh/
+      - run: echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+      - run: cat ~/.ssh/config
+      - run: service sshd restart
       - checkout
       - setup_remote_docker:
           # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
@@ -145,6 +150,9 @@ workflows:
     jobs:
       - build
       - test:
+          requires:
+            - build
+      - snyk:
           requires:
             - build
       - publish-github-release:
