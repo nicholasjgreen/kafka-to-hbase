@@ -66,6 +66,18 @@ jobs:
           path: test-results
           destination: test-results
 
+  snyk:
+    docker:
+      - image: snyk/snyk-cli:1.256.0-gradle-2.8
+    steps:
+      - checkout
+      - setup_remote_docker:
+          # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
+          docker_layer_caching: false
+
+      - run: snyk auth ${SNYK_TOKEN}
+      - run: snyk test --file=build.gradle.kts --package-manager=gradle
+
   publish-github-release:
     docker:
       - image: cibuilds/github:0.10
