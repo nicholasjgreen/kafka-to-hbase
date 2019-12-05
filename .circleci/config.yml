@@ -68,16 +68,13 @@ jobs:
 
   snyk:
     docker:
-      - image: snyk/snyk-cli:1.256.0-gradle-2.8
+      - image: circleci/node
     steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "c7:a9:62:c0:99:1b:61:e5:96:3a:66:18:51:75:72:74"
       - checkout
       - setup_remote_docker:
           # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
           docker_layer_caching: false
-
+      - run: npm install -g snyk
       - run: snyk auth ${SNYK_TOKEN}
       - run: snyk test --file=build.gradle.kts --package-manager=gradle
 
