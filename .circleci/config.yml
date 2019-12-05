@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  snyk: snyk/snyk@0.0.8
+
 executors:
   docker-publisher:
     environment:
@@ -68,17 +71,17 @@ jobs:
 
   snyk:
     docker:
-      - image: circleci/node
+      - image: circleci/openjdk:8-jdk
     steps:
       - checkout
-      - setup_remote_docker:
-          # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
-          docker_layer_caching: false
-      - run: cd ~/
-      - run: npm install --prefix ~/ snyk
-      - run: ~/node_modules/.bin/snyk auth ${SNYK_TOKEN}
-      - run: ~/node_modules/.bin/snyk
-      - run: ~/node_modules/.bin/snyk test --file=build.gradle.kts --package-manager=gradle
+      - snyk/scan:
+          organization: dwp-dataworks
+          fail-on-issues: false
+          target-file: build.gradle.kts
+      - snyk/scan:
+          organization: dwp-dataworks
+          severity-threshold: high
+          target-file: build.gradle.kts
 
   publish-github-release:
     docker:
