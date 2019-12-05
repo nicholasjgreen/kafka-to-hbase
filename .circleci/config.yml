@@ -60,7 +60,6 @@ jobs:
       - run: docker build --tag dwp-python-preinstall:latest --file ./docker/python/Dockerfile .
       - run: docker-compose -f docker-compose.yaml up --build -d
       - run: docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew --no-daemon integration
-
         # Store the test results from inside the container
       - run: docker cp integration-test:/kafka2hbase/build/test-results .
       - store_test_results:
@@ -82,6 +81,7 @@ jobs:
           organization: dwp-dataworks
           severity-threshold: high
           target-file: build.gradle.kts
+          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}'
 
   publish-github-release:
     docker:

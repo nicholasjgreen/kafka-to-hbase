@@ -142,4 +142,8 @@ ignore:
     - '*':
         reason: removed, ticket raised for project remediation (DW-3099)
         expires: 2020-01-20T00:00:00.000Z
+  SNYK-JAVA-COMMONSHTTPCLIENT-31660:
+    - '*':
+        reason: removed, ticket raised for project remediation (DW-3099)
+        expires: 2020-01-20T00:00:00.000Z
 patch: {}
