@@ -74,7 +74,7 @@ jobs:
       - setup_remote_docker:
           # Attempt to enable DLC - if it's not enabled at an org level this will do nothing
           docker_layer_caching: false
-      - run: npm install -g snyk
+      - run: npm install snyk
       - run: snyk auth ${SNYK_TOKEN}
       - run: snyk test --file=build.gradle.kts --package-manager=gradle
 
