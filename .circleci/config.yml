@@ -77,12 +77,12 @@ jobs:
           organization: dwp-dataworks
           fail-on-issues: false
           target-file: build.gradle.kts
-          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}'
+          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-all'
       - snyk/scan:
           organization: dwp-dataworks
           severity-threshold: high
           target-file: build.gradle.kts
-          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}'
+          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-high-only'
 
   publish-github-release:
     docker:
