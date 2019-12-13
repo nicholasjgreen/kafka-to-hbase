@@ -118,8 +118,31 @@ class MessageParserTest : StringSpec({
 
     "id is returned from valid json" {
         val parser = MessageParser()
-        val jsonOne: JsonObject = convertor.convertToJson("{\"message\":{\"_id\":{\"test_key\":\"test_value\"}}}".toByteArray())
-        val idString = "{\"test_key\":\"test_value\"}"
+        val jsonOne: JsonObject = convertor.convertToJson(
+            """{"message":{"_id":{"test_key":"test_value"}}}""".toByteArray())
+        val idString = """{"test_key":"test_value"}"""
+
+        val idJson: JsonObject? = parser.getId(jsonOne)
+
+        idJson?.toJsonString() shouldBe idString
+    }
+
+    "string id is returned from valid json" {
+        val parser = MessageParser()
+        val jsonOne: JsonObject = convertor.convertToJson(
+            """{"message":{"_id":"value"}}""".toByteArray())
+        val idString = """{"id":"value"}"""
+
+        val idJson: JsonObject? = parser.getId(jsonOne)
+
+        idJson?.toJsonString() shouldBe idString
+    }
+
+    "integer id is returned from valid json" {
+        val parser = MessageParser()
+        val jsonOne: JsonObject = convertor.convertToJson(
+            """{"message":{"_id":123}}""".toByteArray())
+        val idString = """{"id":"123"}"""
 
         val idJson: JsonObject? = parser.getId(jsonOne)
 
@@ -150,9 +173,9 @@ class MessageParserTest : StringSpec({
         idJson shouldBe null
     }
 
-    "null is returned from json where _id is not an object" {
+    "null is returned from json where _id is an array" {
         val parser = MessageParser()
-        val jsonOne: JsonObject = convertor.convertToJson("{\"message\":{\"_id\":\"test_value\"}}".toByteArray())
+        val jsonOne: JsonObject = convertor.convertToJson("""{"message":{"_id":["test_value"]}}""".toByteArray())
         val idJson: JsonObject? = parser.getId(jsonOne)
 
         idJson shouldBe null
@@ -188,15 +211,15 @@ class MessageParserTest : StringSpec({
 
     "empty is returned from record body key generation where _id is missing" {
         val parser = MessageParser()
-        val jsonOne: JsonObject = convertor.convertToJson("{\"message\":{\"test_object\":{\"test_key\":\"test_value\"}}}".toByteArray())
+        val jsonOne: JsonObject = convertor.convertToJson("""{"message":{"test_object":{"test_key":"test_value"}}}""".toByteArray())
         val key: ByteArray = parser.generateKeyFromRecordBody(jsonOne)
 
         key shouldBe ByteArray(0)
     }
 
-    "empty is returned from record body key generation where _id is not an object" {
+    "empty is returned from record body key generation where _id is an array" {
         val parser = MessageParser()
-        val jsonOne: JsonObject = convertor.convertToJson("{\"message\":{\"_id\":\"test_value\"}}".toByteArray())
+        val jsonOne: JsonObject = convertor.convertToJson("""{"message":{"_id":["test_value"]}}""".toByteArray())
         val key: ByteArray = parser.generateKeyFromRecordBody(jsonOne)
 
         key shouldBe ByteArray(0)
