@@ -1,5 +1,6 @@
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import sun.misc.Signal
+import java.security.Security
 
 suspend fun main() {
     // Connect to Hbase and create the topic tables

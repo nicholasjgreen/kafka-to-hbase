@@ -3,6 +3,7 @@ import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.*
 import org.apache.hadoop.hbase.io.TimeRange
 import org.apache.hadoop.hbase.util.Bytes
+import java.security.Security
 
 open class HbaseClient(
     val connection: Connection,
@@ -12,6 +13,11 @@ open class HbaseClient(
     val topicFamily: ByteArray,
     val topicQualifier: ByteArray
 ) {
+
+    init {
+        Security.setProperty("networkaddress.cache.ttl", (getEnv("K2HB_DNS_TTL") ?: "60"))
+    }
+    
     companion object {
         fun connect() = HbaseClient(
             ConnectionFactory.createConnection(HBaseConfiguration.create(Config.Hbase.config)),
