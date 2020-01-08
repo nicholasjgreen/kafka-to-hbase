@@ -16,21 +16,22 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
         while (isActive) {
             try {
                 validateHbaseConnection(hbase)
-            } catch (e: Exception) {
+
+                log.info("Subscribing to '${Config.Kafka.topicRegex}'.")
+                consumer.subscribe(Config.Kafka.topicRegex)
+                log.info("Polling for '${pollTimeout}'.")
+                val records = consumer.poll(pollTimeout)
+                log.info("Processing '${records.count()}' records.")
+                for (record in records) {
+                    processor.processRecord(record, hbase, parser)
+                }
+
+            } catch (e: java.io.IOException) {
                 log.error(e.message)
                 cancel(CancellationException("Cannot reconnect to Hbase", e))
             }
-
-            log.info("Subscribing to '${Config.Kafka.topicRegex}'.")
-            consumer.subscribe(Config.Kafka.topicRegex)
-            log.info("Polling for '${pollTimeout}'.")
-            val records = consumer.poll(pollTimeout)
-            log.info("Processing '${records.count()}' records.")
-            for (record in records) {
-                processor.processRecord(record, hbase, parser)
-            }
-
         }
+
     }
 
 fun validateHbaseConnection(hbase: HbaseClient){
