@@ -1,6 +1,5 @@
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.*
+import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.log4j.Logger
 import java.time.Duration
@@ -15,6 +14,13 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
         val processor = RecordProcessor(validator, converter)
 
         while (isActive) {
+            try {
+                validateHbaseConnection(hbase)
+            } catch (e: Exception) {
+                log.error(e.message)
+                cancel(CancellationException("Cannot reconnect to Hbase", e))
+            }
+
             log.info("Subscribing to '${Config.Kafka.topicRegex}'.")
             consumer.subscribe(Config.Kafka.topicRegex)
             log.info("Polling for '${pollTimeout}'.")
@@ -23,5 +29,36 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
             for (record in records) {
                 processor.processRecord(record, hbase, parser)
             }
+
         }
     }
+
+fun validateHbaseConnection(hbase: HbaseClient){
+    val logger = Logger.getLogger("shovel")
+
+    val maxAttempts = Config.Hbase.retryMaxAttempts
+    val initialBackoffMillis = Config.Hbase.retryInitialBackoff
+
+    var success = false
+    var attempts = 0
+
+    while (!success && attempts < maxAttempts) {
+        try {
+            HBaseAdmin.checkHBaseAvailable(hbase.connection.configuration)
+            success = true
+        }
+        catch (e: Exception) {
+            val delay: Long = if (attempts == 0) initialBackoffMillis
+            else (initialBackoffMillis * attempts * 2)
+            logger.warn("Failed to connect to Hbase on attempt ${attempts + 1}/$maxAttempts, will retry in $delay ms, if ${attempts + 1} still < $maxAttempts: ${e.message}" )
+            Thread.sleep(delay)
+        }
+        finally {
+            attempts++
+        }
+    }
+
+    if (!success) {
+        throw java.io.IOException("Unable to reconnect to Hbase after $attempts attempts")
+    }
+}

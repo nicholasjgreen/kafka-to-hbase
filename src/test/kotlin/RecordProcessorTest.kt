@@ -208,6 +208,44 @@ class RecordProcessorTest : StringSpec() {
             verify(processor, times(1)).sendMessageToDlq(eq(record), eq("Invalid json"))
             verifyZeroInteractions(mockValidator)
         }
+
+        "RecordProcessor throws when hbase connection not available" {
+            reset()
+            val messageBody = """{
+                "message": {
+                   "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
+                   "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                }
+            }"""
+            val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord(
+                "testTopic",
+                1,
+                11,
+                1544799662000,
+                TimestampType.CREATE_TIME,
+                1111,
+                1,
+                1,
+                "key".toByteArray(),
+                messageBody.toByteArray()
+            )
+
+            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
+
+            val mockConnection = mock<org.apache.hadoop.hbase.client.Connection>() {
+                on { isClosed } doReturn true
+                on { getTable(any()) } doThrow java.io.IOException() 
+            }
+
+            val hbaseClientMock =
+                HbaseClient(mockConnection, "dataTable", "dataFamily".toByteArray(), "topicTable", "topicFamily".toByteArray(), "topicQualifier".toByteArray())
+
+
+            shouldThrow<java.io.IOException> {
+                processor.processRecord(record, hbaseClientMock, mockMessageParser)
+            }
+        }
+
     }
 
 }

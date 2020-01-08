@@ -39,6 +39,9 @@ object Config {
         val topicTable = getEnv("K2HB_HBASE_TOPIC_TABLE") ?: "k2hb:ingest-topic"
         val topicFamily = getEnv("K2HB_HBASE_TOPIC_FAMILY") ?: "c"
         val topicQualifier = getEnv("K2HB_HBASE_TOPIC_QUALIFIER") ?: "msg"
+
+        val retryMaxAttempts: Int = getEnv("K2HB_RETRY_MAX_ATTEMPS")?.toInt() ?: 3
+        val retryInitialBackoff: Long = getEnv("K2HB_RETRY_INITIAL_BACKOFF")?.toLong() ?: 10000
     }
 
     object Kafka {
