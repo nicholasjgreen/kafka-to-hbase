@@ -35,7 +35,7 @@ RUN $GRADLE wrapper \
     && $GRADLE distTar
 
 # Second build stage starts here
-FROM openjdk:8-alpine
+FROM openjdk:14-alpine
 
 ARG http_proxy_full=""
 
