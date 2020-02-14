@@ -10,6 +10,7 @@ import java.io.ObjectOutputStream
 open class RecordProcessor(private val validator: Validator, private val converter: Converter) {
 
     private val log = Logger.getLogger(RecordProcessor::class.toString())
+    private val textUtils = TextUtils()
 
     open fun processRecord(record: ConsumerRecord<ByteArray, ByteArray>, hbase: HbaseClient, parser: MessageParser) {
         val json: JsonObject
@@ -38,13 +39,17 @@ open class RecordProcessor(private val validator: Validator, private val convert
         try {
             val lastModifiedTimestampStr = converter.getLastModifiedTimestamp(json)
             val lastModifiedTimestampLong = converter.getTimestampAsLong(lastModifiedTimestampStr)
-            hbase.putVersion(
-                topic = record.topic().toByteArray(),
-                key = formattedKey,
-                body = record.value(),
-                version = lastModifiedTimestampLong
-            )
-            log.debug("Written '${getDataStringForRecord(record)}' to HBase with formatted key as '${String(formattedKey)}'.")
+            val matcher = textUtils.topicNameTableMatcher(record.topic())
+            if (matcher != null) {
+                val namespace = matcher.groupValues[1]
+                val tableName = matcher.groupValues[2]
+                val qualifiedTableName = "$namespace:$tableName".replace("-", "_")
+                log.debug("Written '${getDataStringForRecord(record)}' to HBase with formatted key as '${String(formattedKey)}'.")
+                hbase.putVersion(qualifiedTableName, formattedKey, record.value(), lastModifiedTimestampLong)
+            }
+            else {
+                log.error("Could not derive table name from '${record.topic()}'.")
+            }
         } catch (e: Exception) {
             log.error("Error writing record to HBase with data of ${getDataStringForRecord(record)}")
             throw e

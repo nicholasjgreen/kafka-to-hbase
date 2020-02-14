@@ -53,14 +53,21 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: false
 
-        # Do not user the docker compose override to prevent invalid bind mounts
-      - run: sudo pip3 install docker-compose
-      - run: docker build --tag dwp-java:latest --file ./docker/java/Dockerfile .
-      - run: docker build --tag dwp-python-preinstall:latest --file ./docker/python/Dockerfile .
-      - run: docker-compose -f docker-compose.yaml up --build -d
-      - run: docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew --no-daemon integration
-        # Store the test results from inside the container
-      - run: docker cp integration-test:/kafka2hbase/build/test-results .
+      - run:
+          name: "Run the integration test"
+          command: |
+            sudo pip3 install docker-compose
+            docker build --tag dwp-java:latest --file ./docker/java/Dockerfile .
+            docker build --tag dwp-python-preinstall:latest --file ./docker/python/Dockerfile .
+            docker-compose -f docker-compose.yaml up --build -d zookeeper kafka hbase kafka2hbase kafka2s3 aws-s3 integration-test
+            S3_READY_REGEX=^Ready\.$
+            while ! docker logs aws-s3 2> /dev/null | grep -q $S3_READY_REGEX; do
+                echo Waiting for aws-s3.
+                sleep 2
+            done
+            docker-compose -f docker-compose.yaml up --build s3-provision
+            docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew --no-daemon integration
+            docker cp integration-test:/kafka2hbase/build/test-results .
       - store_test_results:
           path: test-results
       - store_artifacts:

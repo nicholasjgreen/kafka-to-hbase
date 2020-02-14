@@ -58,6 +58,6 @@ fun getISO8601Timestamp(): String {
     return df.format(Date())
 }
 
-fun uniqueTopicName() = "test-topic-${Instant.now().toEpochMilli()}".toByteArray()
+fun uniqueTopicName() = "db.database.collection_${Instant.now().toEpochMilli()}"
 
 
