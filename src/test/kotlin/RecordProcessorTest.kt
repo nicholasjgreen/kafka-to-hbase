@@ -25,17 +25,17 @@ import java.util.logging.Logger
 
 class RecordProcessorTest : StringSpec() {
 
-    lateinit var mockValidator: Validator
-    lateinit var mockConverter: Converter
-    lateinit var mockMessageParser: MessageParser
-    lateinit var hbaseClient: HbaseClient
-    lateinit var logger: Logger
-    lateinit var processor: RecordProcessor
-    val testByteArray: ByteArray = byteArrayOf(0xA1.toByte(), 0xA1.toByte(), 0xA1.toByte(), 0xA1.toByte())
+    private lateinit var mockValidator: Validator
+    private lateinit var mockConverter: Converter
+    private lateinit var mockMessageParser: MessageParser
+    private lateinit var hbaseClient: HbaseClient
+    private lateinit var logger: Logger
+    private lateinit var processor: RecordProcessor
+    private val testByteArray: ByteArray = byteArrayOf(0xA1.toByte(), 0xA1.toByte(), 0xA1.toByte(), 0xA1.toByte())
 
     override fun isInstancePerTest(): Boolean = true
 
-    fun reset() {
+    private fun reset() {
         println("Before every spec/test case")
         mockValidator = mock()
         mockConverter = spy()
@@ -230,7 +230,7 @@ class RecordProcessorTest : StringSpec() {
 
             whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
 
-            val mockConnection = mock<org.apache.hadoop.hbase.client.Connection>() {
+            val mockConnection = mock<org.apache.hadoop.hbase.client.Connection> {
                 on { isClosed } doReturn true
                 on { getTable(any()) } doThrow java.io.IOException() 
             }

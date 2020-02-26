@@ -4,30 +4,36 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.log4j.Logger
 import java.time.Duration
 
+val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger("ShovelKt")
+
 fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient, pollTimeout: Duration) =
     GlobalScope.async {
-        val log = Logger.getLogger("shovel")
-        log.info(Config.Kafka.reportTopicSubscriptionDetails())
         val parser = MessageParser()
         val validator = Validator()
         val converter = Converter()
         val processor = RecordProcessor(validator, converter)
-
+        val offsets = mutableMapOf<String, Long>()
         while (isActive) {
             try {
                 validateHbaseConnection(hbase)
 
-                log.info("Subscribing to '${Config.Kafka.topicRegex}'.")
+                logger.info("Subscribing", "topicRegex", Config.Kafka.topicRegex.pattern(),
+                    "metadataRefresh", Config.Kafka.metadataRefresh())
                 consumer.subscribe(Config.Kafka.topicRegex)
-                log.info("Polling for '${pollTimeout}'.")
+                logger.info("Polling", "pollTimeout", pollTimeout.toString())
                 val records = consumer.poll(pollTimeout)
-                log.info("Processing '${records.count()}' records.")
+                logger.info("Processing records", "recordCount", records.count().toString())
                 for (record in records) {
                     processor.processRecord(record, hbase, parser)
+                    offsets[record.topic()] = record.offset()
+                }
+
+                offsets.forEach { topic, offset ->
+                    logger.info("Offset", "topic_name", topic, "offset", offset.toString())
                 }
 
             } catch (e: java.io.IOException) {
-                log.error(e.message)
+                logger.error(e.message?: "")
                 cancel(CancellationException("Cannot reconnect to Hbase", e))
             }
         }

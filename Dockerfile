@@ -87,6 +87,7 @@ RUN tar -xf $DIST_FILE --strip-components=1
 RUN chown ${USER_NAME}:${GROUP_NAME} . -R
 
 USER $USER_NAME
+ENV APPLICATION=kafka2hbase
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["./bin/kafka2hbase"]

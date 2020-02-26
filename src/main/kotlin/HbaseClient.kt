@@ -4,9 +4,8 @@ import org.apache.hadoop.hbase.client.ConnectionFactory
 import org.apache.hadoop.hbase.client.Get
 import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.io.TimeRange
-import org.slf4j.LoggerFactory
 
-open class HbaseClient(val connection: Connection, val columnFamily: ByteArray, val columnQualifier: ByteArray) {
+open class HbaseClient(val connection: Connection, private val columnFamily: ByteArray, private val columnQualifier: ByteArray) {
 
     companion object {
         fun connect() = HbaseClient(
@@ -14,7 +13,7 @@ open class HbaseClient(val connection: Connection, val columnFamily: ByteArray, 
             Config.Hbase.columnFamily.toByteArray(),
             Config.Hbase.columnQualifier.toByteArray())
 
-        val logger = LoggerFactory.getLogger(HbaseClient::class.java)
+        val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(HbaseClient::class.toString())
     }
 
     @Throws(java.io.IOException::class)
@@ -59,11 +58,11 @@ open class HbaseClient(val connection: Connection, val columnFamily: ByteArray, 
 
         if (!namespaces.contains(namespace)) {
             try {
-                logger.info("Creating namespace '$namespace'.")
+                logger.info("Creating namespace", "namespace", namespace)
                 connection.admin.createNamespace(NamespaceDescriptor.create(namespace).build())
             }
             catch (e: NamespaceExistException) {
-                logger.info("'$namespace' already exists, probably created by another process")
+                logger.info("Namespace already exists, probably created by another process", "namespace", namespace)
             }
             finally {
                 namespaces[namespace] = true
@@ -71,7 +70,7 @@ open class HbaseClient(val connection: Connection, val columnFamily: ByteArray, 
         }
 
         if (!tables.contains(tableName)) {
-            logger.info("Creating table '$dataTableName'.")
+            logger.info("Creating table", "table_name", "$dataTableName")
             try {
                 connection.admin.createTable(HTableDescriptor(dataTableName).apply {
                     addFamily(
@@ -82,7 +81,8 @@ open class HbaseClient(val connection: Connection, val columnFamily: ByteArray, 
                             })
                 })
             } catch (e: TableExistsException) {
-                logger.info("'$tableName' already exists, probably created by another process")
+                logger.info("Didn't create table, table already exists, probably created by another process",
+                    "table_name", tableName)
             }
             finally {
                 tables[tableName] = true
