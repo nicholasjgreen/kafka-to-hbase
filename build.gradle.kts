@@ -71,7 +71,6 @@ tasks.register<Test>("integration") {
     testClassesDirs = sourceSets["integration"].output.classesDirs
     classpath = sourceSets["integration"].runtimeClasspath
 
-    useJUnitPlatform { }
     testLogging {
         exceptionFormat = TestExceptionFormat.FULL
         events = setOf(TestLogEvent.SKIPPED, TestLogEvent.PASSED, TestLogEvent.FAILED, TestLogEvent.STANDARD_OUT)
