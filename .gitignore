@@ -6,3 +6,5 @@
 .DS_Store
 
 out/
+.gitsecret/keys/random_seed
+!*.secret

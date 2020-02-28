@@ -13,23 +13,26 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
         val converter = Converter()
         val processor = RecordProcessor(validator, converter)
         val offsets = mutableMapOf<String, Long>()
+        var batchCount = 0
         while (isActive) {
             try {
                 validateHbaseConnection(hbase)
 
-                logger.info("Subscribing", "topicRegex", Config.Kafka.topicRegex.pattern(),
+                logger.info("Subscribing", "topic_regex", Config.Kafka.topicRegex.pattern(),
                     "metadataRefresh", Config.Kafka.metadataRefresh())
                 consumer.subscribe(Config.Kafka.topicRegex)
-                logger.info("Polling", "pollTimeout", pollTimeout.toString())
+                logger.info("Polling", "poll_timeout", pollTimeout.toString())
                 val records = consumer.poll(pollTimeout)
-                logger.info("Processing records", "recordCount", records.count().toString())
+                logger.info("Processing records", "record_count", records.count().toString())
                 for (record in records) {
                     processor.processRecord(record, hbase, parser)
                     offsets[record.topic()] = record.offset()
                 }
 
-                offsets.forEach { topic, offset ->
-                    logger.info("Offset", "topic_name", topic, "offset", offset.toString())
+                if (batchCount++ % 50 == 0) {
+                    offsets.forEach { topic, offset ->
+                        logger.info("Offset", "topic_name", topic, "offset", offset.toString())
+                    }
                 }
 
             } catch (e: java.io.IOException) {
