@@ -29,7 +29,7 @@ dependencies {
     testImplementation("com.amazonaws:aws-java-sdk-s3:1.11.701")
     testImplementation("com.amazonaws:aws-java-sdk-core:1.11.701")
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.10.0")
-    testImplementation("io.kotlintest", "kotlintest-runner-junit5", "3.3.2")
+    testImplementation("io.kotlintest", "kotlintest-runner-junit4", "3.4.2")
     testImplementation("com.nhaarman.mockitokotlin2", "mockito-kotlin", "2.2.0")
     testImplementation("org.mockito", "mockito-core", "2.8.9")
     testImplementation("io.mockk", "mockk", "1.9.3")
@@ -37,10 +37,6 @@ dependencies {
 
 configurations.all {
     exclude(group="org.slf4j", module="slf4j-log4j12")
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform { }
 }
 
 application {
@@ -83,7 +79,6 @@ tasks.register<Test>("unit") {
     testClassesDirs = sourceSets["unit"].output.classesDirs
     classpath = sourceSets["unit"].runtimeClasspath
 
-    useJUnitPlatform { }
     testLogging {
         exceptionFormat = TestExceptionFormat.FULL
         events = setOf(TestLogEvent.SKIPPED, TestLogEvent.PASSED, TestLogEvent.FAILED)
