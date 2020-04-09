@@ -1,3 +1,5 @@
+S3_READY_REGEX=^Ready\.$
+
 .PHONY: help
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
@@ -21,7 +23,7 @@ git-hooks: ## Set up hooks in .git/hooks
 
 .PHONY: build
 build: ## Build Kafka2Hbase
-	./gradlew build
+	./gradlew :unit build -x test
 
 .PHONY: dist
 dist: ## Assemble distribution files in build/dist
@@ -29,7 +31,14 @@ dist: ## Assemble distribution files in build/dist
 
 .PHONY: services
 services: ## Bring up Kafka2Hbase in Docker with supporting services
-	docker-compose up -d zookeeper kafka hbase
+	docker-compose up -d zookeeper kafka hbase aws-s3
+	@{ \
+		while ! docker logs aws-s3 2> /dev/null | grep -q $(S3_READY_REGEX); do \
+        	echo Waiting for s3.; \
+            sleep 2; \
+        done; \
+	}
+	docker-compose up s3-provision
 
 .PHONY: up
 up: ## Bring up Kafka2Hbase in Docker with supporting services
@@ -66,8 +75,8 @@ test: ## Run the unit tests
 .PHONY: build-base
 build-base: ## build the base images which certain images extend.
 	@{ \
-    		pushd docker; \
-    		docker build --tag dwp-java:latest --file .java/Dockerfile . ; \
-    		docker build --tag dwp-python-preinstall:latest --file ./python/Dockerfile . ; \
-    		popd; \
+		pushd docker; \
+		docker build --tag dwp-java:latest --file .java/Dockerfile . ; \
+		docker build --tag dwp-python-preinstall:latest --file ./python/Dockerfile . ; \
+		popd; \
     }

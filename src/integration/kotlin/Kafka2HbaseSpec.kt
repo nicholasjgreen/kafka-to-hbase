@@ -41,7 +41,9 @@ class Kafka2HBaseSpec: StringSpec(){
                 val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
                 val key = parser.generateKey(converter.convertToJson(getId().toByteArray()))
                 log.info("Sending well-formed record to kafka topic '$topic'.")
+                System.err.println("Sending to $topic")
                 producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
+                System.err.println("Sent to $topic")
                 log.info("Sent well-formed record to kafka topic '$topic'.")
                 val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
                 val storedValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }

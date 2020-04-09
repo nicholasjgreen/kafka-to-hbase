@@ -19,7 +19,7 @@ jobs:
       - restore_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
 
-      - run: ./gradlew build unit
+      - run: ./gradlew :unit build -x test
 
       - save_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
@@ -66,7 +66,7 @@ jobs:
                 sleep 2
             done
             docker-compose -f docker-compose.yaml up --build s3-provision
-            docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew --no-daemon integration
+            docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew --no-daemon :integration -x test
             docker cp integration-test:/kafka2hbase/build/test-results .
       - store_test_results:
           path: test-results

@@ -16,7 +16,38 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(HbaseClient::class.toString())
     }
 
-    @Throws(java.io.IOException::class)
+    fun put(table: String, key: ByteArray, body: ByteArray, version: Long) {
+
+        var success = false
+        var attempts = 0
+        var exception: Exception? = null
+        while (!success && attempts < Config.Hbase.retryMaxAttempts.toInt()) {
+            try {
+                putVersion(table, key, body, version)
+                success = true
+            }
+            catch (e: Exception) {
+                val delay = if (attempts == 0) Config.Hbase.retryInitialBackoff.toLong()
+                else (Config.Hbase.retryInitialBackoff.toLong() * attempts * Config.Hbase.retryBackoffMultiplier.toFloat()).toLong()
+                logger.warn("Failed to put batch ${e.message}", "attempt_number", "${attempts + 1}",
+                    "max_attempts", "${Config.Hbase.retryMaxAttempts}", "retry_delay", "$delay", "error_message", "${e.message}")
+                Thread.sleep(delay)
+                exception = e
+            }
+            finally {
+                attempts++
+            }
+        }
+
+        if (!success) {
+            if (exception != null) {
+                throw exception
+            }
+        }
+
+    }
+
+    @Throws(Exception::class)
     open fun putVersion(tableName: String, key: ByteArray, body: ByteArray, version: Long) {
 
         if (connection.isClosed) {

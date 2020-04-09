@@ -42,7 +42,7 @@ open class RecordProcessor(private val validator: Validator, private val convert
                 val qualifiedTableName = "$namespace:$tableName".replace("-", "_")
                 logger.debug("Written record to hbase", "record", getDataStringForRecord(record),
                     "formattedKey", String(formattedKey))
-                hbase.putVersion(qualifiedTableName, formattedKey, record.value(), lastModifiedTimestampLong)
+                hbase.put(qualifiedTableName, formattedKey, record.value(), lastModifiedTimestampLong)
             }
             else {
                 logger.error("Could not derive table name from topic", "topic", record.topic())

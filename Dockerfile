@@ -30,8 +30,7 @@ COPY gradle.properties .
 COPY src/ ./src
 
 # Generate Wrapper, install dependencies and Create DistTar
-RUN $GRADLE wrapper \
-    && $GRADLE build \
+RUN $GRADLE :unit build -x test \
     && $GRADLE distTar
 
 # Second build stage starts here
