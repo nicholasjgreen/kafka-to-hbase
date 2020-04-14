@@ -4,6 +4,7 @@ version: "2.2"
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:4.1.0
+    container_name: zookeeper
     ports:
       - "2181:2181"
     environment:
@@ -13,6 +14,7 @@ services:
     image: confluentinc/cp-kafka:4.1.0
     ports:
       - "9092:9092"
+    container_name: kafka
     depends_on:
       - zookeeper
     environment:
@@ -23,6 +25,7 @@ services:
   hbase:
     image: hbase:latest
     build: ./docker/hbase
+    container_name: hbase
     depends_on:
       - zookeeper
     environment:
@@ -31,6 +34,7 @@ services:
   kafka2hbase:
     image: kafka2hbase:latest
     build: ./
+    container_name: kafka2hbase
     ports:
       - "5005:5005"
     depends_on:
@@ -46,6 +50,7 @@ services:
 
   kafka2s3:
     image: dwpdigital/kafka-to-s3:latest
+    container_name: kafka2s3
     depends_on:
       - kafka
       - s3-provision
@@ -70,7 +75,7 @@ services:
   s3-provision:
       image: s3-bucket-provision
       build: ./docker/s3
-      container_name: s3-bucket-provision
+      container_name: s3-provision
       depends_on:
         - aws-s3
       environment:
