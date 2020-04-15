@@ -150,66 +150,93 @@ class ConverterTest : StringSpec({
         }
     }
 
-    "Invalid json with missing message attribute  throws Exception" {
-        val jsonString = "{\n" +
-            "        \"message1\": {\n" +
-            "           \"_lastModifiedDateTime\": \"2018-12-14T15:01:02.000+0000\",\n" +
-            "        }\n" +
-            "    }"
-
-        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
-        shouldThrow<RuntimeException> {
-            val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
-            converter.getTimestampAsLong(lastModifiedTimestamp)
-        }
-    }
-
-    "Invalid json with missing _lastModifiedDateTime attribute  throws Exception" {
+    "Last modified date time returned when valid created date time" {
         val jsonString = "{\n" +
             "        \"message\": {\n" +
-            "           \"_lastModifiedDateTime1\": \"2018-12-14T15:01:02.000+0000\",\n" +
+            "            \"_lastModifiedDateTime\": \"2018-12-14T15:01:02.000+0000\",\n" +
+            "            \"createdDateTime\": \"2019-11-13T14:02:03.001+0000\",\n" +
             "        }\n" +
             "    }"
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
-        shouldThrow<RuntimeException> {
-            val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
-            converter.getTimestampAsLong(lastModifiedTimestamp)
-        }
+        val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+        lastModifiedTimestamp shouldBe "2018-12-14T15:01:02.000+0000"
     }
 
-    "Invalid json with  _lastModifiedDateTime attribute value as empty  throws Exception" {
+    "Missing last modified date time returns created date time" {
         val jsonString = "{\n" +
             "        \"message\": {\n" +
-            "           \"_lastModifiedDateTime\": \"\",\n" +
+            "            \"createdDateTime\": \"2019-11-13T14:02:03.001+0000\",\n" +
             "        }\n" +
             "    }"
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
-        shouldThrow<RuntimeException> {
-            val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
-            converter.getTimestampAsLong(lastModifiedTimestamp)
-        }
+        val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+        lastModifiedTimestamp shouldBe "2019-11-13T14:02:03.001+0000"
     }
 
-    "Invalid json with  _lastModifiedDateTime attribute value as blank  throws Exception" {
+    "Empty last modified date time returns created date time" {
         val jsonString = "{\n" +
             "        \"message\": {\n" +
-            "           \"_lastModifiedDateTime\": \"   \",\n" +
+            "            \"_lastModifiedDateTime\": \"\",\n" +
+            "            \"createdDateTime\": \"2019-11-13T14:02:03.001+0000\",\n" +
             "        }\n" +
             "    }"
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
-        shouldThrow<RuntimeException> {
-            val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
-            converter.getTimestampAsLong(lastModifiedTimestamp)
-        }
+        val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+        lastModifiedTimestamp shouldBe "2019-11-13T14:02:03.001+0000"
     }
 
-    "Invalid  with  _lastModifiedDateTime attribute value as blank  throws Exception" {
-        val tz = TimeZone.getTimeZone("UTC")
-        val df = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZZZ") // Quoted "Z" to indicate UTC, no timezone offset
-        df.timeZone = tz
-        println(df.format(Date()))
+    "Null last modified date time returns created date time" {
+        val jsonString = "{\n" +
+            "        \"message\": {\n" +
+            "            \"_lastModifiedDateTime\": null,\n" +
+            "            \"createdDateTime\": \"2019-11-13T14:02:03.001+0000\",\n" +
+            "        }\n" +
+            "    }"
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+        lastModifiedTimestamp shouldBe "2019-11-13T14:02:03.001+0000"
+    }
+
+    "Missing last modified date time and created date time returns epoch" {
+        val jsonString = "{\n" +
+            "        \"message\": {\n" +
+            "            \"_lastModifiedDateTime1\": \"2018-12-14T15:01:02.000+0000\",\n" +
+            "            \"createdDateTime1\": \"2019-11-13T14:02:03.001+0000\",\n" +
+            "        }\n" +
+            "    }"
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+        lastModifiedTimestamp shouldBe "1980-01-01T00:00:00.000Z"
+    }
+
+    "Empty last modified date time and created date time returns epoch" {
+        val jsonString = "{\n" +
+            "        \"message\": {\n" +
+            "            \"_lastModifiedDateTime\": \"\",\n" +
+            "            \"createdDateTime\": \"\",\n" +
+            "        }\n" +
+            "    }"
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+        lastModifiedTimestamp shouldBe "1980-01-01T00:00:00.000Z"
+    }
+
+    "Null last modified date time and created date time returns epoch" {
+        val jsonString = "{\n" +
+            "        \"message\": {\n" +
+            "            \"_lastModifiedDateTime\": null,\n" +
+            "            \"createdDateTime\": null,\n" +
+            "        }\n" +
+            "    }"
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val lastModifiedTimestamp = converter.getLastModifiedTimestamp(json)
+        lastModifiedTimestamp shouldBe "1980-01-01T00:00:00.000Z"
     }
 })

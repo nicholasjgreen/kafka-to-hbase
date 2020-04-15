@@ -8,7 +8,6 @@ import java.util.*
 import java.util.zip.CRC32
 
 open class Converter {
-
     open fun convertToJson(body: ByteArray): JsonObject {
         try {
             val parser: Parser = Parser.default()
@@ -50,9 +49,19 @@ open class Converter {
     }
 
     open fun getLastModifiedTimestamp(json: JsonObject?): String? {
+        val epoch = "1980-01-01T00:00:00.000Z"
+        
         val lastModifiedTimestampStr = json?.lookup<String?>("message._lastModifiedDateTime")?.get(0)
-        if (lastModifiedTimestampStr.isNullOrBlank()) throw RuntimeException("Last modified date time is null or blank")
-        return lastModifiedTimestampStr
+        if (!lastModifiedTimestampStr.isNullOrBlank()) {
+            return lastModifiedTimestampStr
+        }
+        
+        val createdTimestampStr = json?.lookup<String?>("message.createdDateTime")?.get(0)
+        if (!createdTimestampStr.isNullOrBlank()) {
+            return createdTimestampStr
+        }
+
+        return epoch
     }
 
     companion object {
