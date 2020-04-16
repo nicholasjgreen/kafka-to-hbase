@@ -289,27 +289,24 @@ class ValidatorTest : StringSpec({
         exception.message shouldBe "Message failed schema validation: '#/message/_id: #: no subschema matched out of the total 3 subschemas'."
     }
 
-    "Missing '#/message/_lastModifiedDateTime' causes validation failure." {
-        val exception = shouldThrow<InvalidMessageException> {
-            Validator().validate("""
-            |{
-            |   "message": {
-            |       "@type": "hello",
-            |       "_id": { part: 1},
-            |       "db": "abcd",
-            |       "collection" : "addresses",
-            |       "dbObject": "asd",
-            |       "encryption": {
-            |           "keyEncryptionKeyId": "cloudhsm:7,14",
-            |           "initialisationVector": "iv",
-            |           "encryptedEncryptionKey": "=="
-            |       }
-            |   }
-            |}
-            """.trimMargin()
-            )
-        }
-        exception.message shouldBe "Message failed schema validation: '#/message: required key [_lastModifiedDateTime] not found'."
+    "Missing '#/message/_lastModifiedDateTime' does not cause validation failure." {
+        Validator().validate("""
+        |{
+        |   "message": {
+        |       "@type": "hello",
+        |       "_id": { part: 1},
+        |       "db": "abcd",
+        |       "collection" : "addresses",
+        |       "dbObject": "asd",
+        |       "encryption": {
+        |           "keyEncryptionKeyId": "cloudhsm:7,14",
+        |           "initialisationVector": "iv",
+        |           "encryptedEncryptionKey": "=="
+        |       }
+        |   }
+        |}
+        """.trimMargin()
+        )
     }
 
     "Incorrect '#/message/_lastModifiedDateTime' type causes validation failure." {

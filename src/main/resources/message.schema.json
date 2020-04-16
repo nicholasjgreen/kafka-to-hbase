@@ -57,7 +57,6 @@
       "required": [
         "@type",
         "_id",
-        "_lastModifiedDateTime",
         "collection",
         "db",
         "dbObject",
