@@ -49,7 +49,7 @@ open class Converter {
     }
 
     open fun getLastModifiedTimestamp(json: JsonObject?): String? {
-        val epoch = "1980-01-01T00:00:00.000Z"
+        val epoch = "1980-01-01T00:00:00.000+0000"
         
         val lastModifiedTimestampStr = json?.lookup<String?>("message._lastModifiedDateTime")?.get(0)
         if (!lastModifiedTimestampStr.isNullOrBlank()) {
