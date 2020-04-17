@@ -1,4 +1,5 @@
 import com.beust.klaxon.JsonObject
+import com.google.gson.Gson
 import com.nhaarman.mockitokotlin2.*
 import io.kotlintest.fail
 import io.kotlintest.shouldThrow
@@ -57,10 +58,19 @@ class RecordProcessorTest : StringSpec() {
                    "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
                 }
             }"""
+
+            val persistedBody = Gson().fromJson("""{
+                "message": {
+                   "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
+                   "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                    "timestamp_created_from":"_lastModifiedDateTime"
+                }
+            }""", com.google.gson.JsonObject::class.java).toString()
+
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
             whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
             processor.processRecord(record, hbaseClient, mockMessageParser)
-            verify(hbaseClient).putVersion("database:collection", testByteArray, messageBody.toByteArray(), 1544799662000)
+            verify(hbaseClient).putVersion("database:collection", testByteArray, persistedBody.toByteArray(), 1544799662000)
         }
 
         "record value with invalid json is not sent to hbase" {
@@ -154,10 +164,17 @@ class RecordProcessorTest : StringSpec() {
                    "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
                 }
             }"""
+            val persistedBody = Gson().fromJson("""{
+                "message": {
+                    "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
+                    "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                    "timestamp_created_from":"_lastModifiedDateTime"
+                }
+            }""", com.google.gson.JsonObject::class.java).toString()
+
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
             whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
-
-            whenever(hbaseClient.putVersion("database:collection", testByteArray, messageBody.toByteArray(), 1544799662000)).doThrow(RuntimeException("testException"))
+            whenever(hbaseClient.putVersion("database:collection", testByteArray, persistedBody.toByteArray(), 1544799662000)).doThrow(RuntimeException("testException"))
 
             try {
                 processor.processRecord(record, hbaseClient, mockMessageParser)

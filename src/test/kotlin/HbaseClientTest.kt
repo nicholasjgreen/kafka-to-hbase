@@ -1,5 +1,4 @@
 import com.nhaarman.mockitokotlin2.*
-import io.kotlintest.should
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec

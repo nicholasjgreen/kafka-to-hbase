@@ -21,14 +21,14 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         var success = false
         var attempts = 0
         var exception: Exception? = null
-        while (!success && attempts < Config.Hbase.retryMaxAttempts.toInt()) {
+        while (!success && attempts < Config.Hbase.retryMaxAttempts) {
             try {
                 putVersion(table, key, body, version)
                 success = true
             }
             catch (e: Exception) {
-                val delay = if (attempts == 0) Config.Hbase.retryInitialBackoff.toLong()
-                else (Config.Hbase.retryInitialBackoff.toLong() * attempts * Config.Hbase.retryBackoffMultiplier.toFloat()).toLong()
+                val delay = if (attempts == 0) Config.Hbase.retryInitialBackoff
+                else (Config.Hbase.retryInitialBackoff * attempts * Config.Hbase.retryBackoffMultiplier.toFloat()).toLong()
                 logger.warn("Failed to put batch ${e.message}", "attempt_number", "${attempts + 1}",
                     "max_attempts", "${Config.Hbase.retryMaxAttempts}", "retry_delay", "$delay", "error_message", "${e.message}")
                 Thread.sleep(delay)

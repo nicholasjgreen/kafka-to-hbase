@@ -6,6 +6,8 @@ import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.beust.klaxon.Klaxon
+import com.google.gson.Gson
+import com.google.gson.JsonObject
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
@@ -45,7 +47,7 @@ class Kafka2HBaseSpec: StringSpec(){
                 log.info("Sent well-formed record to kafka topic '$topic'.")
                 val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
                 val storedValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
-                String(storedValue ?: "null".toByteArray()) shouldBe String(body)
+                String(storedValue!!) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
                 val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
                 summaries1.size shouldBe 0
             }
@@ -92,10 +94,10 @@ class Kafka2HBaseSpec: StringSpec(){
                 val tableName = matcher.groupValues[2]
                 val qualifiedTableName = "$namespace:$tableName".replace("-", "_")
                 val storedNewValue = waitFor { hbase.getCellAfterTimestamp(qualifiedTableName, key, referenceTimestamp) }
-                storedNewValue shouldBe body2
+                Gson().fromJson(String(storedNewValue!!), JsonObject::class.java) shouldBe Gson().fromJson(String(body2), JsonObject::class.java)
 
                 val storedPreviousValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
-                storedPreviousValue shouldBe body1
+                String(storedPreviousValue!!) shouldBe String(body1)
             }
         }
 

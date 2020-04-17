@@ -24,7 +24,8 @@ fun wellformedValidPayload() = """{
                 "initialisationVector": "kjGyvY67jhJHVdo2",
                 "keyEncryptionKeyId": "cloudhsm:1,2"
             },
-            "dbObject": "bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A"
+            "dbObject": "bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A",
+            "timestamp_created_from": "_lastModifiedDateTime"
         }
     }""".toByteArray()
 

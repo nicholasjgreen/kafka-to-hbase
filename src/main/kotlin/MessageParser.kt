@@ -15,21 +15,23 @@ open class MessageParser {
             val id = message["_id"]
 
             if (id != null) {
-                if (id is JsonObject) {
-                    return id
-                }
-                else if (id is String) {
-                    val idObject = JsonObject()
-                    idObject["id"] = id
-                    return idObject
-                }
-                else if (id is Int) {
-                    val idObject = JsonObject()
-                    idObject["id"] = "$id"
-                    return idObject
-                }
-                else {
-                    return null
+                when (id) {
+                    is JsonObject -> {
+                        return id
+                    }
+                    is String -> {
+                        val idObject = JsonObject()
+                        idObject["id"] = id
+                        return idObject
+                    }
+                    is Int -> {
+                        val idObject = JsonObject()
+                        idObject["id"] = "$id"
+                        return idObject
+                    }
+                    else -> {
+                        return null
+                    }
                 }
             }
             else {

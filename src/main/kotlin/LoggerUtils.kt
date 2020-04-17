@@ -123,11 +123,6 @@ fun throwableProxyEventToString(event: ILoggingEvent): String {
     }
 }
 
-fun getDurationInMilliseconds(epochTime: Long): String {
-    val elapsedMilliseconds = epochTime - LogConfiguration.start_time_milliseconds
-    return elapsedMilliseconds.toString()
-}
-
 class JsonLoggerWrapper(private val delegateLogger: Logger) {
 
     companion object {

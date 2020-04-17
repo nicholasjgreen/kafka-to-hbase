@@ -33,7 +33,10 @@ open class RecordProcessor(private val validator: Validator, private val convert
         }
 
         try {
-            val lastModifiedTimestampStr = converter.getLastModifiedTimestamp(json)
+            val (lastModifiedTimestampStr, fieldTimestampCreatedFrom) = converter.getLastModifiedTimestamp(json)
+            val message = json["message"] as JsonObject
+            message["timestamp_created_from"] = fieldTimestampCreatedFrom
+            
             val lastModifiedTimestampLong = converter.getTimestampAsLong(lastModifiedTimestampStr)
             val matcher = textUtils.topicNameTableMatcher(record.topic())
             if (matcher != null) {
@@ -42,7 +45,8 @@ open class RecordProcessor(private val validator: Validator, private val convert
                 val qualifiedTableName = "$namespace:$tableName".replace("-", "_")
                 logger.debug("Written record to hbase", "record", getDataStringForRecord(record),
                     "formattedKey", String(formattedKey))
-                hbase.put(qualifiedTableName, formattedKey, record.value(), lastModifiedTimestampLong)
+                val recordBodyJson = json.toJsonString()
+                hbase.put(qualifiedTableName, formattedKey, recordBodyJson.toByteArray(), lastModifiedTimestampLong)
             }
             else {
                 logger.error("Could not derive table name from topic", "topic", record.topic())
@@ -58,7 +62,7 @@ open class RecordProcessor(private val validator: Validator, private val convert
         try {
             val malformedRecord = MalformedRecord(String(record.key()), String(body), reason)
             val jsonString = Klaxon().toJsonString(malformedRecord)
-            val producerRecord = ProducerRecord<ByteArray, ByteArray>(
+            val producerRecord = ProducerRecord(
                 dlqTopic,
                 null,
                 null,

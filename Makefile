@@ -39,6 +39,7 @@ services: ## Bring up Kafka2Hbase in Docker with supporting services
         done; \
 	}
 	docker-compose up s3-provision
+	docker-compose up kafka2s3
 
 .PHONY: up
 up: ## Bring up Kafka2Hbase in Docker with supporting services
