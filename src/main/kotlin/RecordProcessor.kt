@@ -59,6 +59,8 @@ open class RecordProcessor(private val validator: Validator, private val convert
 
     open fun sendMessageToDlq(record: ConsumerRecord<ByteArray, ByteArray>, reason: String) {
         val body = record.value()
+        logger.warn("Error processing record, sending to dlq",
+            "reason", reason, "key", String(record.key()))
         try {
             val malformedRecord = MalformedRecord(String(record.key()), String(body), reason)
             val jsonString = Klaxon().toJsonString(malformedRecord)
@@ -71,9 +73,10 @@ open class RecordProcessor(private val validator: Validator, private val convert
                 null
             )
             val metadata = DlqProducer.getInstance()?.send(producerRecord)?.get()
-            logger.info("metadata topic : ${metadata?.topic()} offset : ${metadata?.offset()}")
+            logger.info("Sending message to dlq",
+                "key", String(record.key()), "topic", metadata?.topic().toString(), "offset",  "${metadata?.offset()}")
         } catch (e: Exception) {
-            logger.warn("Error sending message to dlq",
+            logger.error("Error sending message to dlq",
                 "key", String(record.key()), "topic", record.topic(), "offset",  "${record.offset()}")
             throw DlqException("Exception while sending message to DLQ : $e")
         }
