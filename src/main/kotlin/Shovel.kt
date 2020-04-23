@@ -36,7 +36,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                 }
 
                 if (batchCount++ % 50 == 0) {
-                    logger.info("Total number of topics", "number_of_topics", batchCount.size)
+                    logger.info("Total number of topics", "number_of_topics", offsets.size.toString())
                     offsets.forEach { (topic, offset) ->
                         logger.info("Offset", "topic_name", topic, "offset", offset.toString())
                     }
