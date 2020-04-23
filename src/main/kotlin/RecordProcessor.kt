@@ -52,7 +52,7 @@ open class RecordProcessor(private val validator: Validator, private val convert
                 logger.error("Could not derive table name from topic", "topic", record.topic())
             }
         } catch (e: Exception) {
-            logger.error("Error writing record to HBase", "record", getDataStringForRecord(record))
+            logger.error("Error writing record to HBase", e, "record", getDataStringForRecord(record))
             throw e
         }
     }

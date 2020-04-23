@@ -43,8 +43,8 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                 }
 
             } catch (e: Exception) {
-                logger.error(e.message ?: "", e)
-                cancel(CancellationException(e.message ?: "", e))
+                logger.error("Error reading from Kafka or writing to Hbase", e)
+                cancel(CancellationException("Error reading from Kafka or writing to Hbase ${e.message}", e))
             }
         }
 
