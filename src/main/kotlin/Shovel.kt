@@ -1,3 +1,4 @@
+
 import kotlinx.coroutines.*
 import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -14,10 +15,10 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
         val processor = RecordProcessor(validator, converter)
         val offsets = mutableMapOf<String, Long>()
         var batchCount = 0
+        val usedPartitions = mutableMapOf<String, MutableSet<Int>>()
         while (isActive) {
             try {
                 validateHbaseConnection(hbase)
-
                 logger.debug("Subscribing", "topic_regex", Config.Kafka.topicRegex.pattern(),
                     "metadataRefresh", Config.Kafka.metadataRefresh())
                 consumer.subscribe(Config.Kafka.topicRegex)
@@ -30,6 +31,9 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                     for (record in records) {
                         processor.processRecord(record, hbase, parser)
                         offsets[record.topic()] = record.offset()
+                        val set = if (usedPartitions.containsKey(record.topic())) usedPartitions.get(record.topic()) else mutableSetOf()
+                        set?.add(record.partition())
+                        usedPartitions[record.topic()] = set!!
                     }
                     logger.info("Commiting offset")
                     consumer.commitSync()
@@ -40,6 +44,19 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                     offsets.forEach { (topic, offset) ->
                         logger.info("Offset", "topic_name", topic, "offset", offset.toString())
                     }
+                    val usedPartitionTuples = mutableListOf<String>()
+                    usedPartitions.forEach { (topic, ps) ->
+                        usedPartitionTuples.add(topic)
+                        usedPartitionTuples.add(ps.joinToString(", "))
+                    }
+                    logger.info("Partitions this consumer has read from", *usedPartitionTuples.toTypedArray())
+
+                    val allPartitionTuples = mutableListOf<String>()
+                    consumer.listTopics().forEach { (topic, partitionInfoList) ->
+                        allPartitionTuples.add(topic)
+                        allPartitionTuples.add(partitionInfoList.map { it.partition() }.joinToString(", "))
+                    }
+                    logger.info("All partitions", *allPartitionTuples.toTypedArray())
                 }
 
             } catch (e: Exception) {
@@ -47,7 +64,6 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                 cancel(CancellationException("Error reading from Kafka or writing to Hbase ${e.message}", e))
             }
         }
-
     }
 
 fun validateHbaseConnection(hbase: HbaseClient){

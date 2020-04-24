@@ -55,7 +55,6 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         }
 
         ensureTable(tableName)
-
         connection.getTable(TableName.valueOf(tableName)).use { table ->
             table.put(Put(key).apply {
                 this.addColumn(columnFamily, columnQualifier, version, body)
