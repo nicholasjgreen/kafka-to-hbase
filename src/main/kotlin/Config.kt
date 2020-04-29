@@ -20,6 +20,10 @@ object Config {
 
     const val metaDataRefreshKey = "metadata.max.age.ms"
 
+    object Shovel {
+        val reportFrequency = getEnv("K2HB_KAFKA_REPORT_FREQUENCY")?.toInt() ?: 100
+    }
+
     object Validator {
         val properties = Properties().apply {
             put("schema.location", getEnv("K2HB_VALIDATOR_SCHEMA") ?: "message.schema.json")

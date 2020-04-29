@@ -31,7 +31,8 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                     for (record in records) {
                         processor.processRecord(record, hbase, parser)
                         offsets[record.topic()] = record.offset()
-                        val set = if (usedPartitions.containsKey(record.topic())) usedPartitions.get(record.topic()) else mutableSetOf()
+                        val set =
+                            if (usedPartitions.containsKey(record.topic())) usedPartitions[record.topic()] else mutableSetOf()
                         set?.add(record.partition())
                         usedPartitions[record.topic()] = set!!
                     }
@@ -39,26 +40,18 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                     consumer.commitSync()
                 }
 
-                if (batchCount++ % 50 == 0) {
+                if (batchCount++ % Config.Shovel.reportFrequency == 0) {
                     logger.info("Total number of topics", "number_of_topics", offsets.size.toString())
                     offsets.forEach { (topic, offset) ->
                         logger.info("Offset", "topic_name", topic, "offset", offset.toString())
                     }
-                    val usedPartitionTuples = mutableListOf<String>()
                     usedPartitions.forEach { (topic, ps) ->
-                        usedPartitionTuples.add(topic)
-                        usedPartitionTuples.add(ps.joinToString(", "))
+                        logger.info(
+                            "Partitions read from for topic", "topic_name", topic, "partitions",
+                            ps.sorted().joinToString(", ")
+                        )
                     }
-                    logger.info("Partitions this consumer has read from", *usedPartitionTuples.toTypedArray())
-
-                    val allPartitionTuples = mutableListOf<String>()
-                    consumer.listTopics().forEach { (topic, partitionInfoList) ->
-                        allPartitionTuples.add(topic)
-                        allPartitionTuples.add(partitionInfoList.map { it.partition() }.joinToString(", "))
-                    }
-                    logger.info("All partitions", *allPartitionTuples.toTypedArray())
                 }
-
             } catch (e: Exception) {
                 logger.error("Error reading from Kafka or writing to Hbase", e)
                 cancel(CancellationException("Error reading from Kafka or writing to Hbase ${e.message}", e))

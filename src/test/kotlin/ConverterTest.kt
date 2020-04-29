@@ -142,7 +142,7 @@ class ConverterTest : StringSpec({
         }"""
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
-        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        val (timestamp, _) = converter.getLastModifiedTimestamp(json)
         timestamp shouldBe "2018-12-14"
         shouldThrow<ParseException> {
             converter.getTimestampAsLong(timestamp)
