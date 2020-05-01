@@ -309,6 +309,51 @@ class ValidatorTest : StringSpec({
         )
     }
 
+    "Null '#/message/_lastModifiedDateTime' does not cause validation failure." {
+        Validator().validate("""
+            |{
+            |   "message": {
+            |       "@type": "hello",
+            |       "_id": {
+            |           "declarationId": 1
+            |       },
+            |       "_lastModifiedDateTime": null,
+            |       "collection" : "addresses",
+            |       "db": "core",
+            |       "dbObject": "asd",
+            |       "encryption": {
+            |           "keyEncryptionKeyId": "cloudhsm:7,14",
+            |           "initialisationVector": "iv",
+            |           "encryptedEncryptionKey": "=="
+            |       }
+            |   }
+            |}
+        """.trimMargin())
+    }
+
+    "Empty '#/message/_lastModifiedDateTime' does not cause validation failure." {
+        Validator().validate("""
+            |{
+            |   "message": {
+            |       "@type": "hello",
+            |       "_id": {
+            |           "declarationId": 1
+            |       },
+            |       "_lastModifiedDateTime": "",
+            |       "collection" : "addresses",
+            |       "db": "core",
+            |       "dbObject": "asd",
+            |       "encryption": {
+            |           "keyEncryptionKeyId": "cloudhsm:7,14",
+            |           "initialisationVector": "iv",
+            |           "encryptedEncryptionKey": "=="
+            |       }
+            |   }
+            |}
+        """.trimMargin())
+    }
+
+
     "Incorrect '#/message/_lastModifiedDateTime' type causes validation failure." {
         val exception = shouldThrow<InvalidMessageException> {
             Validator().validate("""
@@ -330,7 +375,7 @@ class ValidatorTest : StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe "Message failed schema validation: '#/message/_lastModifiedDateTime: expected type: String, found: Integer'."
+        exception.message shouldBe "Message failed schema validation: '#/message/_lastModifiedDateTime: #: no subschema matched out of the total 2 subschemas'."
     }
 
     "Incorrect '#/message/_lastModifiedDateTime' format causes validation failure." {
@@ -354,7 +399,7 @@ class ValidatorTest : StringSpec({
             """.trimMargin()
             )
         }
-        exception.message shouldBe "Message failed schema validation: '#/message/_lastModifiedDateTime: string [2019-07-04] does not match pattern ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}(\\+\\d{4}|Z)?\$'."
+        exception.message shouldBe "Message failed schema validation: '#/message/_lastModifiedDateTime: #: no subschema matched out of the total 2 subschemas'."
     }
 
     "Missing '#/message/db' field causes validation failure." {
