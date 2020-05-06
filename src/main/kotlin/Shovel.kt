@@ -1,8 +1,6 @@
-
 import kotlinx.coroutines.*
 import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.apache.log4j.Logger
 import java.time.Duration
 
 val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger("ShovelKt")
@@ -19,11 +17,18 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
         while (isActive) {
             try {
                 validateHbaseConnection(hbase)
-                logger.debug("Subscribing", "topic_regex", Config.Kafka.topicRegex.pattern(),
-                    "metadataRefresh", Config.Kafka.metadataRefresh())
+                logger.debug(
+                    "Subscribing",
+                    "topic_regex", Config.Kafka.topicRegex.pattern(),
+                    "metadata_refresh", Config.Kafka.metadataRefresh()
+                )
                 consumer.subscribe(Config.Kafka.topicRegex)
 
-                logger.info("Polling", "poll_timeout", pollTimeout.toString(), "topic_regex", Config.Kafka.topicRegex.pattern())
+                logger.info(
+                    "Polling",
+                    "poll_timeout", pollTimeout.toString(),
+                    "topic_regex", Config.Kafka.topicRegex.pattern()
+                )
                 val records = consumer.poll(pollTimeout)
 
                 if (records.count() > 0) {
@@ -36,32 +41,25 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                         set?.add(record.partition())
                         usedPartitions[record.topic()] = set!!
                     }
-                    logger.info("Commiting offset")
+                    logger.info("Committing offset")
                     consumer.commitSync()
                 }
 
-                if (batchCount++ % Config.Shovel.reportFrequency == 0) {
-                    logger.info("Total number of topics", "number_of_topics", offsets.size.toString())
-                    offsets.forEach { (topic, offset) ->
-                        logger.info("Offset", "topic_name", topic, "offset", offset.toString())
-                    }
-                    usedPartitions.forEach { (topic, ps) ->
-                        logger.info(
-                            "Partitions read from for topic", "topic_name", topic, "partitions",
-                            ps.sorted().joinToString(", ")
-                        )
-                    }
+                if (batchCountIsMultipleOfReportFrequency(batchCount++)) {
+                    printLogs(offsets, usedPartitions)
                 }
+
+            } catch (e: HbaseReadException) {
+                logger.error("Error writing to Hbase", e)
+                cancel(CancellationException("Error writing to Hbase ${e.message}", e))
             } catch (e: Exception) {
-                logger.error("Error reading from Kafka or writing to Hbase", e)
-                cancel(CancellationException("Error reading from Kafka or writing to Hbase ${e.message}", e))
+                logger.error("Error reading from Kafka", e)
+                cancel(CancellationException("Error reading from Kafka ${e.message}", e))
             }
         }
     }
 
-fun validateHbaseConnection(hbase: HbaseClient){
-    val logger = Logger.getLogger("shovel")
-
+fun validateHbaseConnection(hbase: HbaseClient) {
     val maxAttempts = Config.Hbase.retryMaxAttempts
     val initialBackoffMillis = Config.Hbase.retryInitialBackoff
 
@@ -72,19 +70,40 @@ fun validateHbaseConnection(hbase: HbaseClient){
         try {
             HBaseAdmin.checkHBaseAvailable(hbase.connection.configuration)
             success = true
-        }
-        catch (e: Exception) {
+        } catch (e: Exception) {
             val delay: Long = if (attempts == 0) initialBackoffMillis
             else (initialBackoffMillis * attempts * 2)
-            logger.warn("Failed to connect to Hbase on attempt ${attempts + 1}/$maxAttempts, will retry in $delay ms, if ${attempts + 1} still < $maxAttempts: ${e.message}" )
+            logger.warn(
+                "Failed to connect to Hbase after multiple attempts",
+                "attempt", (attempts + 1).toString(),
+                "max_attempts", maxAttempts.toString(),
+                "retry_delay", delay.toString()
+            )
             Thread.sleep(delay)
-        }
-        finally {
+        } finally {
             attempts++
         }
     }
 
     if (!success) {
-        throw java.io.IOException("Unable to reconnect to Hbase after $attempts attempts")
+        throw HbaseReadException("Unable to reconnect to Hbase after $attempts attempts")
     }
+}
+
+fun printLogs(offsets: MutableMap<String, Long>, usedPartitions: MutableMap<String, MutableSet<Int>>) {
+    logger.info("Total number of topics", "number_of_topics", offsets.size.toString())
+    offsets.forEach { (topic, offset) ->
+        logger.info("Offset", "topic_name", topic, "offset", offset.toString())
+    }
+    usedPartitions.forEach { (topic, ps) ->
+        logger.info(
+            "Partitions read from for topic",
+            "topic_name", topic,
+            "partitions", ps.sorted().joinToString(", ")
+        )
+    }
+}
+
+fun batchCountIsMultipleOfReportFrequency(batchCount: Int): Boolean {
+    return (batchCount % Config.Shovel.reportFrequency) == 0
 }

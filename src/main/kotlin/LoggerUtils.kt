@@ -123,7 +123,7 @@ fun throwableProxyEventToString(event: ILoggingEvent): String {
     }
 }
 
-class JsonLoggerWrapper(private val delegateLogger: Logger) {
+open class JsonLoggerWrapper(private val delegateLogger: Logger) {
 
     companion object {
         fun getLogger(forClassName: String): JsonLoggerWrapper {

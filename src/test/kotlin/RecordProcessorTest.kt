@@ -1,4 +1,5 @@
 import com.beust.klaxon.JsonObject
+import com.beust.klaxon.KlaxonException
 import com.google.gson.Gson
 import com.nhaarman.mockitokotlin2.*
 import io.kotlintest.fail
@@ -16,7 +17,7 @@ import org.apache.kafka.common.MetricName
 import org.apache.kafka.common.PartitionInfo
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.record.TimestampType
-import org.junit.Assert.assertEquals
+import org.junit.Assert.*
 import java.io.ByteArrayInputStream
 import java.io.ObjectInputStream
 import java.time.Duration
@@ -179,7 +180,8 @@ class RecordProcessorTest : StringSpec() {
             try {
                 processor.processRecord(record, hbaseClient, mockMessageParser)
                 fail("test did not throw an exception")
-            } catch (e: RuntimeException) {
+            } catch (e: HbaseReadException) {
+                assertEquals("Error writing record to HBase: java.lang.RuntimeException: testException", e.localizedMessage)
             }
         }
 
@@ -253,11 +255,46 @@ class RecordProcessorTest : StringSpec() {
             }
 
             val hbaseClientMock = HbaseClient(mockConnection, "cf".toByteArray(), "record".toByteArray())
-            shouldThrow<java.io.IOException> {
+            shouldThrow<HbaseReadException> {
                 processor.processRecord(record, hbaseClientMock, mockMessageParser)
             }
         }
 
-    }
+        "valid json is converted and validated and returns json object" {
+            reset()
+            val messageBody = "Hello everyone"
+            val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, "key".toByteArray(), messageBody.toByteArray())
+            val jsonObject = JsonObject()
+            doReturn(jsonObject).`when`(mockConverter).convertToJson(record.value())
+            doNothing().`when`(mockValidator).validate(jsonObject.toJsonString())
 
+            val response = processor.convertAndValidateJsonRecord(record)
+
+            assertEquals(jsonObject, response)
+        }
+
+        "invalid json is not converted and returns null" {
+            reset()
+            val messageBody = "Hello everyone"
+            val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, "key".toByteArray(), messageBody.toByteArray())
+            doThrow(IllegalArgumentException()).`when`(mockConverter).convertToJson(record.value())
+
+            val response = processor.convertAndValidateJsonRecord(record)
+
+            assertNull(response)
+        }
+
+        "invalid json is not validated and returns null" {
+            reset()
+            val messageBody = "Hello everyone"
+            val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, "key".toByteArray(), messageBody.toByteArray())
+            val jsonObject = JsonObject()
+            doReturn(jsonObject).`when`(mockConverter).convertToJson(record.value())
+            doThrow(InvalidMessageException("oops!!", Exception())).`when`(mockValidator).validate(jsonObject.toJsonString())
+
+            val response = processor.convertAndValidateJsonRecord(record)
+
+            assertNull(response)
+        }
+    }
 }
