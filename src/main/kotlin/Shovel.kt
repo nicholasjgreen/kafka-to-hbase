@@ -31,11 +31,13 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                 )
                 val records = consumer.poll(pollTimeout)
 
+
                 if (records.count() > 0) {
                     logger.info("Processing records", "record_count", records.count().toString())
                     for (record in records) {
                         processor.processRecord(record, hbase, parser)
                         offsets[record.topic()] = record.offset()
+
                         val set =
                             if (usedPartitions.containsKey(record.topic())) usedPartitions[record.topic()] else mutableSetOf()
                         set?.add(record.partition())
@@ -46,7 +48,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                 }
 
                 if (batchCountIsMultipleOfReportFrequency(batchCount++)) {
-                    printLogs(offsets, usedPartitions)
+                    printLogs(consumer, offsets, usedPartitions)
                 }
 
             } catch (e: HbaseReadException) {
@@ -90,7 +92,7 @@ fun validateHbaseConnection(hbase: HbaseClient) {
     }
 }
 
-fun printLogs(offsets: MutableMap<String, Long>, usedPartitions: MutableMap<String, MutableSet<Int>>) {
+fun printLogs(consumer: KafkaConsumer<ByteArray, ByteArray>, offsets: MutableMap<String, Long>, usedPartitions: MutableMap<String, MutableSet<Int>>) {
     logger.info("Total number of topics", "number_of_topics", offsets.size.toString())
     offsets.forEach { (topic, offset) ->
         logger.info("Offset", "topic_name", topic, "offset", offset.toString())
@@ -102,6 +104,10 @@ fun printLogs(offsets: MutableMap<String, Long>, usedPartitions: MutableMap<Stri
             "partitions", ps.sorted().joinToString(", ")
         )
     }
+    consumer.metrics().filter { it.key.group() == "consumer-fetch-manager-metrics" }
+        .filter { it.key.name() == "records-lag-max" }
+        .map { it.value }
+        .forEach { logger.info("Max record lag", "lag", it.metricValue().toString()) }
 }
 
 fun batchCountIsMultipleOfReportFrequency(batchCount: Int): Boolean {

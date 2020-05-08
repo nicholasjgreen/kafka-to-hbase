@@ -67,6 +67,10 @@ object Config {
             put(metaDataRefreshKey, getEnv("K2HB_KAFKA_META_REFRESH_MS") ?: "10000")
             put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false)
             put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, getEnv("K2HB_KAFKA_MAX_POLL_RECORDS") ?: 500)
+            val pollInterval = getEnv("K2HB_KAFKA_MAX_POLL_INTERVAL_MS")
+            if (pollInterval != null) {
+                put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, pollInterval.toInt())
+            }
         }
 
         val producerProps = Properties().apply {
