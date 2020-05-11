@@ -12,19 +12,12 @@ open class RecordProcessor(private val validator: Validator, private val convert
 
     open fun processRecord(record: ConsumerRecord<ByteArray, ByteArray>, hbase: HbaseClient, parser: MessageParser) {
 
-        convertAndValidateJsonRecord(record).let { json ->
-
-            if (json == null) {
-                return
-            }
-
+        convertAndValidateJsonRecord(record)?.let { json ->
             val formattedKey = parser.generateKeyFromRecordBody(json)
-
             if (formattedKey.isEmpty()) {
                 logger.warn("Empty key for record", "record", getDataStringForRecord(record))
                 return
             }
-
             writeRecordToHbase(json, record, hbase, formattedKey)
         }
     }
