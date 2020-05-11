@@ -24,11 +24,17 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                 )
                 consumer.subscribe(Config.Kafka.topicRegex)
 
+
                 logger.info(
                     "Polling",
                     "poll_timeout", pollTimeout.toString(),
                     "topic_regex", Config.Kafka.topicRegex.pattern()
                 )
+
+                consumer.listTopics().forEach { (topic, _) ->
+                    logger.info("Subscribed to topic", "topic_name", topic)
+                }
+
                 val records = consumer.poll(pollTimeout)
 
 
