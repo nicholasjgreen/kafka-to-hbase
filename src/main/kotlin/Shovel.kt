@@ -1,3 +1,4 @@
+
 import kotlinx.coroutines.*
 import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -30,10 +31,6 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                     "poll_timeout", pollTimeout.toString(),
                     "topic_regex", Config.Kafka.topicRegex.pattern()
                 )
-
-                consumer.listTopics().forEach { (topic, _) ->
-                    logger.info("Subscribed to topic", "topic_name", topic)
-                }
 
                 val records = consumer.poll(pollTimeout)
 
@@ -110,10 +107,17 @@ fun printLogs(consumer: KafkaConsumer<ByteArray, ByteArray>, offsets: MutableMap
             "partitions", ps.sorted().joinToString(", ")
         )
     }
+
     consumer.metrics().filter { it.key.group() == "consumer-fetch-manager-metrics" }
         .filter { it.key.name() == "records-lag-max" }
         .map { it.value }
         .forEach { logger.info("Max record lag", "lag", it.metricValue().toString()) }
+
+    consumer.listTopics()
+        .filter { (topic, _) -> Config.Kafka.topicRegex.matcher(topic).matches() }
+        .forEach { (topic, _) ->
+        logger.info("Subscribed to topic", "topic_name", topic)
+    }
 }
 
 fun batchCountIsMultipleOfReportFrequency(batchCount: Int): Boolean {
