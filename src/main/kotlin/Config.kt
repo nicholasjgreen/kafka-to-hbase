@@ -39,7 +39,7 @@ object Config {
 
         val columnFamily = getEnv("K2HB_HBASE_COLUMN_FAMILY") ?: "cf"
         val columnQualifier = getEnv("K2HB_HBASE_COLUMN_QUALIFIER") ?: "record"
-        val retryMaxAttempts: Int = getEnv("K2HB_RETRY_MAX_ATTEMPS")?.toInt() ?: 3
+        val retryMaxAttempts: Int = getEnv("K2HB_RETRY_MAX_ATTEMPTS")?.toInt() ?: 3
         val retryInitialBackoff: Long = getEnv("K2HB_RETRY_INITIAL_BACKOFF")?.toLong() ?: 10000
         val retryBackoffMultiplier: Long = getEnv("K2HB_RETRY_BACKOFF_MULTIPLIER")?.toLong() ?: 2
     }
