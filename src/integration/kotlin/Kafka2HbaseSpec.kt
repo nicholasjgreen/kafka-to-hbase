@@ -53,6 +53,25 @@ class Kafka2HBaseSpec: StringSpec(){
             }
         }
 
+        "Messages on the agentToDoArchive topic are written to agentToDo" {
+            val hbase = HbaseClient.connect()
+            val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
+            val parser = MessageParser()
+            val converter = Converter()
+            val topic = "db.agent_core.agentToDoArchive"
+            val qualifiedTableName = "agent_core:agentToDo"
+            hbase.ensureTable(qualifiedTableName)
+            val body = wellformedValidPayload()
+            val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
+            val key = parser.generateKey(converter.convertToJson(getId().toByteArray()))
+            log.info("Sending well-formed record to kafka topic '$topic'.")
+            producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
+            log.info("Sent well-formed record to kafka topic '$topic'.")
+            val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
+            val storedValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
+            String(storedValue!!) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
+        }
+
         "Messages with previously received identifiers are written as new versions to hbase but not to dlq" {
             val s3Client = getS3Client()
             val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
