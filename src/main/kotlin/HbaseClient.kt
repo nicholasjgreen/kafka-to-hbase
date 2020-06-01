@@ -5,13 +5,14 @@ import org.apache.hadoop.hbase.client.Get
 import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.io.TimeRange
 
-open class HbaseClient(val connection: Connection, private val columnFamily: ByteArray, private val columnQualifier: ByteArray) {
+open class HbaseClient(val connection: Connection, private val columnFamily: ByteArray, private val columnQualifier: ByteArray, private val hbaseRegionReplication: Int) {
 
     companion object {
         fun connect() = HbaseClient(
             ConnectionFactory.createConnection(HBaseConfiguration.create(Config.Hbase.config)),
             Config.Hbase.columnFamily.toByteArray(),
-            Config.Hbase.columnQualifier.toByteArray())
+            Config.Hbase.columnQualifier.toByteArray(),
+            Config.Hbase.regionReplication)
 
         val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(HbaseClient::class.toString())
     }
@@ -109,6 +110,7 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
                                 maxVersions = Int.MAX_VALUE
                                 minVersions = 1
                             })
+                     setRegionReplication(hbaseRegionReplication)
                 })
             } catch (e: TableExistsException) {
                 logger.info("Didn't create table, table already exists, probably created by another process",

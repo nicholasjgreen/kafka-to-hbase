@@ -254,7 +254,7 @@ class RecordProcessorTest : StringSpec() {
                 on { getTable(any()) } doThrow java.io.IOException() 
             }
 
-            val hbaseClientMock = HbaseClient(mockConnection, "cf".toByteArray(), "record".toByteArray())
+            val hbaseClientMock = HbaseClient(mockConnection, "cf".toByteArray(), "record".toByteArray(), 2)
             shouldThrow<HbaseReadException> {
                 processor.processRecord(record, hbaseClientMock, mockMessageParser)
             }

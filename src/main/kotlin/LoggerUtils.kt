@@ -41,7 +41,8 @@ fun makeLoggerStaticDataTuples(): String {
         "\"app_version\":\"$app_version\", " +
         "\"component\":\"$component\", " +
         "\"column_family\":\"${Config.Hbase.columnFamily}\", " +
-        "\"column_qualifier\":\"${Config.Hbase.columnQualifier}\""
+        "\"column_qualifier\":\"${Config.Hbase.columnQualifier}\", " +
+        "\"region_replication\":\"${Config.Hbase.regionReplication}\""
 }
 
 fun resetLoggerStaticFieldsForTests() {
