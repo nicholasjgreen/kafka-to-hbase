@@ -1,16 +1,19 @@
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import sun.misc.Signal
 
+
 suspend fun main() {
+    val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger("Kafka2HBase")
     val hbase = HbaseClient.connect()
-    val kafka = KafkaConsumer<ByteArray, ByteArray>(Config.Kafka.consumerProps)
-
-    // Read as many messages as possible until a signal is received
-    val job = shovelAsync(kafka, hbase, Config.Kafka.pollTimeout)
-
-    Signal.handle(Signal("INT")) { job.cancel() }
-    Signal.handle(Signal("TERM")) { job.cancel() }
-    job.await()
-    hbase.close()
-    kafka.close()
+    KafkaConsumer<ByteArray, ByteArray>(Config.Kafka.consumerProps).use { kafka ->
+        try {
+            val job = shovelAsync(kafka, hbase, Config.Kafka.pollTimeout)
+            Signal.handle(Signal("INT")) { job.cancel() }
+            Signal.handle(Signal("TERM")) { job.cancel() }
+            job.await()
+        } finally {
+            logger.info("Closing connections")
+            hbase.close()
+        }
+    }
 }
