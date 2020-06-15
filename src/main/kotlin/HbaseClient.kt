@@ -56,12 +56,28 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         }
 
         ensureTable(tableName)
+        val printableKey = printableKey(key)
+
+
         connection.getTable(TableName.valueOf(tableName)).use { table ->
+            logger.info("Putting record", "key", printableKey, "table", tableName, "version", "$version")
             table.put(Put(key).apply {
                 this.addColumn(columnFamily, columnQualifier, version, body)
             })
+            logger.info("Put record", "key", printableKey, "table", tableName, "version", "$version")
         }
     }
+
+    fun printableKey(key: ByteArray) =
+        if (key.size > 4) {
+            val hash = key.slice(IntRange(0, 3))
+            val hex = hash.map { String.format("\\x%02X", it) }.joinToString("")
+            val renderable = key.slice(IntRange(4, key.size - 1)).map { it.toChar() }.joinToString("")
+            "${hex}${renderable}"
+        }
+        else {
+            String(key)
+        }
 
     fun getCellAfterTimestamp(tableName: String, key: ByteArray, timestamp: Long): ByteArray? {
         connection.getTable(TableName.valueOf(tableName)).use { table ->
