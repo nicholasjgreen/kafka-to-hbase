@@ -14,6 +14,7 @@ suspend fun main() {
         } finally {
             logger.info("Closing connections")
             hbase.close()
+            logger.info("Closed hbase connection")
         }
     }
 }

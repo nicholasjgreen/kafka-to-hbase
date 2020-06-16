@@ -1,4 +1,3 @@
-
 import kotlinx.coroutines.*
 import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -12,7 +11,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
         val validator = Validator()
         val converter = Converter()
         val processor = RecordProcessor(validator, converter)
-        val offsets = mutableMapOf<String, String>()
+        val offsets = mutableMapOf<String, Map<String, String>>()
         var batchCount = 0
         val usedPartitions = mutableMapOf<String, MutableSet<Int>>()
         while (isActive) {
@@ -34,12 +33,14 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
 
                 val records = consumer.poll(pollTimeout)
 
-
                 if (records.count() > 0) {
                     logger.info("Processing records", "record_count", records.count().toString())
                     for (record in records) {
                         processor.processRecord(record, hbase, parser)
-                        offsets[record.topic()] = "${record.offset()}/${record.partition()}"
+                        offsets[record.topic()] = mutableMapOf(
+                            "offset" to "${record.offset()}",
+                            "partition" to "${record.partition()}"
+                        )
                         val set =
                             if (usedPartitions.containsKey(record.topic())) usedPartitions[record.topic()] else mutableSetOf()
                         set?.add(record.partition())
@@ -95,11 +96,18 @@ fun validateHbaseConnection(hbase: HbaseClient) {
 }
 
 fun printLogs(
-    consumer: KafkaConsumer<ByteArray, ByteArray>, offsets: MutableMap<String, String>,
-    usedPartitions: MutableMap<String, MutableSet<Int>>) {
+    consumer: KafkaConsumer<ByteArray, ByteArray>,
+    offsets: MutableMap<String, Map<String, String>>,
+    usedPartitions: MutableMap<String, MutableSet<Int>>
+) {
     logger.info("Total number of topics", "number_of_topics", offsets.size.toString())
     offsets.forEach { (topic, offset) ->
-        logger.info("Offset", "topic_name", topic, "offset", offset)
+        logger.info(
+            "Offset",
+            "topic_name", topic,
+            "offset", offset["offset"] ?: "NOT_SET",
+            "partition", offset["partition"] ?: "NOT_SET"
+        )
     }
     usedPartitions.forEach { (topic, ps) ->
         logger.info(
@@ -117,8 +125,8 @@ fun printLogs(
     consumer.listTopics()
         .filter { (topic, _) -> Config.Kafka.topicRegex.matcher(topic).matches() }
         .forEach { (topic, _) ->
-        logger.info("Subscribed to topic", "topic_name", topic)
-    }
+            logger.info("Subscribed to topic", "topic_name", topic)
+        }
 }
 
 fun batchCountIsMultipleOfReportFrequency(batchCount: Int): Boolean {
