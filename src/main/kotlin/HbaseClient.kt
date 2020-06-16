@@ -60,11 +60,15 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
 
 
         connection.getTable(TableName.valueOf(tableName)).use { table ->
-            logger.info("Putting record", "key", printableKey, "table", tableName, "version", "$version")
+            if (Config.Hbase.logKeys) {
+                logger.info("Putting record", "key", printableKey, "table", tableName, "version", "$version")
+            }
             table.put(Put(key).apply {
                 this.addColumn(columnFamily, columnQualifier, version, body)
             })
-            logger.info("Put record", "key", printableKey, "table", tableName, "version", "$version")
+            if (Config.Hbase.logKeys) {
+                logger.info("Put record", "key", printableKey, "table", tableName, "version", "$version")
+            }
         }
     }
 

@@ -12,7 +12,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
         val validator = Validator()
         val converter = Converter()
         val processor = RecordProcessor(validator, converter)
-        val offsets = mutableMapOf<String, Long>()
+        val offsets = mutableMapOf<String, String>()
         var batchCount = 0
         val usedPartitions = mutableMapOf<String, MutableSet<Int>>()
         while (isActive) {
@@ -39,8 +39,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                     logger.info("Processing records", "record_count", records.count().toString())
                     for (record in records) {
                         processor.processRecord(record, hbase, parser)
-                        offsets[record.topic()] = record.offset()
-
+                        offsets[record.topic()] = "${record.offset()}/${record.partition()}"
                         val set =
                             if (usedPartitions.containsKey(record.topic())) usedPartitions[record.topic()] else mutableSetOf()
                         set?.add(record.partition())
@@ -95,10 +94,12 @@ fun validateHbaseConnection(hbase: HbaseClient) {
     }
 }
 
-fun printLogs(consumer: KafkaConsumer<ByteArray, ByteArray>, offsets: MutableMap<String, Long>, usedPartitions: MutableMap<String, MutableSet<Int>>) {
+fun printLogs(
+    consumer: KafkaConsumer<ByteArray, ByteArray>, offsets: MutableMap<String, String>,
+    usedPartitions: MutableMap<String, MutableSet<Int>>) {
     logger.info("Total number of topics", "number_of_topics", offsets.size.toString())
     offsets.forEach { (topic, offset) ->
-        logger.info("Offset", "topic_name", topic, "offset", offset.toString())
+        logger.info("Offset", "topic_name", topic, "offset", offset)
     }
     usedPartitions.forEach { (topic, ps) ->
         logger.info(
