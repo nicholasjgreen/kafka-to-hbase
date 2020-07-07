@@ -4,6 +4,7 @@ import org.apache.hadoop.hbase.client.ConnectionFactory
 import org.apache.hadoop.hbase.client.Get
 import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.io.TimeRange
+import org.apache.hadoop.hbase.io.compress.Compression.Algorithm
 
 open class HbaseClient(val connection: Connection, private val columnFamily: ByteArray, private val columnQualifier: ByteArray, private val hbaseRegionReplication: Int) {
 
@@ -129,6 +130,8 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
                             .apply {
                                 maxVersions = Int.MAX_VALUE
                                 minVersions = 1
+                                compressionType = Algorithm.GZ
+                                compactionCompressionType = Algorithm.GZ
                             })
                      setRegionReplication(hbaseRegionReplication)
                 })

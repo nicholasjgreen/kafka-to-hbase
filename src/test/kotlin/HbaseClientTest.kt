@@ -12,7 +12,7 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import org.apache.hadoop.hbase.HColumnDescriptor
 import org.apache.hadoop.hbase.HTableDescriptor
-
+import org.apache.hadoop.hbase.io.compress.Compression.Algorithm
 
 class HbaseClientTest : StringSpec({
     val columnFamily = "cf".toByteArray()
@@ -146,6 +146,8 @@ class HbaseClientTest : StringSpec({
                     .apply {
                         maxVersions = Int.MAX_VALUE
                         minVersions = 1
+                        compressionType = Algorithm.GZ
+                        compactionCompressionType = Algorithm.GZ
                     })
             setRegionReplication(hbaseRegionReplication)
         }
@@ -186,6 +188,8 @@ class HbaseClientTest : StringSpec({
                     .apply {
                         maxVersions = Int.MAX_VALUE
                         minVersions = 1
+                        compressionType = Algorithm.GZ
+                        compactionCompressionType = Algorithm.GZ
                     })
             setRegionReplication(hbaseRegionReplication)
         }
