@@ -1,4 +1,7 @@
 S3_READY_REGEX=^Ready\.$
+aws_dev_account=NOT_SET
+temp_image_name=NOT_SET
+aws_default_region=NOT_SET
 
 .PHONY: help
 help:
@@ -21,63 +24,69 @@ git-hooks: ## Set up hooks in .git/hooks
 		done \
 	}
 
-.PHONY: build
-build: ## Build Kafka2Hbase
-	./gradlew :unit build -x test
+local-build: ## Build Kafka2Hbase with gradle
+	gradle :unit build -x test
 
-.PHONY: dist
-dist: ## Assemble distribution files in build/dist
-	./gradlew assembleDist
+local-dist: ## Assemble distribution files in build/dist with gradle
+	gradle assembleDist
 
-.PHONY: services
-services: ## Bring up Kafka2Hbase in Docker with supporting services
-	docker-compose up -d zookeeper kafka hbase aws-s3
+local-test: ## Run the unit tests with gradle
+	gradle --rerun-tasks unit
+
+local-all: local-build local-test local-dist ## Build and test with gradle
+
+services: ## Bring up supporting services in docker
+	docker-compose -f docker-compose.yaml up --build -d zookeeper kafka hbase aws-s3 metadatastore
 	@{ \
 		while ! docker logs aws-s3 2> /dev/null | grep -q $(S3_READY_REGEX); do \
-        	echo Waiting for s3.; \
-            sleep 2; \
-        done; \
+			echo Waiting for s3.; \
+			sleep 2; \
+		done; \
 	}
-	docker-compose up s3-provision
-	docker-compose up -d kafka2s3
+	docker-compose up --build s3-provision
+	docker-compose up --build -d kafka2s3
 
-.PHONY: up
-up: ## Bring up Kafka2Hbase in Docker with supporting services
-	docker-compose up --build -d
+up: services ## Bring up Kafka2Hbase in Docker with supporting services
+	docker-compose -f docker-compose.yaml up --build -d kafka2hbase
 
-.PHONY: restart
 restart: ## Restart Kafka2Hbase and all supporting services
 	docker-compose restart
 
-.PHONY: down
 down: ## Bring down the Kafka2Hbase Docker container and support services
 	docker-compose down
 
-.PHONY: destroy
 destroy: down ## Bring down the Kafka2Hbase Docker container and services then delete all volumes
 	docker network prune -f
 	docker volume prune -f
 
-.PHONY: integration
-integration: ## Run the integration tests in a Docker container
-	docker-compose run --rm integration-test ./gradlew --rerun-tasks integration
+integration-tests: ## Run the integration tests in a Docker container
+	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon :integration -x test
 
-.PHONY: integration-all ## Build and Run all the tests in containers from a clean start
-integration-all: down destroy build-base build dist up test integration
+integration-all: destroy build-base up integration-tests ## Build and Run all the integration tests in containers from a clean start
 
-.PHONY: hbase-shell
 hbase-shell: ## Open an Hbase shell onto the running Hbase container
 	docker-compose run --rm hbase shell
 
-.PHONY: test
-test: ## Run the unit tests
-	./gradlew --rerun-tasks unit
+build: build-base ## build main images
+	docker-compose build
 
-.PHONY: build-base
 build-base: ## build the base images which certain images extend.
 	@{ \
 		pushd docker; \
 		docker build --tag dwp-java:latest --file .java/Dockerfile . ; \
 		docker build --tag dwp-python-preinstall:latest --file ./python/Dockerfile . ; \
+		cp ../settings.gradle.kts ../gradle.properties . ; \
+		docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./gradle/Dockerfile . ; \
+		rm -rf settings.gradle.kts gradle.properties ; \
 		popd; \
-    }
+	}
+
+push-local-to-ecr: #Push a temp version of k2hb to AWS DEV ECR
+	@{ \
+		export AWS_DEV_ACCOUNT=$(aws_dev_account); \
+		export TEMP_IMAGE_NAME=$(temp_image_name); \
+		export AWS_DEFAULT_REGION=$(aws_default_region); \
+		aws ecr get-login-password --region ${AWS_DEFAULT_REGION} --profile dataworks-development | docker login --username AWS --password-stdin ${AWS_DEV_ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com; \
+		docker tag kafka2hbase ${AWS_DEV_ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${TEMP_IMAGE_NAME}; \
+		docker push ${AWS_DEV_ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${TEMP_IMAGE_NAME}; \
+	}

@@ -5,7 +5,7 @@ import java.time.Duration
 
 val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger("ShovelKt")
 
-fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient, pollTimeout: Duration) =
+fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient, metadataClient: MetadataStoreClient, pollTimeout: Duration) =
     GlobalScope.async {
         val parser = MessageParser()
         val validator = Validator()

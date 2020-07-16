@@ -19,7 +19,7 @@ jobs:
       - restore_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
 
-      - run: ./gradlew :unit build -x test
+      - run: gradle :unit build -x test
 
       - save_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
@@ -27,7 +27,7 @@ jobs:
             - .gradle
 
       - run: |
-          ./gradlew distTar
+          gradle distTar
           gzip -9 build/distributions/*.tar
 
       - store_artifacts:
@@ -59,14 +59,16 @@ jobs:
             sudo pip3 install docker-compose
             docker build --tag dwp-java:latest --file ./docker/java/Dockerfile .
             docker build --tag dwp-python-preinstall:latest --file ./docker/python/Dockerfile .
-            docker-compose -f docker-compose.yaml up --build -d zookeeper kafka hbase kafka2hbase kafka2s3 aws-s3 integration-test
+            docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
+            docker-compose -f docker-compose.yaml up --build -d zookeeper kafka hbase aws-s3 metadatastore kafka2s3
             S3_READY_REGEX=^Ready\.$
             while ! docker logs aws-s3 2> /dev/null | grep -q $S3_READY_REGEX; do
                 echo Waiting for aws-s3.
                 sleep 2
             done
+            docker-compose -f docker-compose.yaml up --build kafka2hbase
             docker-compose -f docker-compose.yaml up --build s3-provision
-            docker-compose -f docker-compose.yaml run --name integration-test integration-test ./gradlew --no-daemon :integration -x test
+            docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon :integration -x test
             docker cp integration-test:/kafka2hbase/build/test-results .
       - store_test_results:
           path: test-results
@@ -89,7 +91,7 @@ jobs:
           project: '${CIRCLE_PROJECT_REPONAME}/pr-kotlin'
       - setup_remote_docker
       - run:
-          command: 'docker build -t $IMAGE_NAME:latest .'
+          command: 'docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile . && docker build -t $IMAGE_NAME:latest .'
           name: Build Docker image
       # Second snyk scan examines Docker container for sev:high and will fail if found
       - snyk/scan:

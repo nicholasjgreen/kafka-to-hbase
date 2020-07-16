@@ -69,6 +69,8 @@ class HbaseClientTest : StringSpec({
     }
 
     "Fails after max tries" {
+        val expectedRetryMaxAttempts = Config.Hbase.retryMaxAttempts
+
         val table = mock<Table> {
             on { put(any<Put>()) } doThrow IOException(errorMessage)
         }
@@ -85,23 +87,10 @@ class HbaseClientTest : StringSpec({
         }
 
         exception.message shouldBe errorMessage
-        verify(table, times(System.getenv("K2HB_RETRY_MAX_ATTEMPTS").toInt())).put(any<Put>())
+        verify(table, times(expectedRetryMaxAttempts)).put(any<Put>())
     }
 
     "Table not created" {
-        val tableQualifier = "table"
-        val namespace = "ns"
-        val tableName = TableName.valueOf(ByteBuffer.wrap(namespace.toByteArray()), ByteBuffer.wrap(tableQualifier.toByteArray()))
-
-        val namespaceDescriptor = mock<NamespaceDescriptor> {
-            on { name } doReturn namespace
-        }
-
-        val adm = mock<Admin> {
-            on { listNamespaceDescriptors() } doReturn arrayOf(namespaceDescriptor)
-            on { listTableNames() } doReturn arrayOf(tableName)
-        }
-
         val connection = mock<Connection> {
             on { admin } doReturn adm
         }
@@ -113,19 +102,6 @@ class HbaseClientTest : StringSpec({
     }
 
     "Namespace and table created" {
-        val tableQualifier = "table"
-        val namespace = "ns"
-        val tableName = TableName.valueOf(ByteBuffer.wrap(namespace.toByteArray()), ByteBuffer.wrap(tableQualifier.toByteArray()))
-
-        val namespaceDescriptor = mock<NamespaceDescriptor> {
-            on { name } doReturn namespace
-        }
-
-        val adm = mock<Admin> {
-            on { listNamespaceDescriptors() } doReturn arrayOf(namespaceDescriptor)
-            on { listTableNames() } doReturn arrayOf(tableName)
-        }
-
         val connection = mock<Connection> {
             on { admin } doReturn adm
         }
@@ -136,12 +112,12 @@ class HbaseClientTest : StringSpec({
         val hbaseClient = HbaseClient(connection, dataFamily, dataQualifier, hbaseRegionReplication)
         val newNamespace = "ns2"
         val newTableQualifier = "table2"
-        val qualifiedTableName = "$newNamespace:$newTableQualifier"
-        hbaseClient.ensureTable(qualifiedTableName)
+        val newQualifiedTableName = "$newNamespace:$newTableQualifier"
+        hbaseClient.ensureTable(newQualifiedTableName)
 
         verify(adm, times(1)).createNamespace(any())
 
-        val tableDescriptor = HTableDescriptor(TableName.valueOf(qualifiedTableName)).apply {
+        val tableDescriptor = HTableDescriptor(TableName.valueOf(newQualifiedTableName)).apply {
             addFamily(HColumnDescriptor(dataFamily)
                     .apply {
                         maxVersions = Int.MAX_VALUE
@@ -156,21 +132,17 @@ class HbaseClientTest : StringSpec({
     }
 
     "Namespace not created but table is created" {
-        val tableQualifier = "table"
-        val namespace = "ns"
-        val tableName = TableName.valueOf(ByteBuffer.wrap(namespace.toByteArray()), ByteBuffer.wrap(tableQualifier.toByteArray()))
-
-        val namespaceDescriptor = mock<NamespaceDescriptor> {
+        val newNamespaceDescriptor = mock<NamespaceDescriptor> {
             on { name } doReturn namespace
         }
 
-        val adm = mock<Admin> {
-            on { listNamespaceDescriptors() } doReturn arrayOf(namespaceDescriptor)
+        val newAdm = mock<Admin> {
+            on { listNamespaceDescriptors() } doReturn arrayOf(newNamespaceDescriptor)
             on { listTableNames() } doReturn arrayOf(tableName)
         }
 
         val connection = mock<Connection> {
-            on { admin } doReturn adm
+            on { admin } doReturn newAdm
         }
 
         val dataFamily = "cf".toByteArray()
@@ -178,12 +150,12 @@ class HbaseClientTest : StringSpec({
         val hbaseRegionReplication = 3
         val hbaseClient = HbaseClient(connection, dataFamily, dataQualifier, hbaseRegionReplication)
         val newTableQualifier = "table2"
-        val qualifiedTableName = "$namespace:$newTableQualifier"
-        hbaseClient.ensureTable(qualifiedTableName)
+        val newQualifiedTableName = "$namespace:$newTableQualifier"
+        hbaseClient.ensureTable(newQualifiedTableName)
 
-        verify(adm, times(0)).createNamespace(any())
+        verify(newAdm, times(0)).createNamespace(any())
 
-        val tableDescriptor = HTableDescriptor(TableName.valueOf(qualifiedTableName)).apply {
+        val tableDescriptor = HTableDescriptor(TableName.valueOf(newQualifiedTableName)).apply {
             addFamily(HColumnDescriptor(dataFamily)
                     .apply {
                         maxVersions = Int.MAX_VALUE
@@ -194,6 +166,6 @@ class HbaseClientTest : StringSpec({
             setRegionReplication(hbaseRegionReplication)
         }
 
-        verify(adm, times(1)).createTable(tableDescriptor)
+        verify(newAdm, times(1)).createTable(tableDescriptor)
     }
 })

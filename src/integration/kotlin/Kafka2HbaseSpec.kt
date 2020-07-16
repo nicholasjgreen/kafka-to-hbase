@@ -18,13 +18,15 @@ import java.io.BufferedReader
 import java.text.SimpleDateFormat
 import java.util.*
 
-class Kafka2HBaseSpec: StringSpec(){
+class Kafka2HBaseSpec : StringSpec() {
 
     private val log = Logger.getLogger(Kafka2HBaseSpec::class.toString())
 
     init {
         "Messages with new identifiers are written to hbase but not to dlq" {
             val hbase = HbaseClient.connect()
+            // For future implementations
+            // val metadataStore = MetadataStoreClient.connect()
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             val parser = MessageParser()
             val converter = Converter()
@@ -38,7 +40,7 @@ class Kafka2HBaseSpec: StringSpec(){
                 hbase.ensureTable(qualifiedTableName)
                 val s3Client = getS3Client()
                 val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
-                summaries.forEach{s3Client.deleteObject("kafka2s3", it.key)}
+                summaries.forEach { s3Client.deleteObject("kafka2s3", it.key) }
                 val body = wellformedValidPayload()
                 val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
                 val key = parser.generateKey(converter.convertToJson(getId().toByteArray()))
@@ -55,6 +57,8 @@ class Kafka2HBaseSpec: StringSpec(){
 
         "Messages on the agentToDoArchive topic are written to agentToDo" {
             val hbase = HbaseClient.connect()
+            // For future implementations
+            // val metadataStore = MetadataStoreClient.connect()
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             val parser = MessageParser()
             val converter = Converter()
@@ -75,9 +79,11 @@ class Kafka2HBaseSpec: StringSpec(){
         "Messages with previously received identifiers are written as new versions to hbase but not to dlq" {
             val s3Client = getS3Client()
             val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
-            summaries.forEach{s3Client.deleteObject("kafka2s3", it.key)}
+            summaries.forEach { s3Client.deleteObject("kafka2s3", it.key) }
 
             val hbase = HbaseClient.connect()
+            // For future implementations
+            // val metadataStore = MetadataStoreClient.connect()
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
 
             val parser = MessageParser()
@@ -103,7 +109,7 @@ class Kafka2HBaseSpec: StringSpec(){
             val kafkaTimestamp2 = converter.getTimestampAsLong(getISO8601Timestamp())
             producer.sendRecord(topic.toByteArray(), "key2".toByteArray(), body2, kafkaTimestamp2)
 
-           val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
+            val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries1.size shouldBe 0
 
             val matcher = TextUtils().topicNameTableMatcher(topic)
@@ -112,10 +118,15 @@ class Kafka2HBaseSpec: StringSpec(){
                 val namespace = matcher.groupValues[1]
                 val tableName = matcher.groupValues[2]
                 val qualifiedTableName = "$namespace:$tableName".replace("-", "_")
-                val storedNewValue = waitFor { hbase.getCellAfterTimestamp(qualifiedTableName, key, referenceTimestamp) }
-                Gson().fromJson(String(storedNewValue!!), JsonObject::class.java) shouldBe Gson().fromJson(String(body2), JsonObject::class.java)
+                val storedNewValue =
+                    waitFor { hbase.getCellAfterTimestamp(qualifiedTableName, key, referenceTimestamp) }
+                Gson().fromJson(
+                    String(storedNewValue!!),
+                    JsonObject::class.java
+                ) shouldBe Gson().fromJson(String(body2), JsonObject::class.java)
 
-                val storedPreviousValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
+                val storedPreviousValue =
+                    waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
                 String(storedPreviousValue!!) shouldBe String(body1)
             }
         }
@@ -132,7 +143,10 @@ class Kafka2HBaseSpec: StringSpec(){
             val malformedRecord = MalformedRecord("key3", String(body), "Invalid json")
             val expected = Klaxon().toJsonString(malformedRecord)
             Thread.sleep(10_000)
-            val s3Object =  s3Client.getObject("kafka2s3", "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key3").objectContent
+            val s3Object = s3Client.getObject(
+                "kafka2s3",
+                "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key3"
+            ).objectContent
             val actual = s3Object.bufferedReader().use(BufferedReader::readText)
             actual shouldBe expected
         }
@@ -146,7 +160,10 @@ class Kafka2HBaseSpec: StringSpec(){
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             producer.sendRecord(topic.toByteArray(), "key4".toByteArray(), body, timestamp)
             Thread.sleep(10_000)
-            val s3Object = s3Client.getObject("kafka2s3", "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key4").objectContent
+            val s3Object = s3Client.getObject(
+                "kafka2s3",
+                "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key4"
+            ).objectContent
             val actual = s3Object.bufferedReader().use(BufferedReader::readText)
             val malformedRecord = MalformedRecord(
                 "key4", String(body),
@@ -157,15 +174,15 @@ class Kafka2HBaseSpec: StringSpec(){
         }
     }
 
-    private fun getS3Client(): AmazonS3{
-        return  AmazonS3ClientBuilder.standard()
+    private fun getS3Client(): AmazonS3 {
+        return AmazonS3ClientBuilder.standard()
             .withEndpointConfiguration(AwsClientBuilder.EndpointConfiguration("http://aws-s3:4572", "eu-west-2"))
             .withClientConfiguration(ClientConfiguration().withProtocol(Protocol.HTTP))
             .withCredentials(
-                AWSStaticCredentialsProvider(BasicAWSCredentials("aws-access-key", "aws-secret-access-key")))
+                AWSStaticCredentialsProvider(BasicAWSCredentials("aws-access-key", "aws-secret-access-key"))
+            )
             .withPathStyleAccessEnabled(true)
             .disableChunkedEncoding()
             .build()
     }
-
 }

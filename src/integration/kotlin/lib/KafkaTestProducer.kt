@@ -13,7 +13,6 @@ fun <K : Any?, V : Any?> KafkaProducer<K, V>.sendRecord(topic: ByteArray, key: K
         null
     )
 
-
     try {
         send(record)
     } finally {
