@@ -112,6 +112,7 @@ services:
 
   integration-test:
     image: kafka2hbase-integration:latest
+    container_name: integration-test
     build:
       dockerfile: Dockerfile_integration
       context: ./

@@ -36,6 +36,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                 if (records.count() > 0) {
                     logger.info("Processing records", "record_count", records.count().toString())
                     for (record in records) {
+                        //TODO: Implement saving record to the metadata store database before sending to hbase in case hbase loses it
                         processor.processRecord(record, hbase, parser)
                         offsets[record.topic()] = mutableMapOf(
                             "offset" to "${record.offset()}",
