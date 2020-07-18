@@ -112,7 +112,8 @@ object Config {
 
     object MetadataStore {
 
-        val isUsingAWS = getEnv("K2HB_USE_AWS_SECRETS") == "true"
+        private val useAwsSecretsString = getEnv("K2HB_USE_AWS_SECRETS") ?: "true"
+        val isUsingAWS = useAwsSecretsString == "true"
 
         val properties = Properties().apply {
             put("user", getEnv("K2HB_RDS_USERNAME") ?: "user")
