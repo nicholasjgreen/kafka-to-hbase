@@ -1,36 +1,43 @@
 # Multi stage docker build - stage 1 builds jar file
-FROM dwp-kotlin-slim-gradle-k2hb:latest as build
+FROM zenika/kotlin:1.3-jdk8-slim as build
 
-# Output folder
-RUN mkdir -p /k2hb_builds
+ARG http_proxy_host=""
+ARG http_proxy_port=""
 
-# Copy the gradle config and install dependencies
+WORKDIR /kafka2hbase
+
+# Set gradle proxy
+ENV GRADLE_OPTS="${GRADLE_OPTS} -Dhttp.proxyHost=$http_proxy_host -Dhttp.proxyPort=$http_proxy_port"
+ENV GRADLE_OPTS="${GRADLE_OPTS} -Dhttps.proxyHost=$http_proxy_host -Dhttps.proxyPort=$http_proxy_port"
+
+RUN echo "ENV gradle: ${GRADLE_OPTS}" \
+    && echo "ARG host: ${http_proxy_host}" \
+    && echo "ARG port: ${http_proxy_port}"
+
+ENV GRADLE "/kafka2hbase/gradlew"
+
+
+# Copy the gradle wrapper
+COPY gradlew .
+COPY gradle/ ./gradle
+
+# Copy the gradle config
 COPY build.gradle.kts .
+COPY settings.gradle.kts .
+COPY gradle.properties .
 
 # Copy the source
 COPY src/ ./src
 
-# Create DistTar
-RUN gradle :unit build -x test \
-    && gradle distTar
-
-RUN cp build/distributions/*.* /k2hb_builds/
+# Generate Wrapper, install dependencies and Create DistTar
+RUN $GRADLE :unit build -x test \
+    && $GRADLE distTar
 
 # Second build stage starts here
 FROM openjdk:14-alpine
 
-MAINTAINER DWP
-
-COPY ./entrypoint.sh /
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["./bin/kafka2hbase"]
-
-ARG VERSION=1.0-SNAPSHOT
-ARG DIST=kafka2hbase-$VERSION
-ARG DIST_FILE=$DIST.tar
 ARG http_proxy_full=""
 
-ENV APPLICATION=kafka2hbase
 # Set user to run the process as in the docker contianer
 ENV USER_NAME=k2hb
 ENV GROUP_NAME=k2hb
@@ -39,19 +46,15 @@ ENV GROUP_NAME=k2hb
 RUN addgroup ${GROUP_NAME}
 RUN adduser --system --ingroup ${GROUP_NAME} ${USER_NAME}
 
-# Add Aurora cert
-RUN mkdir -p /certs
-COPY ./AmazonRootCA1.pem /certs/
-RUN chown -R ${GROUP_NAME}:${USER_NAME} /certs
-RUN chmod -R a+rx /certs
-RUN chmod 600 /certs/AmazonRootCA1.pem
-RUN ls -la /certs
-
 # Set environment variables for apk
 ENV http_proxy=${http_proxy_full}
 ENV https_proxy=${http_proxy_full}
 ENV HTTP_PROXY=${http_proxy_full}
 ENV HTTPS_PROXY=${http_proxy_full}
+
+ARG VERSION=1.0-SNAPSHOT
+ARG DIST=kafka2hbase-$VERSION
+ARG DIST_FILE=$DIST.tar
 
 RUN echo "ENV http: ${http_proxy}" \
     && echo "ENV https: ${https_proxy}" \
@@ -72,11 +75,18 @@ RUN echo "===> Installing Dependencies ..." \
     && pip3 install https://github.com/dwp/acm-pca-cert-generator/releases/download/${acm_cert_helper_version}/acm_cert_helper-${acm_cert_helper_version}.tar.gz \
     && echo "==Dependencies done=="
 
+COPY ./entrypoint.sh /
+
 WORKDIR /kafka2hbase
 
-COPY --from=build /k2hb_builds/$DIST_FILE .
+COPY --from=build /kafka2hbase/build/distributions/$DIST_FILE .
 
 RUN tar -xf $DIST_FILE --strip-components=1
+
 RUN chown ${USER_NAME}:${GROUP_NAME} . -R
 
 USER $USER_NAME
+ENV APPLICATION=kafka2hbase
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["./bin/kafka2hbase"]

@@ -78,8 +78,4 @@ ignore:
     - '*':
         reason: Transient dependency brought in by hbase-client with no direct upgrade or patch.
         expires: 2020-07-20T00:00:00.000Z
-  SNYK-JAVA-MYSQL-451464:
-    - '*':
-        reason: MySql version required to stay to keep compatibility with hbase dependency
-        expires: 2020-09-20T00:00:00.000Z
 patch: {}
