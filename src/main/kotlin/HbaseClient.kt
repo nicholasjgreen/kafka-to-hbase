@@ -1,8 +1,5 @@
 import org.apache.hadoop.hbase.*
-import org.apache.hadoop.hbase.client.Connection
-import org.apache.hadoop.hbase.client.ConnectionFactory
-import org.apache.hadoop.hbase.client.Get
-import org.apache.hadoop.hbase.client.Put
+import org.apache.hadoop.hbase.client.*
 import org.apache.hadoop.hbase.io.TimeRange
 import org.apache.hadoop.hbase.io.compress.Compression.Algorithm
 
@@ -60,23 +57,30 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         val printableKey = printableKey(key)
 
 
+        if (Config.Hbase.logKeys) {
+            logger.info("Putting record", "key", printableKey, "table", tableName, "version", "$version")
+        }
+
         connection.getTable(TableName.valueOf(tableName)).use { table ->
-            if (Config.Hbase.logKeys) {
-                logger.info("Putting record", "key", printableKey, "table", tableName, "version", "$version")
+
+            if (table is HTable) {
+                logger.info("Autoflush setting", "table", tableName, "is_autoflush", "${table.isAutoFlush}")
             }
+
             table.put(Put(key).apply {
                 this.addColumn(columnFamily, columnQualifier, version, body)
             })
-            if (Config.Hbase.logKeys) {
-                logger.info("Put record", "key", printableKey, "table", tableName, "version", "$version")
-            }
+        }
+
+        if (Config.Hbase.logKeys) {
+            logger.info("Put record", "key", printableKey, "table", tableName, "version", "$version")
         }
     }
 
-    fun printableKey(key: ByteArray) =
+    private fun printableKey(key: ByteArray) =
         if (key.size > 4) {
             val hash = key.slice(IntRange(0, 3))
-            val hex = hash.map { String.format("\\x%02X", it) }.joinToString("")
+            val hex = hash.joinToString("") { String.format("\\x%02X", it) }
             val renderable = key.slice(IntRange(4, key.size - 1)).map { it.toChar() }.joinToString("")
             "${hex}${renderable}"
         }
@@ -133,7 +137,7 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
                                 compressionType = Algorithm.GZ
                                 compactionCompressionType = Algorithm.GZ
                             })
-                     setRegionReplication(hbaseRegionReplication)
+                    regionReplication = hbaseRegionReplication
                 })
             } catch (e: TableExistsException) {
                 logger.info("Didn't create table, table already exists, probably created by another process",

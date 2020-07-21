@@ -1,5 +1,4 @@
 import com.beust.klaxon.JsonObject
-import com.beust.klaxon.KlaxonException
 import com.google.gson.Gson
 import com.nhaarman.mockitokotlin2.*
 import io.kotlintest.fail
@@ -17,7 +16,8 @@ import org.apache.kafka.common.MetricName
 import org.apache.kafka.common.PartitionInfo
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.record.TimestampType
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import java.io.ByteArrayInputStream
 import java.io.ObjectInputStream
 import java.time.Duration

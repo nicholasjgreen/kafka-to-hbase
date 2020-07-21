@@ -47,6 +47,7 @@ class HbaseClientTest : StringSpec({
         }
 
         verify(table, times(1)).put(any<Put>())
+        verify(table, times(1)).close()
     }
 
     "Retries until successful put" {
@@ -66,6 +67,7 @@ class HbaseClientTest : StringSpec({
         }
 
         verify(table, times(2)).put(any<Put>())
+        verify(table, times(2)).close()
     }
 
     "Fails after max tries" {
@@ -86,6 +88,7 @@ class HbaseClientTest : StringSpec({
 
         exception.message shouldBe errorMessage
         verify(table, times(System.getenv("K2HB_RETRY_MAX_ATTEMPTS").toInt())).put(any<Put>())
+        verify(table, times(System.getenv("K2HB_RETRY_MAX_ATTEMPTS").toInt())).close()
     }
 
     "Table not created" {

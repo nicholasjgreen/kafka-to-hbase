@@ -22,7 +22,7 @@ dependencies {
     implementation("org.apache.hbase", "hbase-client", "1.4.9")
     implementation("org.apache.kafka", "kafka-clients", "2.3.0")
     implementation("com.beust", "klaxon", "4.0.2")
-    implementation("com.github.everit-org.json-schema", "org.everit.json.schema", "1.12.0")
+    implementation("com.github.everit-org.json-schema", "org.everit.json.schema", "1.12.1")
     implementation("ch.qos.logback", "logback-classic", "1.2.3")
     implementation("org.apache.commons", "commons-text", "1.8")
 
