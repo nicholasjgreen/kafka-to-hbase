@@ -18,7 +18,7 @@ private var environment = System.getenv("K2HB_ENVIRONMENT") ?: UNSET_TEXT
 private var app_version = System.getenv("K2HB_APP_VERSION") ?: UNSET_TEXT
 private var component = System.getenv("K2HB_JAR_COMPONENT_NAME") ?: "jar_file"
 private var application = System.getenv("K2HB_APPLICATION_NAME") ?: "Kafka2Hbase"
-
+private var instanceId = System.getenv("INSTANCE_ID") ?: UNSET_TEXT
 private var staticData = makeLoggerStaticDataTuples()
 
 class LogConfiguration {
@@ -40,6 +40,7 @@ fun makeLoggerStaticDataTuples(): String {
         "\"application\":\"$application\", " +
         "\"app_version\":\"$app_version\", " +
         "\"component\":\"$component\", " +
+        "\"instance_id\":\"$instanceId\", " +
         "\"column_family\":\"${Config.Hbase.columnFamily}\", " +
         "\"column_qualifier\":\"${Config.Hbase.columnQualifier}\", " +
         "\"region_replication\":\"${Config.Hbase.regionReplication}\""

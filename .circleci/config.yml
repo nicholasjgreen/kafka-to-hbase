@@ -9,6 +9,20 @@ executors:
       IMAGE_NAME: dwpdigital/kafka-to-hbase
     docker:
       - image: circleci/buildpack-deps:stretch
+
+commands:
+  setversion:
+    description: "Fetch the current version from github and put successor into gradle.properties"
+    steps:
+      - run:
+          name: "Fetch current version, set next version"
+          command: |
+            CURRENT_VERSION=$(curl --silent "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+            [ -z "$CURRENT_VERSION" ] && CURRENT_VERSION="0.0.0"
+            NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+            echo NEXT_VERSION: \'$NEXT_VERSION\'
+            sed -i s/version=.*/version=$NEXT_VERSION/ gradle.properties
+
 jobs:
   build:
     docker:
@@ -18,13 +32,15 @@ jobs:
       - checkout
       - restore_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
-
-      - run: |
-          ./gradlew :unit build -x test
-          gzip build/distributions/*.tar
-          mkdir artifacts
-          cp -v README.md artifacts
-          cp -v build/distributions/*.tar.gz artifacts/kafka2hbase.tar.gz
+      - setversion
+      - run:
+          name: "Build distribution"
+          command: |
+            ./gradlew :unit build -x test
+            mkdir artifacts
+            cp -v README.md artifacts
+            cp -v build/distributions/*.tar artifacts/
+            gzip artifacts/*.tar
 
       - save_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
@@ -34,9 +50,7 @@ jobs:
       - persist_to_workspace:
            root: artifacts
            paths:
-            - README.md
-            - kafka2hbase.tar.gz
-
+            - ./*.*
 
   test:
     docker:
@@ -45,14 +59,16 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: false
-
+      - setversion
       - run:
           name: "Run the integration test"
           command: |
             sudo pip3 install docker-compose
             docker build --tag dwp-java:latest --file ./docker/java/Dockerfile .
             docker build --tag dwp-python-preinstall:latest --file ./docker/python/Dockerfile .
-            docker-compose -f docker-compose.yaml up --build -d zookeeper kafka hbase kafka2hbase kafka2s3 aws-s3 integration-test
+            VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
+            docker-compose -f docker-compose.yaml build --build-arg VERSION=$VERSION zookeeper kafka hbase kafka2hbase kafka2s3 aws-s3 integration-test
+            docker-compose -f docker-compose.yaml up -d zookeeper kafka hbase kafka2hbase kafka2s3 aws-s3 integration-test
             S3_READY_REGEX=^Ready\.$
             while ! docker logs aws-s3 2> /dev/null | grep -q $S3_READY_REGEX; do
                 echo Waiting for aws-s3.
@@ -81,9 +97,12 @@ jobs:
           target-file: build.gradle.kts
           project: '${CIRCLE_PROJECT_REPONAME}/pr-kotlin'
       - setup_remote_docker
+      - setversion
       - run:
-          command: 'docker build -t $IMAGE_NAME:latest .'
           name: Build Docker image
+          command: |
+            VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
+            docker build --build-arg VERSION=$VERSION -t $IMAGE_NAME:latest .
       # Second snyk scan examines Docker container for sev:high and will fail if found
       - snyk/scan:
           organization: dwp-dataworks
@@ -107,9 +126,12 @@ jobs:
           target-file: build.gradle.kts
           project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-kotlin'
       - setup_remote_docker
+      - setversion
       - run:
-          command: 'docker build -t $IMAGE_NAME:latest .'
           name: Build Docker image
+          command: |
+            VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
+            docker build --build-arg VERSION=$VERSION -t $IMAGE_NAME:latest .
       # Second snyk scan examines Docker container for sev:high and will fail if found
       - snyk/scan:
           organization: dwp-dataworks
@@ -128,24 +150,21 @@ jobs:
       - run:
           name: "Publish Release on GitHub"
           command: |
-            set -u
-            set +o pipefail
-            LATEST_VERSION=$(curl --silent "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-            set -o pipefail
-            [  -z "$LATEST_VERSION" ] && LATEST_VERSION="0.0.0"
-            VERSION=$(echo $LATEST_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
-            mv artifacts/kafka2hbase.tar.gz artifacts/kafka2hbase-${VERSION}.tar.gz
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
+            CURRENT_VERSION=$(curl --silent "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+            NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${NEXT_VERSION} ./artifacts/
 
   docker-build:
     executor: docker-publisher
     steps:
       - checkout
       - setup_remote_docker
+      - setversion
       - run:
           name: Build Docker image
           command: |
-            docker build -t $IMAGE_NAME:latest .
+            VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
+            docker build --build-arg VERSION=$VERSION -t $IMAGE_NAME:latest .
       - run:
           name: Archive Docker image
           command: docker save -o image.tar $IMAGE_NAME
@@ -166,10 +185,7 @@ jobs:
       - run:
           name: Publish Docker Image to Docker Hub
           command: |
-            set -u
-            set +o pipefail
             LATEST_VERSION=$(curl --silent "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-            set -o pipefail
             read MAJOR MINOR PATCH \<<< $( echo $LATEST_VERSION | awk -F '[ .]' '{maj = $1+0; min = $2+0; patch = $3+0; print maj, min, patch}' )
             docker tag $IMAGE_NAME:latest $IMAGE_NAME:$MAJOR
             docker tag $IMAGE_NAME:latest $IMAGE_NAME:$MAJOR.$MINOR
