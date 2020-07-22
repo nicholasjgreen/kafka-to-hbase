@@ -54,19 +54,14 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         }
 
         ensureTable(tableName)
-        val printableKey = printableKey(key)
 
+        val printableKey = printableKey(key)
 
         if (Config.Hbase.logKeys) {
             logger.info("Putting record", "key", printableKey, "table", tableName, "version", "$version")
         }
 
         connection.getTable(TableName.valueOf(tableName)).use { table ->
-
-            if (table is HTable) {
-                logger.info("Autoflush setting", "table", tableName, "is_autoflush", "${table.isAutoFlush}")
-            }
-
             table.put(Put(key).apply {
                 this.addColumn(columnFamily, columnQualifier, version, body)
             })

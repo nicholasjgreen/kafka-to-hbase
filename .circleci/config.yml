@@ -19,31 +19,24 @@ jobs:
       - restore_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
 
-      - run: ./gradlew :unit build -x test
+      - run: |
+          ./gradlew :unit build -x test
+          gzip build/distributions/*.tar
+          mkdir artifacts
+          cp -v README.md artifacts
+          cp -v build/distributions/*.tar.gz artifacts/kafka2hbase.tar.gz
 
       - save_cache:
           key: kafka-to-hbase-{{ checksum "build.gradle.kts" }}
           paths:
             - .gradle
 
-      - run: |
-          ./gradlew distTar
-          gzip -9 build/distributions/*.tar
-
-      - store_artifacts:
-          path: build/distributions
-          destination: distributions
-
-      - run:
-          name: prepare release
-          command: |
-            mkdir artifacts
-            cp README.md artifacts
-
       - persist_to_workspace:
            root: artifacts
            paths:
             - README.md
+            - kafka2hbase.tar.gz
+
 
   test:
     docker:
@@ -141,7 +134,7 @@ jobs:
             set -o pipefail
             [  -z "$LATEST_VERSION" ] && LATEST_VERSION="0.0.0"
             VERSION=$(echo $LATEST_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
-            echo "ghr -t GITHUB_TOKEN -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/"
+            mv artifacts/kafka2hbase.tar.gz artifacts/kafka2hbase-${VERSION}.tar.gz
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
 
   docker-build:

@@ -15,7 +15,7 @@ private val defaultFormat = makeUtcDateFormat() // 2001-07-04T12:08:56.235
 private var hostname = InetAddress.getLocalHost().hostName
 
 private var environment = System.getenv("K2HB_ENVIRONMENT") ?: UNSET_TEXT
-private var app_version = System.getenv("K2HB_IMAGE_DIGEST") ?: UNSET_TEXT
+private var app_version = System.getenv("K2HB_APP_VERSION") ?: UNSET_TEXT
 private var component = System.getenv("K2HB_JAR_COMPONENT_NAME") ?: "jar_file"
 private var application = System.getenv("K2HB_APPLICATION_NAME") ?: "Kafka2Hbase"
 

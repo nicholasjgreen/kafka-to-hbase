@@ -8,8 +8,17 @@ suspend fun main() {
     KafkaConsumer<ByteArray, ByteArray>(Config.Kafka.consumerProps).use { kafka ->
         try {
             val job = shovelAsync(kafka, hbase, Config.Kafka.pollTimeout)
-            Signal.handle(Signal("INT")) { job.cancel() }
-            Signal.handle(Signal("TERM")) { job.cancel() }
+
+            Signal.handle(Signal("INT")) {
+                logger.info("Int signal, cancelling job", "signal", "$it")
+                job.cancel()
+            }
+
+            Signal.handle(Signal("TERM")) {
+                logger.info("Term signal, cancelling job", "signal", "$it")
+                job.cancel()
+            }
+
             job.await()
         } finally {
             logger.info("Closing hbase connection")
