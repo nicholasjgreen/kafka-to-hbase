@@ -1,3 +1,4 @@
+import LogConfiguration.Companion.start_time_milliseconds
 import org.apache.hadoop.conf.Configuration
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
@@ -5,7 +6,6 @@ import org.apache.kafka.common.serialization.ByteArraySerializer
 import java.time.Duration
 import java.util.*
 import java.util.regex.Pattern
-
 
 fun getEnv(envVar: String): String? {
     val value = System.getenv(envVar)
@@ -48,14 +48,13 @@ object Config {
         val retryBackoffMultiplier: Long = getEnv("K2HB_RETRY_BACKOFF_MULTIPLIER")?.toLong() ?: 2
         val regionReplication: Int = getEnv("K2HB_HBASE_REGION_REPLICATION")?.toInt() ?: 3
         val logKeys: Boolean = getEnv("K2HB_HBASE_LOG_KEYS")?.toBoolean() ?: true
-        val cleanExit: Boolean = getEnv("K2HB_HBASE_CLEAN_EXIT")?.toBoolean() ?: true
-
     }
 
     object Kafka {
         val consumerProps = Properties().apply {
             put("bootstrap.servers", getEnv("K2HB_KAFKA_BOOTSTRAP_SERVERS") ?: "kafka:9092")
             put("group.id", getEnv("K2HB_KAFKA_CONSUMER_GROUP") ?: "test")
+            put("consumer.id", "$hostname-$start_time_milliseconds")
 
             val sslVal = getEnv("K2HB_KAFKA_INSECURE") ?: "true"
             val useSSL = sslVal != "true"

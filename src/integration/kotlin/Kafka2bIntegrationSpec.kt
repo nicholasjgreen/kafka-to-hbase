@@ -18,9 +18,9 @@ import java.io.BufferedReader
 import java.text.SimpleDateFormat
 import java.util.*
 
-class Kafka2HBaseSpec: StringSpec(){
+class Kafka2bIntegrationSpec: StringSpec(){
 
-    private val log = Logger.getLogger(Kafka2HBaseSpec::class.toString())
+    private val log = Logger.getLogger(Kafka2bIntegrationSpec::class.toString())
 
     init {
         "Messages with new identifiers are written to hbase but not to dlq" {
@@ -41,12 +41,12 @@ class Kafka2HBaseSpec: StringSpec(){
                 summaries.forEach{s3Client.deleteObject("kafka2s3", it.key)}
                 val body = wellformedValidPayload()
                 val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-                val key = parser.generateKey(converter.convertToJson(getId().toByteArray()))
+                val hbaseKey = parser.generateKey(converter.convertToJson(getId().toByteArray()))
                 log.info("Sending well-formed record to kafka topic '$topic'.")
                 producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
                 log.info("Sent well-formed record to kafka topic '$topic'.")
                 val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-                val storedValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
+                val storedValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
                 String(storedValue!!) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
                 val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
                 summaries1.size shouldBe 0

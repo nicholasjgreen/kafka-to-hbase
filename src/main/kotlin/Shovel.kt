@@ -1,4 +1,5 @@
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.consumesAll
 import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import java.time.Duration
@@ -23,7 +24,6 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                     "metadata_refresh", Config.Kafka.metadataRefresh()
                 )
                 consumer.subscribe(Config.Kafka.topicRegex)
-
 
                 logger.info(
                     "Polling",
@@ -54,7 +54,10 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                     printLogs(consumer, offsets, usedPartitions)
                 }
 
-            } catch (e: HbaseReadException) {
+            } catch (e: HbaseConnectionException) {
+                logger.error("Error connecting to Hbase", e)
+                cancel(CancellationException("Error connecting to Hbase ${e.message}", e))
+            } catch (e: HbaseWriteException) {
                 logger.error("Error writing to Hbase", e)
                 cancel(CancellationException("Error writing to Hbase ${e.message}", e))
             } catch (e: Exception) {
@@ -91,7 +94,7 @@ fun validateHbaseConnection(hbase: HbaseClient) {
     }
 
     if (!success) {
-        throw HbaseReadException("Unable to reconnect to Hbase after $attempts attempts")
+        throw HbaseConnectionException("Unable to reconnect to Hbase after $attempts attempts")
     }
 }
 

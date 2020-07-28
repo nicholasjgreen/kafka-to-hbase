@@ -62,13 +62,12 @@ open class RecordProcessor(private val validator: Validator, private val convert
             }
         } catch (e: Exception) {
             logger.error("Error writing record to HBase", e, "record", getDataStringForRecord(record))
-            throw HbaseReadException("Error writing record to HBase: $e")
+            throw HbaseWriteException("Error writing record to HBase: $e")
         }
     }
 
     private fun targetTable(namespace: String, tableName: String) =
         textUtils.coalescedName("$namespace:$tableName")?.replace("-", "_")
-
 
     open fun sendMessageToDlq(record: ConsumerRecord<ByteArray, ByteArray>, reason: String) {
         val body = record.value()

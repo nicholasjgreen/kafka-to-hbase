@@ -30,8 +30,9 @@ COPY gradle.properties .
 COPY src/ ./src
 
 # Generate Wrapper, install dependencies and Create DistTar
-RUN $GRADLE :unit build -x test \
+RUN $GRADLE build -x test \
     && $GRADLE distTar
+RUN ls -la /kafka2hbase/build/distributions/
 
 # Second build stage starts here
 FROM openjdk:14-alpine
@@ -52,7 +53,7 @@ ENV https_proxy=${http_proxy_full}
 ENV HTTP_PROXY=${http_proxy_full}
 ENV HTTPS_PROXY=${http_proxy_full}
 
-ARG VERSION
+ARG VERSION="0.0.1"
 ARG DIST=kafka2hbase-$VERSION
 ARG DIST_FILE=$DIST.tar
 

@@ -180,7 +180,7 @@ class RecordProcessorTest : StringSpec() {
             try {
                 processor.processRecord(record, hbaseClient, mockMessageParser)
                 fail("test did not throw an exception")
-            } catch (e: HbaseReadException) {
+            } catch (e: HbaseWriteException) {
                 assertEquals("Error writing record to HBase: java.lang.RuntimeException: testException", e.localizedMessage)
             }
         }
@@ -251,11 +251,11 @@ class RecordProcessorTest : StringSpec() {
 
             val mockConnection = mock<org.apache.hadoop.hbase.client.Connection> {
                 on { isClosed } doReturn true
-                on { getTable(any()) } doThrow java.io.IOException() 
+                on { getTable(any()) } doThrow java.io.IOException()
             }
 
             val hbaseClientMock = HbaseClient(mockConnection, "cf".toByteArray(), "record".toByteArray(), 2)
-            shouldThrow<HbaseReadException> {
+            shouldThrow<HbaseWriteException> {
                 processor.processRecord(record, hbaseClientMock, mockMessageParser)
             }
         }

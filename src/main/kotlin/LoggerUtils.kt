@@ -11,8 +11,7 @@ import java.util.*
 
 private const val UNSET_TEXT = "NOT_SET"
 private val defaultFormat = makeUtcDateFormat() // 2001-07-04T12:08:56.235
-
-private var hostname = InetAddress.getLocalHost().hostName
+var hostname: String = InetAddress.getLocalHost().hostName.toString()
 
 private var environment = System.getenv("K2HB_ENVIRONMENT") ?: UNSET_TEXT
 private var app_version = System.getenv("K2HB_APP_VERSION") ?: UNSET_TEXT

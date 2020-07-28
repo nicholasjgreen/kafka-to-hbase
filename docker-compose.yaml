@@ -42,10 +42,22 @@ services:
       - hbase
     environment:
       JAVA_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
+      K2HB_ENVIRONMENT: "local-dev"
+      K2HB_APPLICATION_NAME: "kafka2hbase"
+      K2HB_APP_VERSION: "test"
+      INSTANCE_ID: "localhost"
       K2HB_KAFKA_INSECURE: "true"
       K2HB_KAFKA_TOPIC_REGEX: "^db.(.*)"
       K2HB_KAFKA_META_REFRESH_MS: "1000"
       K2HB_KAFKA_POLL_TIMEOUT: "PT10S"
+      K2HB_RETRY_MAX_ATTEMPTS: "3"
+      K2HB_RETRY_INITIAL_BACKOFF: "1"
+      K2HB_RETRY_BACKOFF_MULTIPLIER: "1"
+      K2HB_KAFKA_MAX_POLL_RECORDS: "10"
+      K2HB_HBASE_RPC_TIMEOUT_MILLISECONDS: "1200"
+      K2HB_HBASE_OPERATION_TIMEOUT_MILLISECONDS": "1800"
+      K2HB_HBASE_PAUSE_MILLISECONDS: "50"
+      K2HB_HBASE_RETRIES": "3"
       K2HB_KAFKA_DLQ_TOPIC: "test-dlq-topic"
 
   kafka2s3:
@@ -55,6 +67,10 @@ services:
       - kafka
       - s3-provision
     environment:
+      K2HB_ENVIRONMENT: "local-dev"
+      K2HB_APPLICATION_NAME: "k2h3"
+      K2HB_APP_VERSION: "test"
+      INSTANCE_ID: "localhost"
       K2S3_KAFKA_INSECURE: "true"
       K2S3_DEAD_LETTER_QUEUE: "test-dlq-topic"
       K2S3_KAFKA_META_REFRESH_MS: "1000"
@@ -96,6 +112,10 @@ services:
       - kafka2s3
     command: "true"
     environment:
+      K2HB_ENVIRONMENT: "local-dev"
+      K2HB_APPLICATION_NAME: "k2hb-integration-test"
+      K2HB_APP_VERSION: "test"
+      INSTANCE_ID: "localhost"
       USER_NAME: "user"
       GROUP_NAME: "usergroup"
       K2HB_KAFKA_INSECURE: "true"
