@@ -3,10 +3,12 @@ package lib
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.*
+import kotlin.collections.AbstractCollection
 
 fun getId() = """{ "exampleId": "aaaa1111-abcd-4567-1234-1234567890ab"}"""
 
-fun wellformedValidPayload() = """{
+fun wellFormedValidPayload(collectionName: String = "exampleCollectionName",
+                           dbName: String = "exampleDbName") = """{
         "traceId": "00001111-abcd-4567-1234-1234567890ab",
         "unitOfWorkId": "00002222-abcd-4567-1234-1234567890ab",
         "@type": "V4",
@@ -14,8 +16,8 @@ fun wellformedValidPayload() = """{
         "timestamp": "2018-12-14T15:01:02.000+0000",
         "message": {
             "@type": "MONGO_UPDATE",
-            "collection": "exampleCollectionName",
-            "db": "exampleDbName",
+            "collection": "$collectionName",
+            "db": "$dbName",
             "_id": ${getId()},
             "_lastModifiedDateTime": "${getISO8601Timestamp()}",
             "encryption": {

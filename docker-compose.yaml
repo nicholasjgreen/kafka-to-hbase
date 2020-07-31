@@ -40,6 +40,7 @@ services:
     depends_on:
       - kafka
       - hbase
+      - metadatastore
     environment:
       JAVA_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
       K2HB_ENVIRONMENT: "local-dev"
@@ -59,6 +60,16 @@ services:
       K2HB_HBASE_PAUSE_MILLISECONDS: "50"
       K2HB_HBASE_RETRIES": "3"
       K2HB_KAFKA_DLQ_TOPIC: "test-dlq-topic"
+      K2HB_RDS_USERNAME: "dummy_user"
+      K2HB_RDS_PASSWORD_SECRET_NAME: "metastore_password"
+      K2HB_RDS_DATABASE_NAME: "dummy_database"
+      K2HB_RDS_ENDPOINT: "metadatastore"
+      K2HB_RDS_PORT: "3306"
+      K2HB_USE_AWS_SECRETS: "false"
+      DUMMY_SECRET_METASTORE_PASSWORD: "user_password"
+      AWS_ACCESS_KEY_ID: "aws-access-key"
+      AWS_SECRET_ACCESS_KEY: "aws-secret-access-key"
+      K2HB_IMAGE_DIGEST: "latest"
 
   kafka2s3:
     image: dwpdigital/kafka-to-s3:latest
@@ -89,21 +100,32 @@ services:
       - DATA_DIR=/opt/s3/data
 
   s3-provision:
-      image: s3-bucket-provision
-      build: ./docker/s3
-      container_name: s3-provision
-      depends_on:
-        - aws-s3
-      environment:
-        - S3_SERVICE_ENDPOINT=http://aws-s3:4572
-        - AWS_REGION=eu-west-2
-        - AWS_DEFAULT_REGION=eu-west-2
-        - AWS_ACCESS_KEY_ID=aws-access-key
-        - AWS_SECRET_ACCESS_KEY=aws-secret-access-key
-        - S3_BUCKET=kafka2s3
+    image: s3-bucket-provision
+    build: ./docker/s3
+    container_name: s3-provision
+    depends_on:
+      - aws-s3
+    environment:
+      - S3_SERVICE_ENDPOINT=http://aws-s3:4572
+      - AWS_REGION=eu-west-2
+      - AWS_DEFAULT_REGION=eu-west-2
+      - AWS_ACCESS_KEY_ID=aws-access-key
+      - AWS_SECRET_ACCESS_KEY=aws-secret-access-key
+      - S3_BUCKET=kafka2s3
+
+  metadatastore:
+    image: mysql:5.7
+    restart: always
+    container_name: metadatastore
+    environment:
+      MYSQL_ROOT_PASSWORD: "root_password"
+      MYSQL_DATABASE: "dummy_database"
+      MYSQL_USER: "dummy_user"
+      MYSQL_PASSWORD: "user_password"
 
   integration-test:
     image: kafka2hbase-integration:latest
+    container_name: integration-test
     build:
       dockerfile: Dockerfile_integration
       context: ./
@@ -125,3 +147,12 @@ services:
       K2HB_RETRY_INITIAL_BACKOFF: "1"
       K2HB_RETRY_BACKOFF_MULTIPLIER: "1"
       K2HB_KAFKA_DLQ_TOPIC: "test-dlq-topic"
+      K2HB_RDS_USERNAME: "dummy_user"
+      K2HB_RDS_PASSWORD_SECRET_NAME: "metastore_password"
+      K2HB_RDS_DATABASE_NAME: "dummy_database"
+      K2HB_RDS_ENDPOINT: "metadatastore"
+      K2HB_RDS_PORT: "3306"
+      K2HB_USE_AWS_SECRETS: "false"
+      DUMMY_SECRET_METASTORE_PASSWORD: "user_password"
+      AWS_ACCESS_KEY_ID: "aws-access-key"
+      AWS_SECRET_ACCESS_KEY: "aws-secret-access-key"

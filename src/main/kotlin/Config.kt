@@ -3,6 +3,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
+import java.io.File
 import java.time.Duration
 import java.util.*
 import java.util.regex.Pattern
@@ -15,6 +16,9 @@ fun getEnv(envVar: String): String? {
 fun String.toDuration(): Duration {
     return Duration.parse(this)
 }
+
+fun readFile(fileName: String): String
+        = File(fileName).readText(Charsets.UTF_8)
 
 object Config {
 
@@ -104,6 +108,32 @@ object Config {
         var dlqTopic = getEnv("K2HB_KAFKA_DLQ_TOPIC") ?: "test-dlq-topic"
 
         fun metadataRefresh(): String = consumerProps.getProperty(metaDataRefreshKey)
+    }
 
+    object MetadataStore {
+
+        private val useAwsSecretsString = getEnv("K2HB_USE_AWS_SECRETS") ?: "true"
+        val isUsingAWS = useAwsSecretsString == "true"
+
+        val properties = Properties().apply {
+            put("user", getEnv("K2HB_RDS_USERNAME") ?: "user")
+            put("rds.password.secret.name", getEnv("K2HB_RDS_PASSWORD_SECRET_NAME") ?: "metastore_password")
+            put("database", getEnv("K2HB_RDS_DATABASE_NAME") ?: "database")
+            put("rds.endpoint", getEnv("K2HB_RDS_ENDPOINT") ?: "127.0.0.1")
+            put("rds.port", getEnv("K2HB_RDS_PORT") ?: "3306")
+            put("use.aws.secrets", getEnv("K2HB_USE_AWS_SECRETS") ?: "true")
+
+            if (isUsingAWS) {
+                put("ssl_ca_path", getEnv("K2HB_RDS_CA_CERT_PATH") ?: "/certs/AmazonRootCA1.pem")
+                put("ssl_ca", readFile(getProperty("ssl_ca_path")))
+                put("ssl_verify_cert", true)
+            }
+        }
+    }
+
+    object SecretManager {
+        val properties = Properties().apply {
+            put("region", getEnv("SECRET_MANAGER_REGION") ?: "eu-west-2")
+        }
     }
 }

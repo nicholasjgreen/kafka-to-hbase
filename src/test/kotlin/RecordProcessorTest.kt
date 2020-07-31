@@ -31,6 +31,7 @@ class RecordProcessorTest : StringSpec() {
     private lateinit var mockConverter: Converter
     private lateinit var mockMessageParser: MessageParser
     private lateinit var hbaseClient: HbaseClient
+    private lateinit var metadataStoreClient: MetadataStoreClient
     private lateinit var logger: Logger
     private lateinit var processor: RecordProcessor
     private val testByteArray: ByteArray = byteArrayOf(0xA1.toByte(), 0xA1.toByte(), 0xA1.toByte(), 0xA1.toByte())
@@ -43,6 +44,7 @@ class RecordProcessorTest : StringSpec() {
         mockConverter = spy()
         mockMessageParser = mock()
         hbaseClient = mock()
+        metadataStoreClient = mock()
         logger = mock()
         processor = spy(RecordProcessor(mockValidator, mockConverter))
         doNothing().whenever(mockValidator).validate(any())
@@ -50,7 +52,6 @@ class RecordProcessorTest : StringSpec() {
     }
 
     init {
-
         "valid record is sent to hbase successfully" {
             reset()
             val messageBody = """{
