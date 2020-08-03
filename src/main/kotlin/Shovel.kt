@@ -3,6 +3,8 @@ import kotlinx.coroutines.channels.consumesAll
 import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import java.time.Duration
+import java.util.*
+import kotlin.time.toDuration
 
 val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger("ShovelKt")
 
@@ -34,21 +36,29 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                 val records = consumer.poll(pollTimeout)
 
                 if (records.count() > 0) {
-                    logger.info("Processing records", "record_count", records.count().toString())
-                    for (record in records) {
-                        //TODO: Implement saving record to the metadata store database before sending to hbase in case hbase loses it
-                        processor.processRecord(record, hbase, parser)
-                        offsets[record.topic()] = mutableMapOf(
-                            "offset" to "${record.offset()}",
-                            "partition" to "${record.partition()}"
-                        )
-                        val set =
-                            if (usedPartitions.containsKey(record.topic())) usedPartitions[record.topic()] else mutableSetOf()
-                        set?.add(record.partition())
-                        usedPartitions[record.topic()] = set!!
+                    val then = Date().time
+                    var succeeded = false
+                    try {
+                        logger.info("Processing records", "record_count", records.count().toString())
+                        for (record in records) {
+                            //TODO: Implement saving record to the metadata store database before sending to hbase in case hbase loses it
+                            processor.processRecord(record, hbase, parser)
+                            offsets[record.topic()] = mutableMapOf(
+                                "offset" to "${record.offset()}",
+                                "partition" to "${record.partition()}"
+                            )
+                            val set =
+                                if (usedPartitions.containsKey(record.topic())) usedPartitions[record.topic()] else mutableSetOf()
+                            set?.add(record.partition())
+                            usedPartitions[record.topic()] = set!!
+                        }
+                        logger.info("Committing offset")
+                        consumer.commitSync()
+                        succeeded = true
+                    } finally {
+                        val now = Date().time
+                        logger.info("Processed batch", "succeeded", "$succeeded", "size", "${records.count()}", "duration_ms", "${now - then}")
                     }
-                    logger.info("Committing offset")
-                    consumer.commitSync()
                 }
 
                 if (batchCountIsMultipleOfReportFrequency(batchCount++)) {

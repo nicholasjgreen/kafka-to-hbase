@@ -40,6 +40,11 @@ default the data table column family has a maximum of MAXINT versions
 (approximately 2.1 billion) and a minimum of 1 version. There is no TTL.
 The topic counter column family has no versioning or TTL.
 
+# Local development
+
+You will need local installs of Docker, Gradle and Kotlin, and so a JVM on at least 1.8.
+The SDK-Man utility is good for package management of these.
+
 ## Makefile
 
 A Makefile wraps some of the gradle and docker-compose commands to give a
@@ -81,7 +86,7 @@ You can build all the local images with
    make build
    ```
 
-## Push local images into AWs DEV account
+## Push local images into AWS DEV account
 
 You will need to know your AWS account number, have relevant permssions and create a ECR in advance, i.e. "k2hb-test"
 

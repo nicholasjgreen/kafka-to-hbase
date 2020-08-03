@@ -1,3 +1,4 @@
+SHELL=bash
 S3_READY_REGEX=^Ready\.$
 aws_dev_account=NOT_SET
 temp_image_name=NOT_SET
