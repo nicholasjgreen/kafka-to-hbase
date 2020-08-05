@@ -4,6 +4,10 @@ import io.kotlintest.specs.StringSpec
 
 class TextUtilsTest : StringSpec({
 
+    fun reset() {
+        Config.Hbase.qualifiedTablePattern = """^\w+\.([-\w]+)\.([-\w]+)$"""
+    }
+
     "agent_core:agentToDoArchive is coalesced." {
         val actual = TextUtils().coalescedName("agent_core:agentToDoArchive")
         actual shouldBe "agent_core:agentToDo"
@@ -31,6 +35,8 @@ class TextUtilsTest : StringSpec({
 
         assert(result!!.groupValues[1] == "ucfs")
         assert(result.groupValues[2] == "data")
+
+        reset()
     }
 
     "Test topic name table matcher will use data equalities regex to match against valid table name" {
@@ -45,5 +51,7 @@ class TextUtilsTest : StringSpec({
 
         assert(result!!.groupValues[1] == "data")
         assert(result.groupValues[2] == "equalities")
+
+        reset()
     }
 })
