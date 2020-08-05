@@ -71,6 +71,8 @@ class HbaseClientTest : StringSpec({
     }
 
     "Fails after max tries" {
+
+        val maxRetries = 3
         val expectedRetryMaxAttempts = Config.Hbase.retryMaxAttempts
 
         val table = mock<Table> {
@@ -89,8 +91,8 @@ class HbaseClientTest : StringSpec({
         }
 
         exception.message shouldBe errorMessage
-        verify(table, times(System.getenv("K2HB_RETRY_MAX_ATTEMPTS").toInt())).put(any<Put>())
-        verify(table, times(System.getenv("K2HB_RETRY_MAX_ATTEMPTS").toInt())).close()
+        verify(table, times(maxRetries)).put(any<Put>())
+        verify(table, times(maxRetries)).close()
         verify(table, times(expectedRetryMaxAttempts)).put(any<Put>())
     }
 
