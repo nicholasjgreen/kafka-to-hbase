@@ -14,7 +14,7 @@
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>k2hb.log.%d.gz</fileNamePattern>
             <maxHistory>30</maxHistory>
-            <totalSizeCap>10GB</totalSizeCap>
+            <totalSizeCap>100GB</totalSizeCap>
         </rollingPolicy>
 
     </appender>
