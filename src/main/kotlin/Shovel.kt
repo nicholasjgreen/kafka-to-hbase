@@ -8,7 +8,7 @@ import kotlin.time.toDuration
 
 val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger("ShovelKt")
 
-fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClient, metadataClient: MetadataStoreClient, pollTimeout: Duration) =
+fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, metadataClient: MetadataStoreClient, pollTimeout: Duration) =
     GlobalScope.async {
         val parser = MessageParser()
         val validator = Validator()
@@ -19,7 +19,6 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
         val usedPartitions = mutableMapOf<String, MutableSet<Int>>()
         while (isActive) {
             try {
-                validateHbaseConnection(hbase)
                 logger.debug(
                     "Subscribing",
                     "topic_regex", Config.Kafka.topicRegex.pattern(),
@@ -36,6 +35,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                 val records = consumer.poll(pollTimeout)
 
                 if (records.count() > 0) {
+                    val hbase = HbaseClient.connect()
                     val then = Date().time
                     var succeeded = false
                     try {
@@ -58,6 +58,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
                     } finally {
                         val now = Date().time
                         logger.info("Processed batch", "succeeded", "$succeeded", "size", "${records.count()}", "duration_ms", "${now - then}")
+                        hbase.close()
                     }
                 }
 
@@ -77,6 +78,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, hbase: HbaseClien
             }
         }
     }
+
 
 fun validateHbaseConnection(hbase: HbaseClient) {
     val maxAttempts = Config.Hbase.retryMaxAttempts
