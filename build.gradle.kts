@@ -71,7 +71,7 @@ tasks.register<Test>("integration-test") {
     testClassesDirs = sourceSets["integration"].output.classesDirs
     classpath = sourceSets["integration"].runtimeClasspath
     filter {
-        includeTestsMatching("*IntegrationSpec*")
+        includeTestsMatching("Kafka2hbIntegrationSpec*")
     }
     environment("K2HB_RETRY_INITIAL_BACKOFF", "1")
     environment("K2HB_RETRY_MAX_ATTEMPTS", "3")
@@ -84,6 +84,30 @@ tasks.register<Test>("integration-test") {
         events = setOf(TestLogEvent.SKIPPED, TestLogEvent.PASSED, TestLogEvent.FAILED, TestLogEvent.STANDARD_OUT)
     }
 }
+
+tasks.register<Test>("integration-test-equality") {
+    description = "Runs the integration tests for equality schema"
+    group = "verification"
+    testClassesDirs = sourceSets["integration"].output.classesDirs
+    classpath = sourceSets["integration"].runtimeClasspath
+    filter {
+        includeTestsMatching("Kafka2hbEqualityIntegrationSpec*")
+    }
+    environment("K2HB_RETRY_INITIAL_BACKOFF", "1")
+    environment("K2HB_RETRY_MAX_ATTEMPTS", "3")
+    environment("K2HB_RETRY_BACKOFF_MULTIPLIER", "1")
+    environment("K2HB_VALIDATOR_SCHEMA", "equality_message.schema.json")
+    environment("K2HB_QUALIFIED_TABLE_PATTERN", """([-\w]+)\.([-\w]+)""")
+    environment("K2HB_KAFKA_TOPIC_REGEX", "^data.(.*)")
+
+    testLogging {
+        outputs.upToDateWhen {false}
+        showStandardStreams = true
+        exceptionFormat = TestExceptionFormat.FULL
+        events = setOf(TestLogEvent.SKIPPED, TestLogEvent.PASSED, TestLogEvent.FAILED, TestLogEvent.STANDARD_OUT)
+    }
+}
+
 
 tasks.register<Test>("integration-load-test") {
     description = "Runs the integration load tests"

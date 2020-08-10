@@ -41,7 +41,7 @@ class TextUtilsTest : StringSpec({
 
     "Test topic name table matcher will use data equalities regex to match against valid table name" {
 
-        val tableName = "data.equalities"
+        val tableName = "data.equality_1324324234"
 
         Config.Hbase.qualifiedTablePattern = """([-\w]+)\.([-\w]+)"""
 
@@ -50,7 +50,7 @@ class TextUtilsTest : StringSpec({
         result shouldNotBe null
 
         assert(result!!.groupValues[1] == "data")
-        assert(result.groupValues[2] == "equalities")
+        assert(result.groupValues[2] == "equality_1324324234")
 
         reset()
     }
