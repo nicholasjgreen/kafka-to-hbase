@@ -24,12 +24,11 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
             try {
                 putVersion(table, key, body, version)
                 success = true
-            }
-            catch (e: Exception) {
+            } catch (e: Exception) {
                 val delay = if (attempts == 0) Config.Hbase.retryInitialBackoff
                 else (Config.Hbase.retryInitialBackoff * attempts * Config.Hbase.retryBackoffMultiplier.toFloat()).toLong()
                 logger.warn("Failed to put batch ${e.message}", "attempt_number", "${attempts + 1}",
-                    "max_attempts", "${Config.Hbase.retryMaxAttempts}", "retry_delay", "$delay", "error_message", "${e.message}")
+                    "max_attempts", "${Config.Hbase.retryMaxAttempts}", "retry_delay", "$delay", "error_message","${e.message}")
                 Thread.sleep(delay)
                 exception = e
             }
@@ -61,16 +60,47 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
             logger.info("Putting record", "key", printableKey, "table", tableName, "version", "$version")
         }
 
-        connection.getTable(TableName.valueOf(tableName)).use { table ->
-            table.put(Put(key).apply {
-                this.addColumn(columnFamily, columnQualifier, version, body)
-            })
-        }
+        attemptPut(tableName, key, version, body)
 
         if (Config.Hbase.logKeys) {
             logger.info("Put record", "key", printableKey, "table", tableName, "version", "$version")
         }
     }
+
+
+    private fun attemptPut(tableName: String, key: ByteArray, version: Long, body: ByteArray) {
+
+        connection.getTable(TableName.valueOf(tableName)).use { table ->
+            if (Config.Hbase.checkExistence) {
+                var exists = false
+                var attempts = 0
+                while (!exists) {
+                    putRecord(table, key, version, body)
+
+                    exists = table.exists(Get(key).apply {
+                        setTimeStamp(version)
+                    })
+
+                    if (!exists) {
+                        logger.warn("Put record does not exist","attempts", "$attempts",
+                            "key", printableKey(key), "table", tableName, "version", "$version")
+                        if (++attempts >= Config.Hbase.maxExistenceChecks) {
+                            logger.error("Put record does not exist after max retry attempts",
+                                "attempts", "$attempts", "key", printableKey(key), "table", tableName, "version", "$version")
+                            throw Exception("Put record does not exist after max retry attempts: $tableName/${printableKey(key)}/$version")
+                        }
+                    }
+                }
+            } else {
+                putRecord(table, key, version, body)
+            }
+        }
+    }
+
+    private fun putRecord(table: Table, key: ByteArray, version: Long, body: ByteArray) =
+        table.put(Put(key).apply {
+            addColumn(columnFamily, columnQualifier, version, body)
+        })
 
     private fun printableKey(key: ByteArray) =
         if (key.size > 4) {
@@ -137,8 +167,7 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
             } catch (e: TableExistsException) {
                 logger.info("Didn't create table, table already exists, probably created by another process",
                     "table_name", tableName)
-            }
-            finally {
+            } finally {
                 tables[tableName] = true
             }
         }

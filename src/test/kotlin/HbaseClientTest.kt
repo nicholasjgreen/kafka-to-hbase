@@ -36,7 +36,11 @@ class HbaseClientTest : StringSpec({
     }
 
     "Does not retry on success" {
-        val table = mock<Table>()
+
+        val table = mock<Table> {
+            on { exists(any())} doReturn true
+        }
+
         val connection = mock<Connection> {
             on { admin } doReturn adm
             on { getTable(TableName.valueOf(qualifiedTableName)) } doReturn table
@@ -55,6 +59,8 @@ class HbaseClientTest : StringSpec({
             on { put(any<Put>()) } doThrow IOException(errorMessage) doAnswer {
                 println("PUT SUCCEEDED")
             }
+
+            on { exists(any()) } doReturn true
         }
 
         val connection = mock<Connection> {
@@ -68,6 +74,52 @@ class HbaseClientTest : StringSpec({
 
         verify(table, times(2)).put(any<Put>())
         verify(table, times(2)).close()
+    }
+
+    "Retries until exists" {
+        val table = mock<Table> {
+            on { put(any<Put>()) } doAnswer {
+                println("PUT APPARENTLY SUCCEEDED")
+            }
+
+            on { exists(any()) } doReturnConsecutively listOf(false, true)
+        }
+
+        val connection = mock<Connection> {
+            on { admin } doReturn adm
+            on { getTable(TableName.valueOf(qualifiedTableName)) } doReturn table
+        }
+
+        with (HbaseClient(connection, columnFamily, columnQualifier, regionReplication)) {
+            put(qualifiedTableName, key, body, version)
+        }
+
+        verify(table, times(2)).put(any<Put>())
+        verify(table, times(1)).close()
+    }
+
+    "Fails after max existence checks exceeded" {
+        val table = mock<Table> {
+            on { put(any<Put>()) } doAnswer {
+                println("PUT SEEMINGLY SUCCEEDED")
+            }
+
+            on { exists(any()) } doReturn false
+        }
+
+        val connection = mock<Connection> {
+            on { admin } doReturn adm
+            on { getTable(TableName.valueOf(qualifiedTableName)) } doReturn table
+        }
+
+        val exception = shouldThrow<Exception> {
+           with(HbaseClient(connection, columnFamily, columnQualifier, regionReplication)) {
+                put(qualifiedTableName, key, body, version)
+            }
+        }
+
+        verify(table, times( 3 * 3)).put(any<Put>())
+        verify(table, times(3)).close()
     }
 
     "Fails after max tries" {
