@@ -1109,6 +1109,66 @@ class ValidatorTest : StringSpec() {
             )
         }
 
+        "Equality schema: Valid message - UCFS prod sample 1 passes validation" {
+            TestUtils.equalityMessageValidator()
+
+            Validator().validate(
+                """
+            |{
+            |  "traceId" : "59497c68-4e3a-46cd-9215-9e59fe4b22f6",
+            |  "unitOfWorkId" : "457e6a1c-c288-497c-a4a2-1e50bef67c90",
+            |  "@type" : "V4",
+            |  "message" : {
+            |    "dbObject" : "xxx",
+            |    "encryption" : {
+            |      "keyEncryptionKeyId" : "cloudhsm:262152,262151",
+            |      "encryptedEncryptionKey" : "xxx",
+            |      "encryptionKeyId" : "b4f18de2-86e2-4525-9b39-3130e9a2800f",
+            |      "initialisationVector" : "xxxZ"
+            |    },
+            |    "_lastModifiedDateTime" : "2020-08-05T07:07:39.767+0000",
+            |    "@type" : "EQUALITY_QUESTIONS_ANSWERED",
+            |    "_id" : {
+            |      "messageId" : "7b61b79f-80a8-4aed-aa74-212a3c4c4d70"
+            |    }
+            |  },
+            |  "version" : "core-4.release_152.16",
+            |  "timestamp" : "2020-08-05T07:07:39.768+0000"
+            |}
+        """.trimMargin()
+            )
+        }
+
+        "Equality schema: Valid message - UCFS prod sample 2 passes validation" {
+            TestUtils.equalityMessageValidator()
+
+            Validator().validate(
+                """
+            |{
+            |  "traceId" : "1806eb69-a7be-4ade-8306-00f46e6852c5",
+            |  "unitOfWorkId" : "ff041e1f-67bb-4013-a00f-3ea787da4864",
+            |  "@type" : "V4",
+            |  "message" : {
+            |    "dbObject" : "xxx",
+            |    "encryption" : {
+            |      "keyEncryptionKeyId" : "cloudhsm:262152,262151",
+            |      "encryptedEncryptionKey" : "xxx",
+            |      "encryptionKeyId" : "ff001d09-0da3-408f-a257-fdcd8052bdcd",
+            |      "initialisationVector" : "xxx"
+            |    },
+            |    "_lastModifiedDateTime" : "2020-08-05T07:07:00.105+0000",
+            |    "@type" : "EQUALITY_QUESTIONS_NOT_ANSWERED",
+            |    "_id" : {
+            |      "messageId" : "9e181ca2-2d11-4703-928a-841f7be57c17"
+            |    }
+            |  },
+            |  "version" : "core-4.release_152.16",
+            |  "timestamp" : "2020-08-05T07:07:00.105+0000"
+            |}
+        """.trimMargin()
+            )
+        }
+
         "Equality schema: Missing '#/message/@type' field causes validation failure." {
             TestUtils.equalityMessageValidator()
 
