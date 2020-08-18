@@ -14,7 +14,7 @@
     parameter store. The following config silences the http library.
     -->
     <variable name="LOG_LEVEL" value="${LOG_LEVEL:-INFO}" />
-    <variable name="THIRD_PARTY_LOG_LEVEL" value="${THIRD_PARTY_LOG_LEVEL:-INFO}" />
+    <variable name="THIRD_PARTY_LOG_LEVEL" value="${THIRD_PARTY_LOG_LEVEL:-ERROR}" />
 
     <logger name="org.apache" level="${THIRD_PARTY_LOG_LEVEL}" additivity="true">
         <appender-ref ref="STDOUT"/>

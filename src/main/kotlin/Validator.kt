@@ -16,17 +16,13 @@ open class Validator {
         }
     }
 
-    private fun schema() = schemaLoader().load().build()
+    private fun schema() = schemaLoader.load().build()
 
-    @Synchronized
-    private fun schemaLoader(): SchemaLoader {
-        if (_schemaLoader == null) {
-            _schemaLoader = SchemaLoader.builder()
-                .schemaJson(schemaObject())
-                .draftV7Support()
-                .build()
-        }
-        return _schemaLoader!!
+    private val schemaLoader: SchemaLoader by lazy {
+        SchemaLoader.builder()
+            .schemaJson(schemaObject())
+            .draftV7Support()
+            .build()
     }
 
     private fun schemaObject() =
@@ -35,5 +31,4 @@ open class Validator {
         }
 
     private fun schemaLocation() = Config.Validator.properties["schema.location"] as String
-    private var _schemaLoader: SchemaLoader? = null
 }

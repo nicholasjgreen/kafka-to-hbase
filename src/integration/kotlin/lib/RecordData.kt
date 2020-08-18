@@ -3,7 +3,6 @@ package lib
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.*
-import kotlin.collections.AbstractCollection
 
 fun getId() = """{ "exampleId": "aaaa1111-abcd-4567-1234-1234567890ab"}"""
 

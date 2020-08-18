@@ -60,13 +60,13 @@ services:
       K2HB_HBASE_PAUSE_MILLISECONDS: "50"
       K2HB_HBASE_RETRIES": "3"
       K2HB_KAFKA_DLQ_TOPIC: "test-dlq-topic"
-      K2HB_RDS_USERNAME: "dummy_user"
+      K2HB_RDS_USERNAME: "k2hbwriter"
       K2HB_RDS_PASSWORD_SECRET_NAME: "metastore_password"
-      K2HB_RDS_DATABASE_NAME: "dummy_database"
+      K2HB_RDS_DATABASE_NAME: "metadatastore"
       K2HB_RDS_ENDPOINT: "metadatastore"
       K2HB_RDS_PORT: "3306"
       K2HB_USE_AWS_SECRETS: "false"
-      DUMMY_SECRET_METASTORE_PASSWORD: "user_password"
+      DUMMY_SECRET_METASTORE_PASSWORD: "password"
       AWS_ACCESS_KEY_ID: "aws-access-key"
       AWS_SECRET_ACCESS_KEY: "aws-secret-access-key"
       K2HB_IMAGE_DIGEST: "latest"
@@ -99,13 +99,13 @@ services:
       K2HB_HBASE_PAUSE_MILLISECONDS: "50"
       K2HB_HBASE_RETRIES": "3"
       K2HB_KAFKA_DLQ_TOPIC: "test-dlq-topic"
-      K2HB_RDS_USERNAME: "dummy_user"
+      K2HB_RDS_USERNAME: "k2hbwriter"
       K2HB_RDS_PASSWORD_SECRET_NAME: "metastore_password"
-      K2HB_RDS_DATABASE_NAME: "dummy_database"
+      K2HB_RDS_DATABASE_NAME: "metadatastore"
       K2HB_RDS_ENDPOINT: "metadatastore"
       K2HB_RDS_PORT: "3306"
       K2HB_USE_AWS_SECRETS: "false"
-      DUMMY_SECRET_METASTORE_PASSWORD: "user_password"
+      DUMMY_SECRET_METASTORE_PASSWORD: "password"
       AWS_ACCESS_KEY_ID: "aws-access-key"
       AWS_SECRET_ACCESS_KEY: "aws-secret-access-key"
       K2HB_IMAGE_DIGEST: "latest"
@@ -162,10 +162,10 @@ services:
     restart: always
     container_name: metadatastore
     environment:
-      MYSQL_ROOT_PASSWORD: "root_password"
-      MYSQL_DATABASE: "dummy_database"
-      MYSQL_USER: "dummy_user"
-      MYSQL_PASSWORD: "user_password"
+      MYSQL_ROOT_PASSWORD: "password"
+      MYSQL_DATABASE: "metadatastore"
+      MYSQL_USER: "k2hbwriter"
+      MYSQL_PASSWORD: "password"
 
   integration-test:
     image: kafka2hbase-integration:latest

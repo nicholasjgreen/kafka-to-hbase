@@ -1,6 +1,9 @@
 import LogConfiguration.Companion.start_time_milliseconds
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.hbase.HConstants
 import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.config.SslConfigs
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import java.io.File
@@ -29,6 +32,7 @@ object Config {
 
     object Shovel {
         val reportFrequency = getEnv("K2HB_KAFKA_REPORT_FREQUENCY")?.toInt() ?: 100
+        val processLists = getEnv("K2HB_BATCH_PUTS")?.toBoolean() ?: true
     }
 
     object Validator {
@@ -39,13 +43,13 @@ object Config {
 
     object Hbase {
         val config = Configuration().apply {
-            set("zookeeper.znode.parent", getEnv("K2HB_HBASE_ZOOKEEPER_PARENT") ?: "/hbase")
-            set("hbase.zookeeper.quorum", getEnv("K2HB_HBASE_ZOOKEEPER_QUORUM") ?: "zookeeper")
+            set(HConstants.ZOOKEEPER_ZNODE_PARENT, getEnv("K2HB_HBASE_ZOOKEEPER_PARENT") ?: "/hbase")
+            set(HConstants.ZOOKEEPER_QUORUM, getEnv("K2HB_HBASE_ZOOKEEPER_QUORUM") ?: "zookeeper")
             setInt("hbase.zookeeper.port", getEnv("K2HB_HBASE_ZOOKEEPER_PORT")?.toIntOrNull() ?: 2181)
-            set("hbase.rpc.timeout", getEnv("K2HB_HBASE_RPC_TIMEOUT_MILLISECONDS") ?: "1200000")
-            set("hbase.client.operation.timeout", getEnv("K2HB_HBASE_OPERATION_TIMEOUT_MILLISECONDS") ?: "1800000")
-            set("hbase.client.pause", getEnv("K2HB_HBASE_PAUSE_MILLISECONDS") ?: "50")
-            set("hbase.client.retries.number", getEnv("K2HB_HBASE_RETRIES") ?: "50")
+            set(HConstants.HBASE_RPC_TIMEOUT_KEY, getEnv("K2HB_HBASE_RPC_TIMEOUT_MILLISECONDS") ?: "1200000")
+            set(HConstants.HBASE_CLIENT_OPERATION_TIMEOUT, getEnv("K2HB_HBASE_OPERATION_TIMEOUT_MILLISECONDS") ?: "1800000")
+            set(HConstants.HBASE_CLIENT_PAUSE, getEnv("K2HB_HBASE_PAUSE_MILLISECONDS") ?: "50")
+            set(HConstants.HBASE_CLIENT_RETRIES_NUMBER, getEnv("K2HB_HBASE_RETRIES") ?: "50")
         }
 
         val columnFamily = getEnv("K2HB_HBASE_COLUMN_FAMILY") ?: "cf"
@@ -62,25 +66,13 @@ object Config {
 
     object Kafka {
         val consumerProps = Properties().apply {
-            put("bootstrap.servers", getEnv("K2HB_KAFKA_BOOTSTRAP_SERVERS") ?: "kafka:9092")
-            put("group.id", getEnv("K2HB_KAFKA_CONSUMER_GROUP") ?: "test")
-            put("consumer.id", "$hostname-$start_time_milliseconds")
-
-            val sslVal = getEnv("K2HB_KAFKA_INSECURE") ?: "true"
-            val useSSL = sslVal != "true"
-            if (useSSL) {
-                put("security.protocol", "SSL")
-                put("ssl.truststore.location", getEnv("K2HB_TRUSTSTORE_PATH"))
-                put("ssl.truststore.password", getEnv("K2HB_TRUSTSTORE_PASSWORD"))
-                put("ssl.keystore.location", getEnv("K2HB_KEYSTORE_PATH"))
-                put("ssl.keystore.password", getEnv("K2HB_KEYSTORE_PASSWORD"))
-                put("ssl.key.password", getEnv("K2HB_PRIVATE_KEY_PASSWORD"))
-            }
-
-            put("key.deserializer", ByteArrayDeserializer::class.java)
-            put("value.deserializer", ByteArrayDeserializer::class.java)
-
-            put("auto.offset.reset", "earliest")
+            put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, getEnv("K2HB_KAFKA_BOOTSTRAP_SERVERS") ?: "kafka:9092")
+            put(ConsumerConfig.GROUP_ID_CONFIG, getEnv("K2HB_KAFKA_CONSUMER_GROUP") ?: "test")
+            put(ConsumerConfig.CLIENT_ID_CONFIG, "$hostname-$start_time_milliseconds")
+            addSslConfig(this)
+            put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer::class.java)
+            put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer::class.java)
+            put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
             put(metaDataRefreshKey, getEnv("K2HB_KAFKA_META_REFRESH_MS") ?: "10000")
             put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false)
             put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, getEnv("K2HB_KAFKA_MAX_POLL_RECORDS") ?: 500)
@@ -91,22 +83,25 @@ object Config {
         }
 
         val producerProps = Properties().apply {
-            put("bootstrap.servers", getEnv("K2HB_KAFKA_BOOTSTRAP_SERVERS") ?: "kafka:9092")
-
-            val sslVal = getEnv("K2HB_KAFKA_INSECURE") ?: "true"
-            val useSSL = sslVal != "true"
-            if (useSSL) {
-                put("security.protocol", "SSL")
-                put("ssl.truststore.location", getEnv("K2HB_TRUSTSTORE_PATH"))
-                put("ssl.truststore.password", getEnv("K2HB_TRUSTSTORE_PASSWORD"))
-                put("ssl.keystore.location", getEnv("K2HB_KEYSTORE_PATH"))
-                put("ssl.keystore.password", getEnv("K2HB_KEYSTORE_PASSWORD"))
-                put("ssl.key.password", getEnv("K2HB_PRIVATE_KEY_PASSWORD"))
-            }
-
-            put("key.serializer", ByteArraySerializer::class.java)
-            put("value.serializer", ByteArraySerializer::class.java)
+            put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getEnv("K2HB_KAFKA_BOOTSTRAP_SERVERS") ?: "kafka:9092")
+            addSslConfig(this)
+            put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer::class.java)
+            put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer::class.java)
             put(metaDataRefreshKey, getEnv("K2HB_KAFKA_META_REFRESH_MS") ?: "10000")
+        }
+
+        private fun addSslConfig(properties: Properties) {
+            val insecure = getEnv("K2HB_KAFKA_INSECURE") ?: "true"
+            if (insecure != "true") {
+                properties.apply {
+                    put("security.protocol", "SSL")
+                    put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, getEnv("K2HB_TRUSTSTORE_PATH"))
+                    put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, getEnv("K2HB_TRUSTSTORE_PASSWORD"))
+                    put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, getEnv("K2HB_KEYSTORE_PATH"))
+                    put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, getEnv("K2HB_KEYSTORE_PASSWORD"))
+                    put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, getEnv("K2HB_PRIVATE_KEY_PASSWORD"))
+                }
+            }
         }
 
         val pollTimeout: Duration = getEnv("K2HB_KAFKA_POLL_TIMEOUT")?.toDuration() ?: Duration.ofSeconds(3)
@@ -122,9 +117,9 @@ object Config {
         val isUsingAWS = useAwsSecretsString == "true"
 
         val properties = Properties().apply {
-            put("user", getEnv("K2HB_RDS_USERNAME") ?: "user")
-            put("rds.password.secret.name", getEnv("K2HB_RDS_PASSWORD_SECRET_NAME") ?: "metastore_password")
-            put("database", getEnv("K2HB_RDS_DATABASE_NAME") ?: "database")
+            put("user", getEnv("K2HB_RDS_USERNAME") ?: "k2hbwriter")
+            put("rds.password.secret.name", getEnv("K2HB_RDS_PASSWORD_SECRET_NAME") ?: "password")
+            put("database", getEnv("K2HB_RDS_DATABASE_NAME") ?: "metadatastore")
             put("rds.endpoint", getEnv("K2HB_RDS_ENDPOINT") ?: "127.0.0.1")
             put("rds.port", getEnv("K2HB_RDS_PORT") ?: "3306")
             put("use.aws.secrets", getEnv("K2HB_USE_AWS_SECRETS") ?: "true")

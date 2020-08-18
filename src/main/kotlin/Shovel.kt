@@ -1,10 +1,7 @@
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.consumesAll
-import org.apache.hadoop.hbase.client.HBaseAdmin
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import java.time.Duration
 import java.util.*
-import kotlin.time.toDuration
 
 val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger("ShovelKt")
 
@@ -14,51 +11,46 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, metadataClient: M
         val validator = Validator()
         val converter = Converter()
         val processor = RecordProcessor(validator, converter)
+        val listProcessor = ListProcessor(validator, converter)
         val offsets = mutableMapOf<String, Map<String, String>>()
         var batchCount = 0
         val usedPartitions = mutableMapOf<String, MutableSet<Int>>()
         while (isActive) {
             try {
-                logger.debug(
-                    "Subscribing",
-                    "topic_regex", Config.Kafka.topicRegex.pattern(),
-                    "metadata_refresh", Config.Kafka.metadataRefresh()
-                )
                 consumer.subscribe(Config.Kafka.topicRegex)
-
-                logger.info(
-                    "Polling",
-                    "poll_timeout", pollTimeout.toString(),
-                    "topic_regex", Config.Kafka.topicRegex.pattern()
-                )
-
+                logger.info("Polling","poll_timeout", pollTimeout.toString(), "topic_regex", Config.Kafka.topicRegex.pattern())
                 val records = consumer.poll(pollTimeout)
 
                 if (records.count() > 0) {
-                    val hbase = HbaseClient.connect()
                     val then = Date().time
-                    var succeeded = false
-                    try {
-                        logger.info("Processing records", "record_count", records.count().toString())
-                        for (record in records) {
-                            //TODO: Implement saving record to the metadata store database before sending to hbase in case hbase loses it
-                            processor.processRecord(record, hbase, parser)
-                            offsets[record.topic()] = mutableMapOf(
-                                "offset" to "${record.offset()}",
-                                "partition" to "${record.partition()}"
-                            )
-                            val set =
-                                if (usedPartitions.containsKey(record.topic())) usedPartitions[record.topic()] else mutableSetOf()
-                            set?.add(record.partition())
-                            usedPartitions[record.topic()] = set!!
+                    HbaseClient.connect().use { hbase ->
+                        var succeeded = false
+                        try {
+                            if (Config.Shovel.processLists) {
+                                listProcessor.processRecords(hbase, consumer, parser, records)
+                                succeeded = true
+                            }
+                            else {
+                                for (record in records) {
+                                    //TODO: Implement saving record to the metadata store database before sending to hbase in case hbase loses it
+                                    processor.processRecord(record, hbase, parser)
+                                    offsets[record.topic()] = mutableMapOf(
+                                            "offset" to "${record.offset()}",
+                                            "partition" to "${record.partition()}"
+                                    )
+                                    val set =
+                                            if (usedPartitions.containsKey(record.topic())) usedPartitions[record.topic()] else mutableSetOf()
+                                    set?.add(record.partition())
+                                    usedPartitions[record.topic()] = set!!
+                                }
+                                logger.info("Committing offset")
+                                consumer.commitSync()
+                                succeeded = true
+                            }
+                        } finally {
+                            val now = Date().time
+                            logger.info("Processed batch", "succeeded", "$succeeded", "size", "${records.count()}", "duration_ms", "${now - then}")
                         }
-                        logger.info("Committing offset")
-                        consumer.commitSync()
-                        succeeded = true
-                    } finally {
-                        val now = Date().time
-                        logger.info("Processed batch", "succeeded", "$succeeded", "size", "${records.count()}", "duration_ms", "${now - then}")
-                        hbase.close()
                     }
                 }
 
@@ -79,37 +71,6 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, metadataClient: M
         }
     }
 
-
-fun validateHbaseConnection(hbase: HbaseClient) {
-    val maxAttempts = Config.Hbase.retryMaxAttempts
-    val initialBackoffMillis = Config.Hbase.retryInitialBackoff
-
-    var success = false
-    var attempts = 0
-
-    while (!success && attempts < maxAttempts) {
-        try {
-            HBaseAdmin.checkHBaseAvailable(hbase.connection.configuration)
-            success = true
-        } catch (e: Exception) {
-            val delay: Long = if (attempts == 0) initialBackoffMillis
-            else (initialBackoffMillis * attempts * 2)
-            logger.warn(
-                "Failed to connect to Hbase after multiple attempts",
-                "attempt", (attempts + 1).toString(),
-                "max_attempts", maxAttempts.toString(),
-                "retry_delay", delay.toString()
-            )
-            Thread.sleep(delay)
-        } finally {
-            attempts++
-        }
-    }
-
-    if (!success) {
-        throw HbaseConnectionException("Unable to reconnect to Hbase after $attempts attempts")
-    }
-}
 
 fun printLogs(
     consumer: KafkaConsumer<ByteArray, ByteArray>,

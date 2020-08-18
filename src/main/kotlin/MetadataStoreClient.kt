@@ -13,7 +13,7 @@ open class MetadataStoreClient(var connection: Connection) {
 
             val hostname = Config.MetadataStore.properties["rds.endpoint"]
             val port = Config.MetadataStore.properties["rds.port"]
-            val jdbcUrl = "jdbc:mysql://$hostname:$port/"
+            val jdbcUrl = "jdbc:mysql://$hostname:$port/${Config.MetadataStore.properties.getProperty("database")}"
             val username = Config.MetadataStore.properties.getProperty("user")
             val secretName = Config.MetadataStore.properties.getProperty("rds.password.secret.name")
 

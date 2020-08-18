@@ -112,7 +112,7 @@ class HbaseClientTest : StringSpec({
             on { getTable(TableName.valueOf(qualifiedTableName)) } doReturn table
         }
 
-        val exception = shouldThrow<Exception> {
+        shouldThrow<Exception> {
            with(HbaseClient(connection, columnFamily, columnQualifier, regionReplication)) {
                 put(qualifiedTableName, key, body, version)
             }
