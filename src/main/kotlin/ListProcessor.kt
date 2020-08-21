@@ -5,9 +5,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
-import java.io.IOException
 
-class ListProcessor(validator: Validator, private val converter: Converter): BaseProcessor(validator, converter) {
+class ListProcessor(validator: Validator, private val converter: Converter) : BaseProcessor(validator, converter) {
 
     fun processRecords(hbase: HbaseClient, consumer: KafkaConsumer<ByteArray, ByteArray>,
                        parser: MessageParser,
@@ -23,7 +22,7 @@ class ListProcessor(validator: Validator, private val converter: Converter): Bas
                             "${partition.partition()}", "offset", "$lastPosition")
                     consumer.commitSync(mapOf(partition to OffsetAndMetadata(lastPosition + 1)))
                     logSuccessfulPuts(table, payloads)
-                } catch (e: IOException) {
+                } catch (e: Exception) {
                     val lastCommittedOffset = lastCommittedOffset(consumer, partition)
                     consumer.seek(partition, lastCommittedOffset)
                     logger.error("Batch failed, not committing offset, resetting position to last commit", e,
