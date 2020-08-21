@@ -50,6 +50,7 @@ object Config {
             set(HConstants.HBASE_CLIENT_OPERATION_TIMEOUT, getEnv("K2HB_HBASE_OPERATION_TIMEOUT_MILLISECONDS") ?: "1800000")
             set(HConstants.HBASE_CLIENT_PAUSE, getEnv("K2HB_HBASE_PAUSE_MILLISECONDS") ?: "50")
             set(HConstants.HBASE_CLIENT_RETRIES_NUMBER, getEnv("K2HB_HBASE_RETRIES") ?: "50")
+            set("hbase.client.keyvalue.maxsize", getEnv("K2HB_HBASE_KEYVALUE_MAX_SIZE") ?: "0")
         }
 
         val columnFamily = getEnv("K2HB_HBASE_COLUMN_FAMILY") ?: "cf"
