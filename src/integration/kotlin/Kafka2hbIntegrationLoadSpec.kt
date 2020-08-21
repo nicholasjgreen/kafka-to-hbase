@@ -1,4 +1,5 @@
 
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -10,6 +11,8 @@ import org.apache.hadoop.hbase.client.Scan
 import org.apache.hadoop.hbase.client.Table
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.log4j.Logger
+import java.sql.Connection
+import java.sql.DriverManager
 import kotlin.time.ExperimentalTime
 import kotlin.time.minutes
 import kotlin.time.seconds
@@ -41,25 +44,39 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
             }
 
             HbaseClient.connect().use { hbase ->
-                withTimeout(5.minutes) {
+                withTimeout(15.minutes) {
                     while (expectedTables != loadTestTables(hbase)) {
                         println("Waiting for tables to appear")
                         delay(2.seconds)
                     }
 
                     loadTestTables(hbase).forEach { tableName ->
-                        launch {
-                            hbase.connection.getTable(TableName.valueOf(tableName)).use { table ->
-                                while (recordCount(table) != RECORDS_PER_TOPIC) {
-                                    println("Waiting for records to appear")
-                                    delay(2.seconds)
-                                }
+                        hbase.connection.getTable(TableName.valueOf(tableName)).use { table ->
+                            while (recordCount(table) != RECORDS_PER_TOPIC) {
+                                println("Waiting for records to appear in $tableName")
+                                delay(2.seconds)
                             }
                         }
                     }
                 }
             }
+
+            println("Checking metadatastore")
+            val connection = metadataStoreConnection()
+            connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    val results = statement.executeQuery("SELECT count(*) FROM ucfs")
+                    results.next() shouldBe true
+                    val count = results.getLong(1)
+                    count shouldBe TOPIC_COUNT * RECORDS_PER_TOPIC
+                }
+            }
         }
+    }
+
+    private fun metadataStoreConnection(): Connection {
+        val (url, properties) = MetadataStoreClient.connectionProperties()
+        return DriverManager.getConnection(url, properties)
     }
 
     private fun recordCount(table: Table) = table.getScanner(Scan()).count()

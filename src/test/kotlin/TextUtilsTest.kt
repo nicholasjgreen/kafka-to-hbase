@@ -51,7 +51,6 @@ class TextUtilsTest : StringSpec({
 
         assert(result!!.groupValues[1] == "data")
         assert(result.groupValues[2] == "equality_1324324234")
-
         reset()
     }
 })

@@ -1,7 +1,10 @@
+import org.apache.kafka.clients.consumer.ConsumerRecord
+
 data class HbasePayload(
-    val key: ByteArray,
-    val body: ByteArray,
-    val version: Long) {
+        val key: ByteArray,
+        val body: ByteArray,
+        val version: Long,
+        val record: ConsumerRecord<ByteArray, ByteArray>) {
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

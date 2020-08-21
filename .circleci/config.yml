@@ -36,7 +36,7 @@ jobs:
       - run:
           name: "Build distribution"
           command: |
-            gradle :unit build -x test
+            K2HB_WRITE_TO_METADATA_STORE=true gradle :unit build -x test
             mkdir -p artifacts
             cp -v README.md artifacts
             cp -v build/distributions/*.tar artifacts/
@@ -97,7 +97,7 @@ jobs:
             docker exec -i metadatastore mysql --host=127.0.0.1 --user=root --password=password metadatastore  < ./docker/metadatastore/grant_user.sql
 
             docker-compose -f docker-compose.yaml up -d kafka2s3
-            docker-compose -f docker-compose.yaml build kafka2hbase
+            docker-compose -f docker-compose.yaml build --build-arg K2HB_WRITE_TO_METADATA_STORE=true kafka2hbase
             docker-compose -f docker-compose.yaml up -d kafka2hbase
             docker-compose -f docker-compose.yaml rm integration-test
             docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon :integration-test -x test
@@ -128,7 +128,7 @@ jobs:
           command: |
             docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
             VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
-            docker build --build-arg VERSION=$VERSION -t $IMAGE_NAME:latest .
+            docker build --build-arg VERSION=$VERSION --build-arg K2HB_WRITE_TO_METADATA_STORE=true -t $IMAGE_NAME:latest .
       # Second snyk scan examines Docker container for sev:high and will fail if found
       - snyk/scan:
           organization: dwp-dataworks
@@ -158,7 +158,7 @@ jobs:
           command: |
             docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
             VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
-            docker build --build-arg VERSION=$VERSION -t $IMAGE_NAME:latest .
+            docker build --build-arg VERSION=$VERSION --build-arg K2HB_WRITE_TO_METADATA_STORE=true -t $IMAGE_NAME:latest .
       # Second snyk scan examines Docker container for sev:high and will fail if found
       - snyk/scan:
           organization: dwp-dataworks
@@ -192,7 +192,7 @@ jobs:
           command: |
             docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
             VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
-            docker build --build-arg VERSION=$VERSION -t $IMAGE_NAME:latest .
+            docker build --build-arg VERSION=$VERSION --build-arg K2HB_WRITE_TO_METADATA_STORE=true -t $IMAGE_NAME:latest .
       - run:
           name: Archive Docker image
           command: docker save -o image.tar $IMAGE_NAME

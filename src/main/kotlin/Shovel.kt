@@ -27,13 +27,13 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>, metadataClient: M
                         var succeeded = false
                         try {
                             if (Config.Shovel.processLists) {
-                                listProcessor.processRecords(hbase, consumer, parser, records)
+                                listProcessor.processRecords(hbase, consumer, metadataClient, parser, records)
                                 succeeded = true
                             }
                             else {
                                 for (record in records) {
                                     //TODO: Implement saving record to the metadata store database before sending to hbase in case hbase loses it
-                                    processor.processRecord(record, hbase, parser)
+                                    processor.processRecord(record, hbase, metadataClient, parser)
                                     offsets[record.topic()] = mutableMapOf(
                                             "offset" to "${record.offset()}",
                                             "partition" to "${record.partition()}"

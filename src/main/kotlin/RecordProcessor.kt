@@ -7,20 +7,21 @@ open class RecordProcessor(validator: Validator, private val converter: Converte
 
     private val textUtils = TextUtils()
 
-
-    open fun processRecord(record: ConsumerRecord<ByteArray, ByteArray>, hbase: HbaseClient, parser: MessageParser) {
-
+    open fun processRecord(record: ConsumerRecord<ByteArray, ByteArray>, hbase: HbaseClient,
+                           metadataStoreClient: MetadataStoreClient, parser: MessageParser) {
         recordAsJson(record)?.let { json ->
             val formattedKey = parser.generateKeyFromRecordBody(json)
             if (formattedKey.isEmpty()) {
                 logger.warn("Empty key for record", "record", getDataStringForRecord(record))
                 return
             }
-            writeRecordToHbase(json, record, hbase, formattedKey)
+            writeRecordToHbase(json, record, hbase, metadataStoreClient, formattedKey)
+
         }
     }
 
-    private fun writeRecordToHbase(json: JsonObject, record: ConsumerRecord<ByteArray, ByteArray>, hbase: HbaseClient, formattedKey: ByteArray) {
+    private fun writeRecordToHbase(json: JsonObject, record: ConsumerRecord<ByteArray, ByteArray>,
+                                   hbase: HbaseClient, metadataStoreClient: MetadataStoreClient, formattedKey: ByteArray) {
         try {
             val (lastModifiedTimestampStr, fieldTimestampCreatedFrom) = converter.getLastModifiedTimestamp(json)
             val message = json["message"] as JsonObject
@@ -29,13 +30,10 @@ open class RecordProcessor(validator: Validator, private val converter: Converte
             val lastModifiedTimestampLong = converter.getTimestampAsLong(lastModifiedTimestampStr)
             val matcher = textUtils.topicNameTableMatcher(record.topic())
             if (matcher != null) {
+                metadataStoreClient.recordProcessingAttempt(textUtils.printableKey(formattedKey), record, lastModifiedTimestampLong)
                 val namespace = matcher.groupValues[1]
                 val tableName = matcher.groupValues[2]
                 val qualifiedTableName = targetTable(namespace, tableName)
-                logger.debug(
-                        "Written record to hbase", "record", getDataStringForRecord(record),
-                        "formattedKey", String(formattedKey)
-                )
                 val recordBodyJson = json.toJsonString()
                 hbase.put(qualifiedTableName!!, formattedKey, recordBodyJson.toByteArray(), lastModifiedTimestampLong)
             } else {

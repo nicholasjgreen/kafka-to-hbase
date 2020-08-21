@@ -1,3 +1,4 @@
+
 import com.nhaarman.mockitokotlin2.*
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNotBe
@@ -9,6 +10,8 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import java.io.IOException
+import java.sql.Connection
+import java.sql.PreparedStatement
 
 
 class ListProcessorTest : StringSpec() {
@@ -17,10 +20,26 @@ class ListProcessorTest : StringSpec() {
         "Only commits offsets on success, resets position on failure" {
             val processor = ListProcessor(mock(), Converter())
             val hbaseClient = hbaseClient()
+            val metadataStoreClient = metadataStoreClient()
             val consumer = kafkaConsumer()
-            processor.processRecords(hbaseClient, consumer, messageParser(),  consumerRecords())
+            processor.processRecords(hbaseClient, consumer, metadataStoreClient, messageParser(), consumerRecords())
+            verifyMetadataStoreInteractions(metadataStoreClient)
             verifyHbaseInteractions(hbaseClient)
             verifyKafkaInteractions(consumer)
+        }
+    }
+
+    private fun verifyMetadataStoreInteractions(metadataStoreClient: MetadataStoreClient) {
+        val captor = argumentCaptor<List<HbasePayload>>()
+        verify(metadataStoreClient, times(5)).recordSuccessfulBatch(captor.capture())
+
+        captor.allValues.forEachIndexed { payloadsNo, payloads ->
+            payloads.forEachIndexed { index, payload ->
+                val topicNumber = (index * 2 + 1)
+                String(payload.body) shouldBe hbaseBody(index)
+                payload.record.partition() shouldBe (index + 1) % 20
+                payload.record.offset() shouldBe ((topicNumber + 1) * (payloadsNo + 1)) * 20
+            }
         }
     }
 
@@ -40,9 +59,10 @@ class ListProcessorTest : StringSpec() {
 
         recordCaptor.allValues.flatten().forEachIndexed { index, hbasePayload ->
             String(hbasePayload.key) shouldBe index.toString()
-            String(hbasePayload.body) shouldBe """{"message":{"_id":{"id":"${(index % 100) + 1}"},"timestamp_created_from":"epoch"}}"""
+            String(hbasePayload.body) shouldBe hbaseBody(index)
         }
     }
+
 
     private fun verifyKafkaInteractions(consumer: KafkaConsumer<ByteArray, ByteArray>) {
         verifySuccesses(consumer)
@@ -95,10 +115,12 @@ class ListProcessorTest : StringSpec() {
             TopicPartition(topicName(topicNumber), 10 - topicNumber) to (1..100).map { recordNumber ->
                 val body = Bytes.toBytes(json(recordNumber))
                 val key = Bytes.toBytes(recordNumber)
+                val offset = (topicNumber * recordNumber * 20).toLong()
                 mock<ConsumerRecord<ByteArray, ByteArray>> {
                     on { value() } doReturn body
                     on { key() } doReturn key
-                    on { offset() } doReturn (topicNumber * recordNumber * 20).toLong()
+                    on { offset() } doReturn offset
+                    on { partition() } doReturn recordNumber % 20
                 }
             }
         })
@@ -129,7 +151,17 @@ class ListProcessorTest : StringSpec() {
                 }
             }
 
+    private fun metadataStoreClient(): MetadataStoreClient {
+        val statement = mock<PreparedStatement>()
+        val connection = mock<Connection> {
+            on {prepareStatement(any())} doReturn statement
+        }
+        return spy(MetadataStoreClient(connection))
+    }
+
     private fun json(id: Any) = """{ "message": { "_id": { "id": "$id" } } }"""
     private fun topicName(topicNumber: Int) = "db.database$topicNumber.collection$topicNumber"
+    private fun hbaseBody(index: Int) =
+            """{"message":{"_id":{"id":"${(index % 100) + 1}"},"timestamp_created_from":"epoch"}}"""
 
 }

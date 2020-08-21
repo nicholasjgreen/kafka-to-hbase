@@ -70,6 +70,7 @@ services:
       AWS_ACCESS_KEY_ID: "aws-access-key"
       AWS_SECRET_ACCESS_KEY: "aws-secret-access-key"
       K2HB_IMAGE_DIGEST: "latest"
+      K2HB_WRITE_TO_METADATA_STORE: "true"
 
   kafka2hbaseequality:
     image: kafka2hbase:latest

@@ -113,8 +113,10 @@ object Config {
     }
 
     object MetadataStore {
+        val writeToMetadataStore = (getEnv("K2HB_WRITE_TO_METADATA_STORE") ?: "false").toBoolean()
 
         private val useAwsSecretsString = getEnv("K2HB_USE_AWS_SECRETS") ?: "true"
+
         val isUsingAWS = useAwsSecretsString == "true"
 
         val properties = Properties().apply {
