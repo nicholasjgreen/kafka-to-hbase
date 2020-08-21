@@ -114,6 +114,7 @@ object Config {
 
     object MetadataStore {
         val writeToMetadataStore = (getEnv("K2HB_WRITE_TO_METADATA_STORE") ?: "false").toBoolean()
+        val metadataStoreTable = getEnv("K2HB_METADATA_STORE_TABLE") ?: "ucfs"
 
         private val useAwsSecretsString = getEnv("K2HB_USE_AWS_SECRETS") ?: "true"
 

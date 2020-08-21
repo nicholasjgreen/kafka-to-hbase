@@ -45,7 +45,7 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
 
     private val recordProcessingAttemptStatement by lazy {
         connection.prepareStatement("""
-            INSERT INTO ucfs (hbase_id, hbase_timestamp, topic_name, kafka_partition, kafka_offset)
+            INSERT INTO ${Config.MetadataStore.metadataStoreTable} (hbase_id, hbase_timestamp, topic_name, kafka_partition, kafka_offset)
             VALUES (?, ?, ?, ?, ?)
         """.trimIndent())
     }
