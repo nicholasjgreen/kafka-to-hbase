@@ -18,8 +18,9 @@ class TextUtils {
         }
     }
 
-    private fun targetTable(namespace: String, tableName: String) =
-        coalescedName("$namespace:$tableName")?.replace("-", "_")
+    fun targetTable(namespace: String, tableName: String) =
+        coalescedName("$namespace:$tableName")
+            ?.replace("-", "_")?.replace(".", "_")
 
     fun coalescedName(tableName: String) =
         if (coalescedNames[tableName] != null) coalescedNames[tableName] else tableName

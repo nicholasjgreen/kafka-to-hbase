@@ -36,7 +36,7 @@ class Kafka2hbIntegrationSpec : StringSpec() {
             if (matcher != null) {
                 val namespace = matcher.groupValues[1]
                 val tableName = matcher.groupValues[2]
-                val qualifiedTableName = "$namespace:$tableName".replace("-", "_")
+                val qualifiedTableName = sampleQualifiedTableName(namespace, tableName)
                 hbase.ensureTable(qualifiedTableName)
                 val s3Client = getS3Client()
                 val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
@@ -97,7 +97,7 @@ class Kafka2hbIntegrationSpec : StringSpec() {
             if (matcher1 != null) {
                 val namespace = matcher1.groupValues[1]
                 val tableName = matcher1.groupValues[2]
-                val qualifiedTableName = "$namespace:$tableName".replace("-", "_")
+                val qualifiedTableName = sampleQualifiedTableName(namespace, tableName)
                 val kafkaTimestamp1 = converter.getTimestampAsLong(getISO8601Timestamp())
                 hbase.putVersion(qualifiedTableName, key, body1, kafkaTimestamp1)
             }
@@ -118,7 +118,7 @@ class Kafka2hbIntegrationSpec : StringSpec() {
             if (matcher != null) {
                 val namespace = matcher.groupValues[1]
                 val tableName = matcher.groupValues[2]
-                val qualifiedTableName = "$namespace:$tableName".replace("-", "_")
+                val qualifiedTableName = sampleQualifiedTableName(namespace, tableName)
                 val storedNewValue =
                     waitFor { hbase.getCellAfterTimestamp(qualifiedTableName, key, referenceTimestamp) }
                 Gson().fromJson(

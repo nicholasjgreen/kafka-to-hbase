@@ -27,7 +27,6 @@ class MetadataStoreClientTest : StringSpec({
                     payloadNumber.toLong(), record)
         }
 
-
         client.recordBatch(payloads)
         verify(connection, times(1)).prepareStatement(sql)
         verifyNoMoreInteractions(connection)

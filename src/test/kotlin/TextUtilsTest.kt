@@ -5,7 +5,17 @@ import io.kotest.matchers.shouldNotBe
 class TextUtilsTest : StringSpec({
 
     fun reset() {
-        Config.Hbase.qualifiedTablePattern = """^\w+\.([-\w]+)\.([-\w]+)$"""
+        Config.Hbase.qualifiedTablePattern = Config.Hbase.DEFAULT_QUALIFIED_TABLE_PATTERN
+    }
+
+    "table names will have dots and dashes replaced" {
+        val actual = TextUtils().targetTable("a.b-c", "d.e-f")
+        actual shouldBe "a_b_c:d_e_f"
+    }
+
+    "table names will have dots and dashes replaced in edge case topic names" {
+        val actual = TextUtils().targetTable("ucfs", "data.encrypted")
+        actual shouldBe "ucfs:data_encrypted"
     }
 
     "agent_core:agentToDoArchive is coalesced." {
@@ -27,7 +37,7 @@ class TextUtilsTest : StringSpec({
 
         val tableName = "db.ucfs.data"
 
-        Config.Hbase.qualifiedTablePattern = """^\w+\.([-\w]+)\.([-\w]+)$"""
+        Config.Hbase.qualifiedTablePattern = Config.Hbase.DEFAULT_QUALIFIED_TABLE_PATTERN
 
         val result = TextUtils().topicNameTableMatcher(tableName)
 
@@ -35,7 +45,22 @@ class TextUtilsTest : StringSpec({
 
         assert(result!!.groupValues[1] == "ucfs")
         assert(result.groupValues[2] == "data")
+        reset()
+    }
 
+    "Test topic name table matcher will use ucfs data feed regex to match against valid table name with extra stanza" {
+        // extra stanza test for UC edge cases in topic names
+
+        val tableName = "db.ucfs.data.encrypted"
+
+        Config.Hbase.qualifiedTablePattern = Config.Hbase.DEFAULT_QUALIFIED_TABLE_PATTERN
+
+        val result = TextUtils().topicNameTableMatcher(tableName)
+
+        result shouldNotBe null
+
+        assert(result!!.groupValues[1] == "ucfs")
+        assert(result.groupValues[2] == "data.encrypted")
         reset()
     }
 

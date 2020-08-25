@@ -57,7 +57,8 @@ object Config {
         val retryBackoffMultiplier: Long = getEnv("K2HB_RETRY_BACKOFF_MULTIPLIER")?.toLong() ?: 2
         val regionReplication: Int = getEnv("K2HB_HBASE_REGION_REPLICATION")?.toInt() ?: 3
         val logKeys: Boolean = getEnv("K2HB_HBASE_LOG_KEYS")?.toBoolean() ?: true
-        var qualifiedTablePattern = getEnv("K2HB_QUALIFIED_TABLE_PATTERN") ?: """^\w+\.([-\w]+)\.([-\w]+)$"""
+        var DEFAULT_QUALIFIED_TABLE_PATTERN = """^\w+\.([-\w]+)\.([-.\w]+)$"""
+        var qualifiedTablePattern = getEnv("K2HB_QUALIFIED_TABLE_PATTERN") ?: DEFAULT_QUALIFIED_TABLE_PATTERN
     }
 
     object Kafka {
@@ -101,7 +102,7 @@ object Config {
         }
 
         val pollTimeout: Duration = getEnv("K2HB_KAFKA_POLL_TIMEOUT")?.toDuration() ?: Duration.ofSeconds(3)
-        var topicRegex: Pattern = Pattern.compile(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: "db.*")
+        var topicRegex: Pattern = Pattern.compile(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: """^(db[.]{1}[-\w]+[.]{1}[-\w]+)\$""")
         var dlqTopic = getEnv("K2HB_KAFKA_DLQ_TOPIC") ?: "test-dlq-topic"
     }
 

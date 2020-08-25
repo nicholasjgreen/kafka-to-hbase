@@ -62,7 +62,6 @@ services:
       K2HB_KAFKA_MAX_POLL_RECORDS: "10"
       K2HB_KAFKA_META_REFRESH_MS: "1000"
       K2HB_KAFKA_POLL_TIMEOUT: "PT10S"
-      K2HB_KAFKA_TOPIC_REGEX: "^db.(.*)"
       K2HB_RDS_DATABASE_NAME: "metadatastore"
       K2HB_RDS_ENDPOINT: "metadatastore"
       K2HB_RDS_PASSWORD_SECRET_NAME: "password"
@@ -73,6 +72,8 @@ services:
       K2HB_RETRY_MAX_ATTEMPTS: "3"
       K2HB_USE_AWS_SECRETS: "false"
       K2HB_WRITE_TO_METADATA_STORE: "true"
+      K2HB_KAFKA_TOPIC_REGEX: (db[.]{1}[-\w]+[.]{1}[-\w]+)
+      K2HB_QUALIFIED_TABLE_PATTERN: \w+\.([-\w]+)\.([-.\w]+)
 
   kafka2hbaseequality:
     image: kafka2hbase:latest
@@ -104,8 +105,6 @@ services:
       K2HB_KAFKA_MAX_POLL_RECORDS: "10"
       K2HB_KAFKA_META_REFRESH_MS: "1000"
       K2HB_KAFKA_POLL_TIMEOUT: "PT10S"
-      K2HB_KAFKA_TOPIC_REGEX: "^data.(.*)"
-      K2HB_QUALIFIED_TABLE_PATTERN: ([-\w]+)\.([-\w]+)
       K2HB_RDS_DATABASE_NAME: "metadatastore"
       K2HB_RDS_ENDPOINT: "metadatastore"
       K2HB_RDS_PASSWORD_SECRET_NAME: "password"
@@ -116,6 +115,8 @@ services:
       K2HB_RETRY_MAX_ATTEMPTS: "3"
       K2HB_USE_AWS_SECRETS: "false"
       K2HB_VALIDATOR_SCHEMA: "equality_message.schema.json"
+      K2HB_KAFKA_TOPIC_REGEX: (data[.][-\w]+)
+      K2HB_QUALIFIED_TABLE_PATTERN: ([-\w]+)\.([-\w]+)
 
   kafka2s3:
     image: dwpdigital/kafka-to-s3:latest

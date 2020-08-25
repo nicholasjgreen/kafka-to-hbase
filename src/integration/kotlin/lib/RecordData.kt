@@ -63,3 +63,6 @@ fun getISO8601Timestamp(): String {
 fun uniqueTopicName() = "db.database.collection_${Instant.now().toEpochMilli()}"
 
 fun uniqueEqualityTopicName() = "data.equality_${Instant.now().toEpochMilli()}"
+
+fun sampleQualifiedTableName(namespace: String, tableName: String) =
+    "$namespace:$tableName".replace("-", "_").replace(".", "_")
