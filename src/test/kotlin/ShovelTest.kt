@@ -1,4 +1,4 @@
-import io.kotlintest.specs.StringSpec
+import io.kotest.core.spec.style.StringSpec
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 

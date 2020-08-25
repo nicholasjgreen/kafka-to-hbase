@@ -40,7 +40,7 @@ local-all: local-build local-test local-dist ## Build and test with gradle
 rdbms: ## Bring up and provision mysql
 	docker-compose -f docker-compose.yaml up -d metadatastore
 	@{ \
-		while ! docker logs metadatastore 2>&1 | grep "^Version"; do \
+		while ! docker logs metadatastore 2>&1 | grep "^Version" | grep 3306; do \
 			echo Waiting for metadatastore.; \
 			sleep 2; \
 		done; \

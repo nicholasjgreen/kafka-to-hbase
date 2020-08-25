@@ -1,10 +1,6 @@
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-data class HbasePayload(
-        val key: ByteArray,
-        val body: ByteArray,
-        val version: Long,
-        val record: ConsumerRecord<ByteArray, ByteArray>) {
+data class HbasePayload(val key: ByteArray, val body: ByteArray, val version: Long, val record: ConsumerRecord<ByteArray, ByteArray>) {
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -24,5 +20,17 @@ data class HbasePayload(
         result = 31 * result + body.contentHashCode()
         result = 31 * result + version.hashCode()
         return result
+    }
+
+    override fun toString(): String {
+        return """{ 
+            |key: '${String(key)}', 
+            |body: '${String(body)}',
+            |record: {
+            |   offset: ${record.offset()},
+            |   partition: ${record.partition()},
+            |   topic: '${record.topic()}'
+            |}
+|       }""".trimMargin().replace(Regex("""\s+"""), " ")
     }
 }

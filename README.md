@@ -322,3 +322,29 @@ defaulted in the `entrypoint.sh` script.
     Comma delimited list of aliases for the certificate
 * **RETRIEVE_LOG_LEVEL**
     The log level of the certificate generator (`CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`)
+
+#### Metadatastore 
+
+| Name | Notes |
+|------|--------|
+|K2HB_METADATA_STORE_TABLE| The name of the table to write metadata store entries to |
+|K2HB_RDS_CA_CERT_PATH|Where the Amazon root CA is located|
+|K2HB_RDS_DATABASE_NAME|The name of the database to connect to ('metadatastore for circle/local)|
+|K2HB_RDS_ENDPOINT|The server to connect to ('metadatastore for circle/local)|
+|K2HB_RDS_PASSWORD_SECRET_NAME|The name of the password secret to look up (should be 'password' for local/circle running)|
+|K2HB_RDS_PORT|The port to connect on ('3306' for local and circle)|
+|K2HB_RDS_USERNAME|The username to connect with ('k2hbwriter' for local usage and circle)|
+|K2HB_USE_AWS_SECRETS|Whether to fetch metadatastore passwords from AWS (should be 'false' for local running and circle)|
+|K2HB_USE_AWS_SECRETS|Whether to look up secrets in AWS ('false' for local/circle)|
+|K2HB_WRITE_TO_METADATA_STORE| Whether to write to the metadata store - to enable us to feature toggle writes on and off |
+
+#### AWS Service
+| Name | Notes|
+|------|------|
+|K2HB_AWS_S3_ARCHIVE_BUCKET| The bucket to which the messages are written |
+|K2HB_AWS_S3_ARCHIVE_DIRECTORY| The directory in the bucket under which messages are written (or the common part of the key/prefix) |
+|K2HB_AWS_S3_BATCH_PUTS| Whether to write each batch of received messages for a topic/partition combination as one object rather than one object per message, should probably be 'true' for actual running in aws |
+|K2HB_AWS_S3_MAX_CONNECTIONS| Default max concurrentl connections is 500, set this to deviate from that|
+|K2HB_AWS_S3_PARALLEL_PUTS| If not batch putting allows all messages to be written in parallel - n.b. may cause rate limiting issues |
+|K2HB_AWS_S3_REGION| Set this if eu-west-2 is not where you want to point |
+|K2HB_AWS_S3_USE_LOCALSTACK| Set to true for local running - uses containerized aws|

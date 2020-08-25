@@ -1,9 +1,11 @@
+
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
 import java.sql.Timestamp
 import java.util.*
+import kotlin.system.measureTimeMillis
 
 open class MetadataStoreClient(private val connection: Connection): AutoCloseable {
 
@@ -17,20 +19,24 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
 
     @Synchronized
     @Throws(SQLException::class)
-    open fun recordSuccessfulBatch(payloads: List<HbasePayload>) {
-        if (Config.MetadataStore.writeToMetadataStore) {
-            with(recordProcessingAttemptStatement) {
-                payloads.forEach {
-                    setString(1, textUtils.printableKey(it.key))
-                    setTimestamp(2, Timestamp(it.version))
-                    setString(3, it.record.topic())
-                    setInt(4, it.record.partition())
-                    setLong(5, it.record.offset())
-                    addBatch()
+    open fun recordBatch(payloads: List<HbasePayload>){
+        val timeTaken = measureTimeMillis {
+            logger.info("Putting batch into metadata store", "size", "${payloads.size}")
+            if (Config.MetadataStore.writeToMetadataStore) {
+                with(recordProcessingAttemptStatement) {
+                    payloads.forEach {
+                        setString(1, textUtils.printableKey(it.key))
+                        setTimestamp(2, Timestamp(it.version))
+                        setString(3, it.record.topic())
+                        setInt(4, it.record.partition())
+                        setLong(5, it.record.offset())
+                        addBatch()
+                    }
+                    executeBatch()
                 }
-                executeBatch()
             }
         }
+        logger.info("Put batch into metadata store", "time_taken", "$timeTaken", "size", "${payloads.size}")
     }
 
     private fun preparedStatement(hbaseId: String, lastUpdated: Long, record: ConsumerRecord<ByteArray, ByteArray>) =

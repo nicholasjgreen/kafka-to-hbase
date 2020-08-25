@@ -1,18 +1,18 @@
 import com.nhaarman.mockitokotlin2.*
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldThrow
-import io.kotlintest.specs.StringSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.shouldBe
+import org.apache.hadoop.hbase.HColumnDescriptor
+import org.apache.hadoop.hbase.HTableDescriptor
 import org.apache.hadoop.hbase.NamespaceDescriptor
 import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.Admin
 import org.apache.hadoop.hbase.client.Connection
 import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.client.Table
+import org.apache.hadoop.hbase.io.compress.Compression.Algorithm
 import java.io.IOException
 import java.nio.ByteBuffer
-import org.apache.hadoop.hbase.HColumnDescriptor
-import org.apache.hadoop.hbase.HTableDescriptor
-import org.apache.hadoop.hbase.io.compress.Compression.Algorithm
 
 class HbaseClientTest : StringSpec({
     val columnFamily = "cf".toByteArray()
@@ -56,9 +56,7 @@ class HbaseClientTest : StringSpec({
 
     "Retries until successful put" {
         val table = mock<Table> {
-            on { put(any<Put>()) } doThrow IOException(errorMessage) doAnswer {
-                println("PUT SUCCEEDED")
-            }
+            on { put(any<Put>()) } doThrow IOException(errorMessage) doAnswer {}
 
             on { exists(any()) } doReturn true
         }
@@ -78,9 +76,7 @@ class HbaseClientTest : StringSpec({
 
     "Retries until exists" {
         val table = mock<Table> {
-            on { put(any<Put>()) } doAnswer {
-                println("PUT APPARENTLY SUCCEEDED")
-            }
+            on { put(any<Put>()) } doAnswer {}
 
             on { exists(any()) } doReturnConsecutively listOf(false, true)
         }
@@ -100,9 +96,7 @@ class HbaseClientTest : StringSpec({
 
     "Fails after max existence checks exceeded" {
         val table = mock<Table> {
-            on { put(any<Put>()) } doAnswer {
-                println("PUT SEEMINGLY SUCCEEDED")
-            }
+            on { put(any<Put>()) } doAnswer {}
 
             on { exists(any()) } doReturn false
         }

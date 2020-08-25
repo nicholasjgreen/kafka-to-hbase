@@ -59,8 +59,6 @@ open class RecordProcessor(validator: Validator, private val converter: Converte
     companion object {
         val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(RecordProcessor::class.toString())
     }
+
 }
 
-fun getDataStringForRecord(record: ConsumerRecord<ByteArray, ByteArray>): String {
-    return "${String(record.key() ?: ByteArray(0))}:${record.topic()}:${record.partition()}:${record.offset()}"
-}

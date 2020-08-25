@@ -1,9 +1,11 @@
 
-import io.kotlintest.shouldBe
-import io.kotlintest.specs.StringSpec
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
+import com.amazonaws.services.s3.model.*
+import com.google.gson.Gson
+import com.google.gson.JsonObject
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.*
 import lib.getISO8601Timestamp
 import lib.sendRecord
 import org.apache.hadoop.hbase.TableName
@@ -11,8 +13,10 @@ import org.apache.hadoop.hbase.client.Scan
 import org.apache.hadoop.hbase.client.Table
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.log4j.Logger
+import java.io.ByteArrayOutputStream
 import java.sql.Connection
 import java.sql.DriverManager
+import java.util.zip.GZIPInputStream
 import kotlin.time.ExperimentalTime
 import kotlin.time.minutes
 import kotlin.time.seconds
@@ -23,55 +27,111 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
     companion object {
         private val log = Logger.getLogger(Kafka2hbIntegrationLoadSpec::class.toString())
         private const val TOPIC_COUNT = 10
-        private const val RECORDS_PER_TOPIC = 10_000
+        private const val RECORDS_PER_TOPIC = 1_000
         private const val DB_NAME = "load-test-database"
         private const val COLLECTION_NAME = "load-test-collection"
     }
 
     init {
         "Many messages sent to many topics" {
-            val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
-            val converter = Converter()
-            repeat(TOPIC_COUNT) { collectionNumber ->
-                val topic = topicName(collectionNumber)
-                repeat(RECORDS_PER_TOPIC) { messageNumber ->
-                    launch {
-                        val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-                        log.info("Sending record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
-                        producer.sendRecord(topic.toByteArray(), recordId(collectionNumber, messageNumber), body(messageNumber), timestamp)
-                    }
-                }
+            publishRecords()
+            verifyHbase()
+            verifyMetadataStore()
+            verifyS3()
+        }
+    }
+
+    private fun publishRecords() {
+        val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
+        val converter = Converter()
+        println("Setting off record producer")
+        repeat(TOPIC_COUNT) { collectionNumber ->
+            val topic = topicName(collectionNumber)
+            repeat(RECORDS_PER_TOPIC) { messageNumber ->
+                val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
+                log.info("Sending record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
+                producer.sendRecord(topic.toByteArray(), recordId(collectionNumber, messageNumber), body(messageNumber), timestamp)
+                log.info("Sent record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
             }
+        }
+        println("Set off record producer")
+    }
 
-            HbaseClient.connect().use { hbase ->
-                withTimeout(15.minutes) {
-                    while (expectedTables != loadTestTables(hbase)) {
-                        println("Waiting for tables to appear")
-                        delay(2.seconds)
-                    }
+    private suspend fun verifyHbase() =
+        HbaseClient.connect().use { hbase ->
+            withTimeout(30.minutes) {
+                while (expectedTables != loadTestTables(hbase)) {
+                    println("Waiting for tables to appear")
+                    delay(2.seconds)
+                }
 
-                    loadTestTables(hbase).forEach { tableName ->
-                        hbase.connection.getTable(TableName.valueOf(tableName)).use { table ->
-                            while (recordCount(table) != RECORDS_PER_TOPIC) {
-                                println("Waiting for records to appear in $tableName")
-                                delay(2.seconds)
-                            }
+                loadTestTables(hbase).forEach { tableName ->
+                    hbase.connection.getTable(TableName.valueOf(tableName)).use { table ->
+                        while (recordCount(table) != RECORDS_PER_TOPIC) {
+                            println("Waiting for records to appear in $tableName")
+                            delay(2.seconds)
                         }
                     }
                 }
             }
+        }
 
-            println("Checking metadatastore")
-            val connection = metadataStoreConnection()
-            connection.use { connection ->
-                connection.createStatement().use { statement ->
-                    val results = statement.executeQuery("SELECT count(*) FROM ucfs")
-                    results.next() shouldBe true
-                    val count = results.getLong(1)
-                    count shouldBe TOPIC_COUNT * RECORDS_PER_TOPIC
-                }
+    private fun verifyMetadataStore() =
+        metadataStoreConnection().use { connection ->
+            connection.createStatement().use { statement ->
+                val results = statement.executeQuery("SELECT count(*) FROM ucfs WHERE topic_name like '%$DB_NAME%'")
+                results.next() shouldBe true
+                val count = results.getLong(1)
+                count shouldBe TOPIC_COUNT * RECORDS_PER_TOPIC
             }
         }
+
+    private fun verifyS3() {
+        val contentsList = allObjectContentsAsJson()
+        contentsList.size shouldBe TOPIC_COUNT * RECORDS_PER_TOPIC
+        contentsList.forEach {
+            it["traceId"].asJsonPrimitive.asString shouldBe "00002222-abcd-4567-1234-1234567890ab"
+            val message = it["message"]
+            message shouldNotBe null
+            message!!.asJsonObject shouldNotBe null
+            message.asJsonObject!!["dbObject"] shouldNotBe null
+            it["message"]!!.asJsonObject!!["dbObject"]!!.asJsonPrimitive shouldNotBe null
+            it["message"]!!.asJsonObject!!["dbObject"]!!.asJsonPrimitive!!.asString shouldBe "bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A"
+        }
+    }
+
+    private fun allObjectContentsAsJson(): List<JsonObject> =
+            objectSummaries()
+                .filter { it.key.endsWith("jsonl.gz") && it.key.contains("load_test") }
+                .map { it.key }
+                .map { objectContents(it) }
+                .map { String(it) }
+                .flatMap { it.split("\n") }
+                .filter { it.isNotEmpty() }
+                .map { Gson().fromJson(it, JsonObject::class.java) }
+
+    private fun objectContents(key: String) =
+            GZIPInputStream(AwsS3Service.s3.getObject(GetObjectRequest(Config.AwsS3.archiveBucket, key)).objectContent).use {
+                ByteArrayOutputStream().also { output -> it.copyTo(output) }
+            }.toByteArray()
+
+
+    private fun objectSummaries(): MutableList<S3ObjectSummary> {
+        val objectSummaries = mutableListOf<S3ObjectSummary>()
+        val request = ListObjectsV2Request().apply {
+            bucketName = Config.AwsS3.archiveBucket
+            prefix = Config.AwsS3.archiveDirectory
+        }
+
+        var objectListing: ListObjectsV2Result?
+
+        do {
+            objectListing = AwsS3Service.s3.listObjectsV2(request)
+            objectSummaries.addAll(objectListing.objectSummaries)
+            request.continuationToken = objectListing.nextContinuationToken
+        } while (objectListing != null && objectListing.isTruncated)
+
+        return objectSummaries
     }
 
     private fun metadataStoreConnection(): Connection {
@@ -80,11 +140,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
     }
 
     private fun recordCount(table: Table) = table.getScanner(Scan()).count()
-
-
-    private val expectedTables by lazy {
-        (0..9).map { tableName(it) }
-    }
+    private val expectedTables by lazy { (0..9).map { tableName(it) } }
 
     private fun loadTestTables(hbase: HbaseClient)
             = hbase.connection.admin.listTableNames()
@@ -92,14 +148,9 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
             .filter { Regex(tableNamePattern()).matches(it) }
 
     private fun tableName(it: Int) = "$DB_NAME$it:$COLLECTION_NAME$it".replace("-", "_")
-
     private fun tableNamePattern() = """$DB_NAME\d+:$COLLECTION_NAME\d+""".replace("-", "_")
-
-    private fun topicName(collectionNumber: Int)
-            = "db.$DB_NAME$collectionNumber.$COLLECTION_NAME$collectionNumber"
-
-    private fun recordId(collectionNumber: Int, messageNumber: Int) =
-            "key-$messageNumber/$collectionNumber".toByteArray()
+    private fun topicName(collectionNumber: Int)= "db.$DB_NAME$collectionNumber.$COLLECTION_NAME$collectionNumber"
+    private fun recordId(collectionNumber: Int, messageNumber: Int)= "key-$messageNumber/$collectionNumber".toByteArray()
 
     private fun body(recordNumber: Int) = """{
         "traceId": "00002222-abcd-4567-1234-1234567890ab",
@@ -126,5 +177,3 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
         }
     }""".toByteArray()
 }
-
-

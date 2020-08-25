@@ -16,12 +16,8 @@ fun getEnv(envVar: String): String? {
     return if (value.isNullOrEmpty()) null else value
 }
 
-fun String.toDuration(): Duration {
-    return Duration.parse(this)
-}
-
-fun readFile(fileName: String): String
-        = File(fileName).readText(Charsets.UTF_8)
+fun String.toDuration() = Duration.parse(this)
+fun readFile(fileName: String): String = File(fileName).readText(Charsets.UTF_8)
 
 object Config {
 
@@ -29,10 +25,9 @@ object Config {
     const val schemaFileProperty = "schema.location"
     const val mainSchemaFile = "message.schema.json"
     const val equalitySchemaFile = "equality_message.schema.json"
-
+    const val dataworksRegion = "eu-west-2"
     object Shovel {
         val reportFrequency = getEnv("K2HB_KAFKA_REPORT_FREQUENCY")?.toInt() ?: 100
-        val processLists = getEnv("K2HB_BATCH_PUTS")?.toBoolean() ?: true
     }
 
     object Validator {
@@ -108,12 +103,10 @@ object Config {
         val pollTimeout: Duration = getEnv("K2HB_KAFKA_POLL_TIMEOUT")?.toDuration() ?: Duration.ofSeconds(3)
         var topicRegex: Pattern = Pattern.compile(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: "db.*")
         var dlqTopic = getEnv("K2HB_KAFKA_DLQ_TOPIC") ?: "test-dlq-topic"
-
-        fun metadataRefresh(): String = consumerProps.getProperty(metaDataRefreshKey)
     }
 
     object MetadataStore {
-        val writeToMetadataStore = (getEnv("K2HB_WRITE_TO_METADATA_STORE") ?: "false").toBoolean()
+        val writeToMetadataStore = (getEnv("K2HB_WRITE_TO_METADATA_STORE") ?: "true").toBoolean()
         val metadataStoreTable = getEnv("K2HB_METADATA_STORE_TABLE") ?: "ucfs"
 
         private val useAwsSecretsString = getEnv("K2HB_USE_AWS_SECRETS") ?: "true"
@@ -138,7 +131,21 @@ object Config {
 
     object SecretManager {
         val properties = Properties().apply {
-            put("region", getEnv("SECRET_MANAGER_REGION") ?: "eu-west-2")
+            put("region", getEnv("SECRET_MANAGER_REGION") ?: dataworksRegion)
         }
+    }
+
+    object AwsS3 {
+        val maxConnections: Int = (getEnv("K2HB_AWS_S3_MAX_CONNECTIONS") ?: "1000").toInt()
+        val useLocalStack = (getEnv("K2HB_AWS_S3_USE_LOCALSTACK") ?: "false").toBoolean()
+        val region = getEnv("K2HB_AWS_S3_REGION") ?: dataworksRegion
+        val archiveBucket = getEnv("K2HB_AWS_S3_ARCHIVE_BUCKET") ?: "ucarchive"
+        val archiveDirectory = getEnv("K2HB_AWS_S3_ARCHIVE_DIRECTORY") ?: "ucdata_main"
+        val parallelPuts = (getEnv("K2HB_AWS_S3_PARALLEL_PUTS") ?: "false").toBoolean()
+        val batchPuts = (getEnv("K2HB_AWS_S3_BATCH_PUTS") ?: "false").toBoolean()
+
+        const val localstackServiceEndPoint = "http://aws-s3:4566/"
+        const val localstackAccessKey = "AWS_ACCESS_KEY_ID"
+        const val localstackSecretKey = "AWS_SECRET_ACCESS_KEY"
     }
 }

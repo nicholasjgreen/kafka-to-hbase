@@ -1,8 +1,10 @@
+
 import org.apache.hadoop.hbase.*
 import org.apache.hadoop.hbase.client.*
 import org.apache.hadoop.hbase.io.TimeRange
 import org.apache.hadoop.hbase.io.compress.Compression.Algorithm
 import java.io.IOException
+import kotlin.system.measureTimeMillis
 
 open class HbaseClient(val connection: Connection, private val columnFamily: ByteArray,
                        private val columnQualifier: ByteArray, private val hbaseRegionReplication: Int): AutoCloseable {
@@ -10,15 +12,18 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
     @Throws(IOException::class)
     open fun putList(tableName: String, payloads: List<HbasePayload>) {
         if (payloads.isNotEmpty()) {
-            logger.info("Putting batch into table", "size", "${payloads.size}", "table", tableName)
-            ensureTable(tableName)
-            connection.getTable(TableName.valueOf(tableName)).use { table ->
-                table.put(payloads.map { payload ->
-                    Put(payload.key).apply {
-                        addColumn(columnFamily, columnQualifier, payload.version, payload.body)
-                    }
-                })
+            val timeTaken = measureTimeMillis {
+                logger.info("Putting batch into table", "size", "${payloads.size}", "table", tableName)
+                ensureTable(tableName)
+                connection.getTable(TableName.valueOf(tableName)).use { table ->
+                    table.put(payloads.map { payload ->
+                        Put(payload.key).apply {
+                            addColumn(columnFamily, columnQualifier, payload.version, payload.body)
+                        }
+                    })
+                }
             }
+            logger.info("Put batch into table", "time_taken", "$timeTaken", "size", "${payloads.size}", "table", tableName)
         }
     }
 
@@ -198,8 +203,8 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
             Config.Hbase.columnQualifier.toByteArray(),
             Config.Hbase.regionReplication)
 
-        val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(HbaseClient::class.toString())
-        val textUtils = TextUtils()
+        private val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(HbaseClient::class.toString())
+        private val textUtils = TextUtils()
     }
 
 

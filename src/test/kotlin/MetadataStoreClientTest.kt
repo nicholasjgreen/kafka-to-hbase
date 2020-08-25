@@ -1,5 +1,5 @@
 import com.nhaarman.mockitokotlin2.*
-import io.kotlintest.specs.StringSpec
+import io.kotest.core.spec.style.StringSpec
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.sql.Connection
 import java.sql.PreparedStatement
@@ -28,7 +28,7 @@ class MetadataStoreClientTest : StringSpec({
         }
 
 
-        client.recordSuccessfulBatch(payloads)
+        client.recordBatch(payloads)
         verify(connection, times(1)).prepareStatement(sql)
         verifyNoMoreInteractions(connection)
 

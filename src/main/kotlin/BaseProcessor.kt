@@ -21,16 +21,15 @@ open class BaseProcessor(private val validator: Validator, private val converter
                 null
             }
 
-    open fun sendMessageToDlq(record: ConsumerRecord<ByteArray, ByteArray>, reason: String) {
-        val body = record.value()
-        logger.warn("Error processing record, sending to dlq", "reason", reason, "key", String(record.key()))
-
+    open fun sendMessageToDlq(record: ConsumerRecord<ByteArray, ByteArray>, reason: String) =
         try {
+            val body = record.value()
+            logger.warn("Error processing record, sending to dlq", "reason", reason, "key", String(record.key()))
             val malformedRecord = MalformedRecord(String(record.key()), String(body), reason)
             val jsonString = Klaxon().toJsonString(malformedRecord)
             val producerRecord =
                     ProducerRecord(dlqTopic,null,null, record.key(),jsonString.toByteArray(),null)
-            val metadata = DlqProducer.getInstance()?.send(producerRecord)?.get()
+            val metadata = DlqProducer.getInstance().send(producerRecord)?.get()
             logger.info("Sending message to dlq","key", String(record.key()), "topic",
                     metadata?.topic().toString(), "offset", "${metadata?.offset()}")
         } catch (e: Exception) {
@@ -38,6 +37,7 @@ open class BaseProcessor(private val validator: Validator, private val converter
                     "key", String(record.key()), "topic", record.topic(), "offset", "${record.offset()}")
             throw DlqException("Exception while sending message to DLQ : $e")
         }
-    }
 
+    fun getDataStringForRecord(record: ConsumerRecord<ByteArray, ByteArray>) =
+        "${String(record.key() ?: ByteArray(0))}:${record.topic()}:${record.partition()}:${record.offset()}"
 }

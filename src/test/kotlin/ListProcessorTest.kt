@@ -1,8 +1,9 @@
 
 import com.nhaarman.mockitokotlin2.*
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
-import io.kotlintest.specs.StringSpec
+import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.runBlocking
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.ConsumerRecords
@@ -22,25 +23,27 @@ class ListProcessorTest : StringSpec() {
             val hbaseClient = hbaseClient()
             val metadataStoreClient = metadataStoreClient()
             val consumer = kafkaConsumer()
-            processor.processRecords(hbaseClient, consumer, metadataStoreClient, messageParser(), consumerRecords())
+            val s3Service = awsS3Service()
+            processor.processRecords(hbaseClient, consumer, metadataStoreClient, s3Service, messageParser(), consumerRecords())
+            verifyS3Interactions(s3Service)
             verifyMetadataStoreInteractions(metadataStoreClient)
             verifyHbaseInteractions(hbaseClient)
             verifyKafkaInteractions(consumer)
         }
     }
 
+    private fun verifyS3Interactions(s3Service: AwsS3Service) = runBlocking {
+        val tableCaptor = argumentCaptor<String>()
+        val payloadCaptor = argumentCaptor<List<HbasePayload>>()
+        verify(s3Service, times(10)).putObjects(tableCaptor.capture(), payloadCaptor.capture())
+        validateTableNames(tableCaptor)
+        validateHbasePayloads(payloadCaptor)
+    }
+
     private fun verifyMetadataStoreInteractions(metadataStoreClient: MetadataStoreClient) {
         val captor = argumentCaptor<List<HbasePayload>>()
-        verify(metadataStoreClient, times(5)).recordSuccessfulBatch(captor.capture())
-
-        captor.allValues.forEachIndexed { payloadsNo, payloads ->
-            payloads.forEachIndexed { index, payload ->
-                val topicNumber = (index * 2 + 1)
-                String(payload.body) shouldBe hbaseBody(index)
-                payload.record.partition() shouldBe (index + 1) % 20
-                payload.record.offset() shouldBe ((topicNumber + 1) * (payloadsNo + 1)) * 20
-            }
-        }
+        verify(metadataStoreClient, times(10)).recordBatch(captor.capture())
+        validateHbasePayloads(captor)
     }
 
     private fun verifyHbaseInteractions(hbaseClient: HbaseClient) {
@@ -48,20 +51,47 @@ class ListProcessorTest : StringSpec() {
         verifyNoMoreInteractions(hbaseClient)
     }
 
-    private fun verifyHBasePuts(hbaseClient: HbaseClient) {
+    private fun verifyHBasePuts(hbaseClient: HbaseClient) = runBlocking {
         val tableNameCaptor = argumentCaptor<String>()
         val recordCaptor = argumentCaptor<List<HbasePayload>>()
         verify(hbaseClient, times(10)).putList(tableNameCaptor.capture(), recordCaptor.capture())
-        tableNameCaptor.allValues shouldBe (1..10).map { "database$it:collection$it" }
-        recordCaptor.allValues.forEach {
-            it.size shouldBe 100
-        }
+        validateTableNames(tableNameCaptor)
+        validateHbasePayloads(recordCaptor)
+    }
 
-        recordCaptor.allValues.flatten().forEachIndexed { index, hbasePayload ->
-            String(hbasePayload.key) shouldBe index.toString()
-            String(hbasePayload.body) shouldBe hbaseBody(index)
+    private fun validateHbasePayloads(captor: KArgumentCaptor<List<HbasePayload>>) {
+        captor.allValues.size shouldBe 10
+        captor.allValues.forEachIndexed { payloadsNo, payloads ->
+            payloads.size shouldBe 100
+            payloads.forEachIndexed { index, payload ->
+                String(payload.key).toInt() shouldBe index + ((payloadsNo) * 100)
+                String(payload.body) shouldBe hbaseBody(index)
+                payload.record.partition() shouldBe (index + 1) % 20
+                payload.record.offset() shouldBe ((payloadsNo + 1) * (index + 1)) * 20
+            }
         }
     }
+
+    private fun validateTableNames(tableCaptor: KArgumentCaptor<String>) {
+        tableCaptor.allValues.forEachIndexed { index, tableName ->
+            tableName shouldBe tableName(index + 1)
+        }
+    }
+
+    private fun consumerRecords()  =
+        ConsumerRecords((1..10).associate { topicNumber ->
+            TopicPartition(topicName(topicNumber), 10 - topicNumber) to (1..100).map { recordNumber ->
+                val body = Bytes.toBytes(json(recordNumber))
+                val key = Bytes.toBytes("${topicNumber + recordNumber}")
+                val offset = (topicNumber * recordNumber * 20).toLong()
+                mock<ConsumerRecord<ByteArray, ByteArray>> {
+                    on { value() } doReturn body
+                    on { key() } doReturn key
+                    on { offset() } doReturn offset
+                    on { partition() } doReturn recordNumber % 20
+                }
+            }
+        })
 
 
     private fun verifyKafkaInteractions(consumer: KafkaConsumer<ByteArray, ByteArray>) {
@@ -110,21 +140,6 @@ class ListProcessorTest : StringSpec() {
         }
     }
 
-    private fun consumerRecords()  =
-        ConsumerRecords((1..10).associate { topicNumber ->
-            TopicPartition(topicName(topicNumber), 10 - topicNumber) to (1..100).map { recordNumber ->
-                val body = Bytes.toBytes(json(recordNumber))
-                val key = Bytes.toBytes(recordNumber)
-                val offset = (topicNumber * recordNumber * 20).toLong()
-                mock<ConsumerRecord<ByteArray, ByteArray>> {
-                    on { value() } doReturn body
-                    on { key() } doReturn key
-                    on { offset() } doReturn offset
-                    on { partition() } doReturn recordNumber % 20
-                }
-            }
-        })
-
     private fun messageParser() =
             mock<MessageParser> {
                 val hbaseKeys = (0..1000000).map { Bytes.toBytes("$it") }
@@ -141,15 +156,15 @@ class ListProcessorTest : StringSpec() {
             }
 
     private fun hbaseClient() =
-            mock<HbaseClient> {
-                on { putList(any(), any()) } doAnswer {
-                    val tableName = it.getArgument<String>(0)
-                    val matchResult = Regex("""[13579]$""").find(tableName)
-                    if (matchResult != null) {
-                        throw IOException("Table: '$tableName'.")
-                    }
+        mock<HbaseClient> {
+            on { putList(any(), any()) } doAnswer {
+                val tableName = it.getArgument<String>(0)
+                val matchResult = Regex("""[13579]$""").find(tableName)
+                if (matchResult != null) {
+                    throw IOException("Table: '$tableName'.")
                 }
             }
+        }
 
     private fun metadataStoreClient(): MetadataStoreClient {
         val statement = mock<PreparedStatement>()
@@ -159,9 +174,11 @@ class ListProcessorTest : StringSpec() {
         return spy(MetadataStoreClient(connection))
     }
 
+    private fun awsS3Service(): AwsS3Service = mock<AwsS3Service> { on { runBlocking { putObjects(any(), any()) } } doAnswer { } }
+
     private fun json(id: Any) = """{ "message": { "_id": { "id": "$id" } } }"""
-    private fun topicName(topicNumber: Int) = "db.database$topicNumber.collection$topicNumber"
+    private fun topicName(topicNumber: Int) = "db.database%02d.collection%02d".format(topicNumber, topicNumber)
     private fun hbaseBody(index: Int) =
             """{"message":{"_id":{"id":"${(index % 100) + 1}"},"timestamp_created_from":"epoch"}}"""
-
+    private fun tableName(tableNumber: Int) =  "database%02d:collection%02d".format(tableNumber, tableNumber)
 }

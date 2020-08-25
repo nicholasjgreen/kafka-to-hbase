@@ -1,10 +1,8 @@
 import com.beust.klaxon.JsonObject
 import com.google.gson.Gson
 import com.nhaarman.mockitokotlin2.*
-import io.kotlintest.TestCaseOrder
-import io.kotlintest.fail
-import io.kotlintest.shouldThrow
-import io.kotlintest.specs.StringSpec
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.StringSpec
 import io.mockk.every
 import io.mockk.mockkObject
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -19,6 +17,7 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.record.TimestampType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.jupiter.api.Assertions.fail
 import java.io.ByteArrayInputStream
 import java.io.ObjectInputStream
 import java.sql.Connection
@@ -29,7 +28,6 @@ import java.util.logging.Logger
 
 
 class RecordProcessorTest : StringSpec() {
-    override fun testCaseOrder() = TestCaseOrder.Random
     private lateinit var mockValidator: Validator
     private lateinit var mockConverter: Converter
     private lateinit var mockMessageParser: MessageParser
@@ -93,7 +91,6 @@ class RecordProcessorTest : StringSpec() {
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 111, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
             whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
             processor.processRecord(record, hbaseClient, metadataStoreClient, mockMessageParser)
-
             verifyZeroInteractions(hbaseClient)
             verifyZeroInteractions(metadataStoreClient)
         }
