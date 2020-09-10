@@ -3,14 +3,16 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.delay
 import lib.*
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.log4j.Logger
 import java.io.BufferedReader
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.time.ExperimentalTime
 
+@ExperimentalTime
 class Kafka2hbUcfsIntegrationSpec : StringSpec() {
 
     private val log = Logger.getLogger(Kafka2hbUcfsIntegrationSpec::class.toString())
@@ -18,8 +20,6 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
     init {
         "UCFS Messages with new identifiers are written to hbase but not to dlq" {
             val hbase = HbaseClient.connect()
-            //TODO: For future implementations so that we can assert what is in the db
-            //TODO: val metadataStore = MetadataStoreClient.connect()
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             val parser = MessageParser()
             val converter = Converter()
@@ -33,6 +33,8 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val s3Client = getS3Client()
             val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries.forEach { s3Client.deleteObject("kafka2s3", it.key) }
+
+            verifyMetadataStore(0, topic, true)
 
             val body = wellFormedValidPayload(namespace, tableName)
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
@@ -47,17 +49,20 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
 
             val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries1.size shouldBe 0
+
+            verifyMetadataStore(1, topic, true)
         }
 
         "UCFS Messages on the agentToDoArchive topic are written to agentToDo" {
             val hbase = HbaseClient.connect()
-            //TODO: For future implementations so that we can assert what is in the db
-            //TODO: val metadataStore = MetadataStoreClient.connect()
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             val parser = MessageParser()
             val converter = Converter()
             val topic = "db.agent_core.agentToDoArchive"
             val qualifiedTableName = "agent_core:agentToDo"
+
+            verifyMetadataStore(0, topic, true)
+
             hbase.ensureTable(qualifiedTableName)
             val body = wellFormedValidPayload("agent_core", "agentToDoArchive")
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
@@ -68,6 +73,8 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val storedValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
             String(storedValue!!) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
+
+            verifyMetadataStore(1, topic, true)
         }
 
         "UCFS Messages with previously received identifiers are written as new versions to hbase but not to dlq" {
@@ -76,10 +83,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             summaries.forEach { s3Client.deleteObject("kafka2s3", it.key) }
 
             val hbase = HbaseClient.connect()
-            //TODO: For future implementations so that we can assert what is in the db
-            //TODO: val metadataStore = MetadataStoreClient.connect()
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
-
             val parser = MessageParser()
             val converter = Converter()
             val topic = uniqueTopicName()
@@ -92,9 +96,11 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val body1 = wellFormedValidPayload(namespace, tableName)
             hbase.putVersion(qualifiedTableName, key, body1, kafkaTimestamp1)
 
-            Thread.sleep(1000)
+            verifyMetadataStore(0, topic, true)
+
+            delay(1000)
             val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            Thread.sleep(1000)
+            delay(1000)
 
             val body2 = wellFormedValidPayload(namespace, tableName)
 
@@ -114,6 +120,8 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val storedPreviousValue =
                 waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
             String(storedPreviousValue!!) shouldBe String(body1)
+
+            verifyMetadataStore(1, topic, true)
         }
 
         "UCFS Malformed json messages are written to dlq topic" {
@@ -127,13 +135,18 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             producer.sendRecord(topic.toByteArray(), "key3".toByteArray(), body, timestamp)
             val malformedRecord = MalformedRecord("key3", String(body), "Invalid json")
             val expected = Klaxon().toJsonString(malformedRecord)
-            Thread.sleep(10_000)
+
+            verifyMetadataStore(0, topic, true)
+
+            delay(10_000)
             val s3Object = s3Client.getObject(
                 "kafka2s3",
                 "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key3"
             ).objectContent
             val actual = s3Object.bufferedReader().use(BufferedReader::readText)
             actual shouldBe expected
+
+            verifyMetadataStore(0, topic, true)
         }
 
         "UCFS Invalid json messages as per the schema are written to dlq topic" {
@@ -144,7 +157,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             producer.sendRecord(topic.toByteArray(), "key4".toByteArray(), body, timestamp)
-            Thread.sleep(10_000)
+            delay(10_000)
             val s3Object = s3Client.getObject(
                 "kafka2s3",
                 "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key4"
@@ -156,12 +169,12 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             )
             val expected = Klaxon().toJsonString(malformedRecord)
             actual shouldBe expected
+
+            verifyMetadataStore(0, topic, true)
         }
 
         "UCFS Messages with a dot in the collection.name are written to hbase but not to dlq" {
             val hbase = HbaseClient.connect()
-            //TODO: For future implementations so that we can assert what is in the db
-            //TODO: val metadataStore = MetadataStoreClient.connect()
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             val parser = MessageParser()
             val converter = Converter()
@@ -175,6 +188,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val s3Client = getS3Client()
             val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries.forEach { s3Client.deleteObject("kafka2s3", it.key) }
+            verifyMetadataStore(0, topic, true)
 
             val body = wellFormedValidPayload(namespace, tableName)
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
@@ -189,6 +203,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
 
             val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries1.size shouldBe 0
+            verifyMetadataStore(1, topic, true)
         }
     }
 

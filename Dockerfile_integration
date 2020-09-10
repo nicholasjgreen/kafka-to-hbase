@@ -4,4 +4,4 @@ COPY build.gradle.kts .
 COPY settings.gradle.kts .
 COPY src/ ./src
 
-RUN gradle compileKotlin build integrationClasses -x test
+RUN gradle build integrationClasses -x test -x unit
