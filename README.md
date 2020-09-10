@@ -8,30 +8,21 @@ of the message and one to store a count and last received date of the
 topic. These are configured using the `K2HB_KAFKA_TOPIC_*` and
 `K2HB_KAFKA_DATA_*` environment variables.
 
-By default the data table is `k2hb:ingest` with a column family of `topic`.
+By default if the kafka topic is `db.database-name.collection.name` the data 
+table is `database_name:collection_name` with a column family of `topic`.
+
 The qualifier is the topic name, the body of the cell is the raw message
 received from Kafka and the version is the timestamp of the message in
 milliseconds.
 
-Along with the data of the message a counter is kept for each topic to
-indicate how many messages have been processed and when. This is useful for
-creating a list of topics to process or limiting that list to only topics
-that have received new data since a given time. The default table is
-`k2hb:ingest-topic` and the default column is `c:msg`.
-
-For example, after receiving a single message on `test-topic` the data
+For example, after receiving a single message on `db.my.data` the data
 is as follows:
 
 ```
-hbase(main):001:0> scan 'k2hb:ingest'
-ROW                                                          COLUMN+CELL
- 63213667-c5a5-4411-a93b-e2da709c553e                        column=topic:test-topic, timestamp=1563547895682, value=<message body>
+hbase(main):001:0> scan 'my:data'
+ROW                                       COLUMN+CELL
+ 63213667-c5a5-4411-a93b-e2da709c553e     column=topic:my:data, timestamp=1563547895682, value=<message body>
 1 row(s) in 0.1090 seconds
-
-hbase(main):002:0> scan 'k2hb:ingest-topic'
-ROW                                                          COLUMN+CELL
- test-topic                                                  column=c:msg, timestamp=1563547895689, value=\x00\x00\x00\x00\x00\x00\x00\x01
-1 row(s) in 0.0100 seconds
 ```
 
 Kafka2Hbase will attempt to create the required namespaces, tables and
@@ -44,6 +35,23 @@ The topic counter column family has no versioning or TTL.
 
 You will need local installs of Docker, Gradle and Kotlin, and so a JVM on at least 1.8.
 The SDK-Man utility is good for package management of these.
+
+## When docker runs out of space
+
+...you may see erronious erors that are not obvious.
+
+For example, the Integration test may spin waiting for MySQL to start up. 
+Check the MySQL container logs, which may report:
+   ```
+   [ERROR] --initialize specified but the data directory has files in it. Aborting.
+   ```
+
+For this sort of thing, it's usually the docker volume flling up; try and run
+   ```
+   docker system prune --volumes
+   ```
+
+
 
 ## Makefile
 

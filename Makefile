@@ -37,6 +37,18 @@ local-test: ## Run the unit tests with gradle
 
 local-all: local-build local-test local-dist ## Build and test with gradle
 
+hbase-up: ## Bring up and provision zookeeper and hbase
+	docker-compose -f docker-compose.yaml up -d zookeeper hbase
+	@{ \
+		echo Waiting for hbase.; \
+		while ! docker logs hbase 2>&1 | grep "Master has completed initialization" ; do \
+			sleep 2; \
+			echo Waiting for hbase.; \
+		done; \
+		sleep 5; \
+		echo ...hbase ready.; \
+	}
+
 rdbms: ## Bring up and provision mysql
 	docker-compose -f docker-compose.yaml up -d metadatastore
 	@{ \
@@ -49,8 +61,8 @@ rdbms: ## Bring up and provision mysql
 	docker exec -i metadatastore mysql --host=127.0.0.1 --user=root --password=password metadatastore  < ./docker/metadatastore/create_table.sql
 	docker exec -i metadatastore mysql --host=127.0.0.1 --user=root --password=password metadatastore  < ./docker/metadatastore/grant_user.sql
 
-services: rdbms ## Bring up supporting services in docker
-	docker-compose -f docker-compose.yaml up --build -d zookeeper kafka hbase aws-s3
+services: hbase-up rdbms ## Bring up supporting services in docker
+	docker-compose -f docker-compose.yaml up --build -d kafka aws-s3
 	@{ \
 		while ! docker logs aws-s3 2> /dev/null | grep -q $(S3_READY_REGEX); do \
 			echo Waiting for s3.; \
@@ -80,23 +92,15 @@ destroy: down ## Bring down the Kafka2Hbase Docker container and services then d
 	docker network prune -f
 	docker volume prune -f
 
-integration-test: ## Run the integration tests in a Docker container
+integration-test-ucfs-and-equality: ## Run the integration tests in a Docker container
 	@{ \
 		set +e ;\
 		docker stop integration-test ;\
 		docker rm integration-test ;\
 		set -e ;\
 	}
-	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test -x test -x integration-load-test -x integration-test-equality
-
-integration-test-equality: ## Run the integration tests in a Docker container
-	@{ \
-		set +e ;\
-		docker stop integration-test ;\
-		docker rm integration-test ;\
-		set -e ;\
-	}
-	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test-equality -x test -x integration-load-test -x integration-test
+	docker-compose -f docker-compose.yaml build integration-test
+	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test integration-test-equality -x test -x integration-load-test
 
 integration-load-test: ## Run the integration load tests in a Docker container
 	@{ \
@@ -105,13 +109,14 @@ integration-load-test: ## Run the integration load tests in a Docker container
 		docker rm integration-load-test ;\
 		set -e ;\
 	}
-	docker-compose -f docker-compose.yaml run --name integration-load-test integration-test gradle --no-daemon --rerun-tasks integration-load-test -x test -x integration-test
+	docker-compose -f docker-compose.yaml build integration-test
+	docker-compose -f docker-compose.yaml run --name integration-load-test integration-test gradle --no-daemon --rerun-tasks integration-load-test -x test -x integration-test -x integration-test-equality
 
 .PHONY: integration-all ## Build and Run all the tests in containers from a clean start
-integration-all: down destroy build up integration-test integration-test-equality
+integration-all: down destroy build up integration-test-ucfs-and-equality
 
-hbase-shell: ## Open an Hbase shell onto the running Hbase container
-	docker-compose run --rm hbase shell
+hbase-shell: ## Open an hbase shell in the running hbase container
+	docker exec -it hbase hbase shell
 
 build: build-base ## build main images
 	docker-compose build

@@ -72,7 +72,7 @@ services:
       K2HB_RETRY_MAX_ATTEMPTS: "3"
       K2HB_USE_AWS_SECRETS: "false"
       K2HB_WRITE_TO_METADATA_STORE: "true"
-      K2HB_KAFKA_TOPIC_REGEX: (db[.]{1}[-\w]+[.]{1}[-\w]+)
+      K2HB_KAFKA_TOPIC_REGEX: (db[.]{1}[-\w]+[.]{1}[-.\w]+)
       K2HB_QUALIFIED_TABLE_PATTERN: \w+\.([-\w]+)\.([-.\w]+)
 
   kafka2hbaseequality:
