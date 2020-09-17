@@ -19,7 +19,7 @@ fun shovelAsync(consumer: KafkaConsumer<ByteArray, ByteArray>,
         while (isActive) {
             try {
                 consumer.subscribe(Config.Kafka.topicRegex)
-                logger.info("Polling", "timeout", "$pollTimeout")
+                logger.info("Polling", "timeout", "$pollTimeout", "subscription", Config.Kafka.topicRegex.pattern())
                 val records = consumer.poll(pollTimeout)
                 if (records.count() > 0) {
                     HbaseClient.connect().use { hbase ->

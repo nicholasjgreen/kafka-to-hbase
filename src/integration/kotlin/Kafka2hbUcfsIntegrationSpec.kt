@@ -1,9 +1,11 @@
+
 import com.beust.klaxon.Klaxon
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import lib.*
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.log4j.Logger
@@ -11,6 +13,8 @@ import java.io.BufferedReader
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.time.ExperimentalTime
+import kotlin.time.minutes
+import kotlin.time.seconds
 
 @ExperimentalTime
 class Kafka2hbUcfsIntegrationSpec : StringSpec() {
@@ -157,11 +161,10 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             producer.sendRecord(topic.toByteArray(), "key4".toByteArray(), body, timestamp)
-            delay(10_000)
-            val s3Object = s3Client.getObject(
-                "kafka2s3",
-                "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key4"
-            ).objectContent
+            delay(10.seconds)
+            val key = "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key4"
+            log.info("key: $key")
+            val s3Object = s3Client.getObject("kafka2s3", key).objectContent
             val actual = s3Object.bufferedReader().use(BufferedReader::readText)
             val malformedRecord = MalformedRecord(
                 "key4", String(body),
@@ -197,9 +200,22 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
             log.info("Sent well-formed record to kafka topic '$topic'.")
             val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            val storedValue =
-                waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
-            String(storedValue!!) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
+
+            val storedValue = withTimeout(3.minutes) {
+                var cell: ByteArray? = hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp)
+                while (cell == null) {
+                    delay(2.seconds)
+                    cell = hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp)
+                    log.info("qualifiedTableName: '$qualifiedTableName'.")
+                    log.info("hbaseKey: '${String(hbaseKey)}'.")
+                    log.info("referenceTimestamp: '$referenceTimestamp'.")
+                    log.info("cell: '$cell'.")
+                }
+                cell
+            }
+
+            log.info("storedValue: $storedValue")
+            String(storedValue) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
 
             val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries1.size shouldBe 0

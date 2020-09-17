@@ -1,13 +1,21 @@
-import com.amazonaws.services.s3.model.*
+
+import com.amazonaws.services.s3.model.GetObjectRequest
+import com.amazonaws.services.s3.model.ListObjectsV2Request
+import com.amazonaws.services.s3.model.ListObjectsV2Result
+import com.amazonaws.services.s3.model.S3ObjectSummary
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import lib.getISO8601Timestamp
 import lib.sampleQualifiedTableName
 import lib.sendRecord
+import lib.verifyMetadataStore
 import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.Scan
 import org.apache.hadoop.hbase.client.Table
@@ -18,7 +26,6 @@ import java.util.zip.GZIPInputStream
 import kotlin.time.ExperimentalTime
 import kotlin.time.minutes
 import kotlin.time.seconds
-import lib.*
 
 @ExperimentalTime
 class Kafka2hbIntegrationLoadSpec : StringSpec() {
@@ -43,17 +50,17 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
     private fun publishRecords() {
         val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
         val converter = Converter()
-        println("Starting record producer...")
+        logger.info("Starting record producer...")
         repeat(TOPIC_COUNT) { collectionNumber ->
             val topic = topicName(collectionNumber)
             repeat(RECORDS_PER_TOPIC) { messageNumber ->
                 val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-                log.info("Sending record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
+                logger.info("Sending record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
                 producer.sendRecord(topic.toByteArray(), recordId(collectionNumber, messageNumber), body(messageNumber), timestamp)
-                log.info("Sent record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
+                logger.info("Sent record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
             }
         }
-        println("...Started record producer")
+        logger.info("Started record producer")
     }
 
     private suspend fun verifyHbase() {
@@ -61,24 +68,27 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
         val shortInterval = 5
         val longInterval = 10
         val expectedTablesSorted = expectedTables.sorted()
-        println("Waiting for ${expectedTablesSorted.size} hbase tables to appear; Expecting to create: $expectedTablesSorted")
+        logger.info("Waiting for ${expectedTablesSorted.size} hbase tables to appear; Expecting to create: $expectedTablesSorted")
         HbaseClient.connect().use { hbase ->
             withTimeout(30.minutes) {
                 do {
                     val foundTablesSorted = loadTestTables(hbase)
-                    println("Waiting for ${expectedTablesSorted.size} hbase tables to appear; Found ${foundTablesSorted.size}; Total of $waitSoFarSecs seconds elapsed")
+                    logger.info("Waiting for ${expectedTablesSorted.size} hbase tables to appear; Found ${foundTablesSorted.size}; Total of $waitSoFarSecs seconds elapsed")
                     delay(longInterval.seconds)
                     waitSoFarSecs += longInterval
                 } while (expectedTablesSorted.toSet() != foundTablesSorted.toSet())
 
+
                 loadTestTables(hbase).forEach { tableName ->
-                    hbase.connection.getTable(TableName.valueOf(tableName)).use { table ->
-                        do {
-                            val foundRecords = recordCount(table)
-                            println("Waiting for $RECORDS_PER_TOPIC hbase records to appear in $tableName; Found $foundRecords; Total of $waitSoFarSecs seconds elapsed")
-                            delay(shortInterval.seconds)
-                            waitSoFarSecs += shortInterval
-                        } while (foundRecords < RECORDS_PER_TOPIC)
+                    launch (Dispatchers.IO) {
+                        hbase.connection.getTable(TableName.valueOf(tableName)).use { table ->
+                            do {
+                                val foundRecords = recordCount(table)
+                                logger.info("Waiting for $RECORDS_PER_TOPIC hbase records to appear in $tableName; Found $foundRecords; Total of $waitSoFarSecs seconds elapsed")
+                                delay(shortInterval.seconds)
+                                waitSoFarSecs += shortInterval
+                            } while (foundRecords < RECORDS_PER_TOPIC)
+                        }
                     }
                 }
             }
@@ -102,11 +112,11 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
     private fun allObjectContentsAsJson(): List<JsonObject> =
             objectSummaries()
                 .filter { it.key.endsWith("jsonl.gz") && it.key.contains("load_test") }
-                .map { it.key }
-                .map { objectContents(it) }
-                .map { String(it) }
+                .map(S3ObjectSummary::getKey)
+                .map(this@Kafka2hbIntegrationLoadSpec::objectContents)
+                .map(::String)
                 .flatMap { it.split("\n") }
-                .filter { it.isNotEmpty() }
+                .filter(String::isNotEmpty)
                 .map { Gson().fromJson(it, JsonObject::class.java) }
 
     private fun objectContents(key: String) =
@@ -137,10 +147,10 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
 
     private fun loadTestTables(hbase: HbaseClient): List<String> {
         val tables = hbase.connection.admin.listTableNames()
-            .map { it.nameAsString }
-            .filter { Regex(tableNamePattern()).matches(it) }
+            .map(TableName::getNameAsString)
+            .filter(Regex(tableNamePattern())::matches)
             .sorted()
-        println("...hbase tables: found ${tables.size}: $tables")
+        logger.info("...hbase tables: found ${tables.size}: $tables")
         return tables
     }
 

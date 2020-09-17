@@ -26,10 +26,16 @@ class ListProcessorTest : StringSpec() {
             val s3Service = awsS3Service()
             processor.processRecords(hbaseClient, consumer, metadataStoreClient, s3Service, messageParser(), consumerRecords())
             verifyS3Interactions(s3Service)
-            verifyMetadataStoreInteractions(metadataStoreClient)
             verifyHbaseInteractions(hbaseClient)
             verifyKafkaInteractions(consumer)
+            verifyMetadataStoreInteractions(metadataStoreClient)
         }
+    }
+
+    private fun verifyMetadataStoreInteractions(metadataStoreClient: MetadataStoreClient) {
+        val captor = argumentCaptor<List<HbasePayload>>()
+        verify(metadataStoreClient, times(5)).recordBatch(captor.capture())
+        validateMetadataHbasePayloads(captor)
     }
 
     private fun verifyS3Interactions(s3Service: AwsS3Service) = runBlocking {
@@ -40,11 +46,6 @@ class ListProcessorTest : StringSpec() {
         validateHbasePayloads(payloadCaptor)
     }
 
-    private fun verifyMetadataStoreInteractions(metadataStoreClient: MetadataStoreClient) {
-        val captor = argumentCaptor<List<HbasePayload>>()
-        verify(metadataStoreClient, times(10)).recordBatch(captor.capture())
-        validateHbasePayloads(captor)
-    }
 
     private fun verifyHbaseInteractions(hbaseClient: HbaseClient) {
         verifyHBasePuts(hbaseClient)
@@ -64,10 +65,24 @@ class ListProcessorTest : StringSpec() {
         captor.allValues.forEachIndexed { payloadsNo, payloads ->
             payloads.size shouldBe 100
             payloads.forEachIndexed { index, payload ->
+                println("payloadsNo: '$payloadsNo', index: $index, $payload")
                 String(payload.key).toInt() shouldBe index + ((payloadsNo) * 100)
                 String(payload.body) shouldBe hbaseBody(index)
                 payload.record.partition() shouldBe (index + 1) % 20
                 payload.record.offset() shouldBe ((payloadsNo + 1) * (index + 1)) * 20
+            }
+        }
+    }
+
+    private fun validateMetadataHbasePayloads(captor: KArgumentCaptor<List<HbasePayload>>) {
+        captor.allValues.size shouldBe 5
+        captor.allValues.forEachIndexed { payloadsNo, payloads ->
+            payloads.size shouldBe 100
+            payloads.forEachIndexed { index, payload ->
+                String(payload.key).toInt() shouldBe (index + 100) + (payloadsNo * 2 * 100)
+                String(payload.body) shouldBe hbaseBody(index)
+                payload.record.partition() shouldBe (index + 1) % 20
+                payload.record.offset() shouldBe ((payloadsNo + 1) * (index + 1)) * 40
             }
         }
     }
@@ -78,20 +93,6 @@ class ListProcessorTest : StringSpec() {
         }
     }
 
-    private fun consumerRecords()  =
-        ConsumerRecords((1..10).associate { topicNumber ->
-            TopicPartition(topicName(topicNumber), 10 - topicNumber) to (1..100).map { recordNumber ->
-                val body = Bytes.toBytes(json(recordNumber))
-                val key = Bytes.toBytes("${topicNumber + recordNumber}")
-                val offset = (topicNumber * recordNumber * 20).toLong()
-                mock<ConsumerRecord<ByteArray, ByteArray>> {
-                    on { value() } doReturn body
-                    on { key() } doReturn key
-                    on { offset() } doReturn offset
-                    on { partition() } doReturn recordNumber % 20
-                }
-            }
-        })
 
 
     private fun verifyKafkaInteractions(consumer: KafkaConsumer<ByteArray, ByteArray>) {
@@ -173,6 +174,21 @@ class ListProcessorTest : StringSpec() {
         }
         return spy(MetadataStoreClient(connection))
     }
+
+    private fun consumerRecords()  =
+            ConsumerRecords((1..10).associate { topicNumber ->
+                TopicPartition(topicName(topicNumber), 10 - topicNumber) to (1..100).map { recordNumber ->
+                    val body = Bytes.toBytes(json(recordNumber))
+                    val key = Bytes.toBytes("${topicNumber + recordNumber}")
+                    val offset = (topicNumber * recordNumber * 20).toLong()
+                    mock<ConsumerRecord<ByteArray, ByteArray>> {
+                        on { value() } doReturn body
+                        on { key() } doReturn key
+                        on { offset() } doReturn offset
+                        on { partition() } doReturn recordNumber % 20
+                    }
+                }
+            })
 
     private fun awsS3Service(): AwsS3Service = mock<AwsS3Service> { on { runBlocking { putObjects(any(), any()) } } doAnswer { } }
 

@@ -9,41 +9,32 @@ import org.apache.kafka.common.TopicPartition
 
 class ListProcessor(validator: Validator, private val converter: Converter) : BaseProcessor(validator, converter) {
 
-    fun processRecords(
-        hbase: HbaseClient,
-        consumer: KafkaConsumer<ByteArray, ByteArray>,
-        metadataClient: MetadataStoreClient,
-        s3Service: AwsS3Service,
-        parser: MessageParser,
-        records: ConsumerRecords<ByteArray, ByteArray>
-    ) {
+    fun processRecords(hbase: HbaseClient, consumer: KafkaConsumer<ByteArray, ByteArray>, metadataClient: MetadataStoreClient,
+        s3Service: AwsS3Service, parser: MessageParser, records: ConsumerRecords<ByteArray, ByteArray>) {
         runBlocking {
             records.partitions().forEach { partition ->
                 val partitionRecords = records.records(partition)
                 val payloads = payloads(partitionRecords, parser)
                 textUtils.qualifiedTableName(partition.topic())?.let { table ->
                     coroutineScope {
-                        val s3Ok = async { putInS3(s3Service, table, payloads) }
-                        val hbaseOk = async { putInHbase(hbase, table, payloads) }
-                        val mysqlOk = async { putInMetadataStore(metadataClient, payloads) }
+                        val s3OkDeferred = async { putInS3(s3Service, table, payloads) }
+                        val hbaseOk = putInHbase(hbase, table, payloads)
 
-                        if (s3Ok.await() && hbaseOk.await() && mysqlOk.await()) {
+                        val commitOffset = if (hbaseOk) {
+                            putInMetadataStore(metadataClient, payloads)
+                        }
+                        else false
+
+                        if (s3OkDeferred.await() && commitOffset) {
                             val lastPosition = lastPosition(partitionRecords)
-                            logger.info(
-                                "Batch succeeded, committing offset", "topic", partition.topic(), "partition",
-                                "${partition.partition()}", "offset", "$lastPosition"
-                            )
+                            logger.info("Batch succeeded, committing offset", "topic", partition.topic(),
+                                "partition","${partition.partition()}", "offset", "$lastPosition")
                             consumer.commitSync(mapOf(partition to OffsetAndMetadata(lastPosition + 1)))
                             logSuccessfulPuts(table, payloads)
                         } else {
                             lastCommittedOffset(consumer, partition)?.let { consumer.seek(partition, it) }
-                            logger.error(
-                                "Batch failed, not committing offset, resetting position to last commit",
-                                "topic",
-                                partition.topic(),
-                                "partition",
-                                "${partition.partition()}"/*, "committed_offset", "$lastCommittedOffset"*/
-                            )
+                            logger.error("Batch failed, not committing offset, resetting position to last commit",
+                                "topic", partition.topic(), "partition", "${partition.partition()}")
                             logFailedPuts(table, payloads)
                         }
                     }

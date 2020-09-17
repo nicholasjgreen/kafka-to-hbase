@@ -102,7 +102,7 @@ object Config {
         }
 
         val pollTimeout: Duration = getEnv("K2HB_KAFKA_POLL_TIMEOUT")?.toDuration() ?: Duration.ofSeconds(3)
-        var topicRegex: Pattern = Pattern.compile(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: """^(db[.]{1}[-\w]+[.]{1}[-\w]+)\$""")
+        var topicRegex: Pattern = Pattern.compile(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: """^(db[.]{1}[-\w]+[.]{1}[-\w]+)$""")
         var dlqTopic = getEnv("K2HB_KAFKA_DLQ_TOPIC") ?: "test-dlq-topic"
     }
 

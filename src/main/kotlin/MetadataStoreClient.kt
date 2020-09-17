@@ -19,10 +19,10 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
 
     @Synchronized
     @Throws(SQLException::class)
-    open fun recordBatch(payloads: List<HbasePayload>){
-        val timeTaken = measureTimeMillis {
+    open fun recordBatch(payloads: List<HbasePayload>) {
+        if (Config.MetadataStore.writeToMetadataStore) {
             logger.info("Putting batch into metadata store", "size", "${payloads.size}")
-            if (Config.MetadataStore.writeToMetadataStore) {
+            val timeTaken = measureTimeMillis {
                 with(recordProcessingAttemptStatement) {
                     payloads.forEach {
                         setString(1, textUtils.printableKey(it.key))
@@ -35,8 +35,11 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
                     executeBatch()
                 }
             }
+            logger.info("Put batch into metadata store", "time_taken", "$timeTaken", "size", "${payloads.size}")
         }
-        logger.info("Put batch into metadata store", "time_taken", "$timeTaken", "size", "${payloads.size}")
+        else {
+            logger.info("Not putting batch into metadata store", "write_to_metadata_store", "${Config.MetadataStore.writeToMetadataStore}")
+        }
     }
 
     private fun preparedStatement(hbaseId: String, lastUpdated: Long, record: ConsumerRecord<ByteArray, ByteArray>) =

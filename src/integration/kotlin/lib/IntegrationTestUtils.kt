@@ -81,7 +81,7 @@ fun sampleQualifiedTableName(namespace: String, tableName: String) =
 
 fun getS3Client(): AmazonS3 {
     return AmazonS3ClientBuilder.standard()
-        .withEndpointConfiguration(AwsClientBuilder.EndpointConfiguration("http://aws-s3:4572", "eu-west-2"))
+        .withEndpointConfiguration(AwsClientBuilder.EndpointConfiguration("http://aws-s3:4566", "eu-west-2"))
         .withClientConfiguration(ClientConfiguration().withProtocol(Protocol.HTTP))
         .withCredentials(
             AWSStaticCredentialsProvider(BasicAWSCredentials("aws-access-key", "aws-secret-access-key"))
