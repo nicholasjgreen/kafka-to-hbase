@@ -1,9 +1,9 @@
+
 import com.nhaarman.mockitokotlin2.*
 import io.kotest.core.spec.style.StringSpec
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.sql.Connection
 import java.sql.PreparedStatement
-import java.sql.Timestamp
 
 
 class MetadataStoreClientTest : StringSpec({
@@ -34,7 +34,7 @@ class MetadataStoreClientTest : StringSpec({
         val textUtils = TextUtils()
         for (i in 1..100) {
             verify(statement, times(1)).setString(1, textUtils.printableKey("key-$i".toByteArray()))
-            verify(statement, times(1)).setTimestamp(2, Timestamp(i.toLong()))
+            verify(statement, times(1)).setLong(2, i.toLong())
             verify(statement, times(1)).setString(3, "db.database.collection$i")
             verify(statement, times(1)).setInt(4, i)
             verify(statement, times(1)).setLong(5, i.toLong())
@@ -69,7 +69,7 @@ class MetadataStoreClientTest : StringSpec({
         verify(connection, times(1)).prepareStatement(sql)
         verifyNoMoreInteractions(connection)
         verify(statement, times(1)).setString(1, id)
-        verify(statement, times(1)).setTimestamp(2, Timestamp(lastUpdated))
+        verify(statement, times(1)).setLong(2, lastUpdated)
         verify(statement, times(1)).setString(3, topic)
         verify(statement, times(1)).setInt(4, partition)
         verify(statement, times(1)).setLong(5, offset)

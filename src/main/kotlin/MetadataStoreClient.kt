@@ -3,7 +3,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
-import java.sql.Timestamp
 import java.util.*
 import kotlin.system.measureTimeMillis
 
@@ -26,7 +25,7 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
                 with(recordProcessingAttemptStatement) {
                     payloads.forEach {
                         setString(1, textUtils.printableKey(it.key))
-                        setTimestamp(2, Timestamp(it.version))
+                        setLong(2, it.version)
                         setString(3, it.record.topic())
                         setInt(4, it.record.partition())
                         setLong(5, it.record.offset())
@@ -45,7 +44,7 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
     private fun preparedStatement(hbaseId: String, lastUpdated: Long, record: ConsumerRecord<ByteArray, ByteArray>) =
         recordProcessingAttemptStatement.apply {
             setString(1, hbaseId)
-            setTimestamp(2, Timestamp(lastUpdated))
+            setLong(2, lastUpdated)
             setString(3, record.topic())
             setInt(4, record.partition())
             setLong(5, record.offset())
