@@ -3,14 +3,7 @@ import Config.AwsS3.localstackAccessKey
 import Config.AwsS3.localstackSecretKey
 import Config.AwsS3.localstackServiceEndPoint
 import Config.dataworksRegion
-import com.amazonaws.ClientConfiguration
-import com.amazonaws.Protocol
-import com.amazonaws.auth.AWSStaticCredentialsProvider
-import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
-import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.amazonaws.services.s3.model.PutObjectRequest
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +20,7 @@ import java.util.*
 import java.util.zip.GZIPOutputStream
 import kotlin.system.measureTimeMillis
 
-open class AwsS3Service(private val amazonS3: AmazonS3) {
+open class ArchiveAwsS3Service(private val amazonS3: AmazonS3) {
 
     open suspend fun putObjectsAsBatch(hbaseTable: String, payloads: List<HbasePayload>) {
         if (payloads.isNotEmpty()) {
@@ -45,7 +38,7 @@ open class AwsS3Service(private val amazonS3: AmazonS3) {
             val (database, collection) = hbaseTable.split(Regex(":"))
             coroutineScope {
                 payloads.forEach { payload ->
-                    if (Config.AwsS3.parallelPuts) {
+                    if (Config.ArchiveS3.parallelPuts) {
                         launch { putPayload(database, collection, payload) }
                     } else {
                         putPayload(database, collection, payload)
@@ -57,7 +50,7 @@ open class AwsS3Service(private val amazonS3: AmazonS3) {
     }
 
     private fun putBatchObject(key: String, body: ByteArray) =
-        amazonS3.putObject(PutObjectRequest(Config.AwsS3.archiveBucket, key,
+        amazonS3.putObject(PutObjectRequest(Config.ArchiveS3.archiveBucket, key,
                 ByteArrayInputStream(body), ObjectMetadata().apply {
             contentLength = body.size.toLong()
         }))
@@ -93,21 +86,21 @@ open class AwsS3Service(private val amazonS3: AmazonS3) {
         val lastOffset =  last.offset()
         val topic = firstRecord.topic()
         val filename = "${topic}_${partition}_$firstOffset-$lastOffset"
-        return "${Config.AwsS3.archiveDirectory}/${simpleDateFormatter().format(Date())}/$database/$collection/$filename.jsonl.gz"
+        return "${Config.ArchiveS3.archiveDirectory}/${simpleDateFormatter().format(Date())}/$database/$collection/$filename.jsonl.gz"
     }
 
     // K2HB_S3_LATEST_PATH: s3://data_bucket/ucdata_main/latest/<db>/<collection>/<id-hex>.json
     private fun latestKey(database: String, collection: String, hexedId: String) =
-            "${Config.AwsS3.archiveDirectory}/latest/$database/$collection/$hexedId.json"
+            "${Config.ArchiveS3.archiveDirectory}/latest/$database/$collection/$hexedId.json"
 
     // K2HB_S3_TIMESTAMPED_PATH: s3://data_bucket/ucdata_main/<yyyy>/<mm>/<dd>/<db>/<collection>/<id-hex>/<timestamp>.json
     private fun archiveKey(database: String, collection: String, hexedId: String, version: Long)
-            = "${Config.AwsS3.archiveDirectory}/${datePath(version)}/$database/$collection/$hexedId/${version}.json"
+            = "${Config.ArchiveS3.archiveDirectory}/${datePath(version)}/$database/$collection/$hexedId/${version}.json"
 
     private fun datePath(version: Long) = simpleDateFormatter().format(version)
 
     private fun putObjectRequest(key: String, payload: HbasePayload, database: String, collection: String) =
-            PutObjectRequest(Config.AwsS3.archiveBucket,
+            PutObjectRequest(Config.ArchiveS3.archiveBucket,
                     key, ByteArrayInputStream(payload.body), objectMetadata(payload, database, collection))
 
     private fun objectMetadata(payload: HbasePayload, database: String, collection: String)
@@ -131,31 +124,9 @@ open class AwsS3Service(private val amazonS3: AmazonS3) {
     private fun simpleDateFormatter() = SimpleDateFormat("yyyy/MM/dd").apply { timeZone = TimeZone.getTimeZone("UTC") }
 
     companion object {
-        fun connect() = AwsS3Service(s3)
+        fun connect() = ArchiveAwsS3Service(s3)
         val textUtils = TextUtils()
-        val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(AwsS3Service::class.toString())
-        val s3: AmazonS3 by lazy {
-            if (Config.AwsS3.useLocalStack) {
-                AmazonS3ClientBuilder.standard()
-                    .withEndpointConfiguration(AwsClientBuilder.EndpointConfiguration(localstackServiceEndPoint, dataworksRegion))
-                    .withClientConfiguration(ClientConfiguration().apply {
-                        withProtocol(Protocol.HTTP)
-                        maxConnections = Config.AwsS3.maxConnections
-                    })
-                    .withCredentials(AWSStaticCredentialsProvider(BasicAWSCredentials(localstackAccessKey, localstackSecretKey)))
-                    .withPathStyleAccessEnabled(true)
-                    .disableChunkedEncoding()
-                    .build()
-            }
-            else {
-                AmazonS3ClientBuilder.standard()
-                    .withCredentials(DefaultAWSCredentialsProviderChain())
-                    .withRegion(Config.AwsS3.region)
-                    .withClientConfiguration(ClientConfiguration().apply {
-                        maxConnections = Config.AwsS3.maxConnections
-                    })
-                    .build()
-            }
-        }
+        val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(ArchiveAwsS3Service::class.toString())
+        val s3 = Config.AwsS3.s3
     }
 }

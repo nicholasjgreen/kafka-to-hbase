@@ -10,6 +10,14 @@ import java.io.File
 import java.time.Duration
 import java.util.*
 import java.util.regex.Pattern
+import com.amazonaws.ClientConfiguration
+import com.amazonaws.Protocol
+import com.amazonaws.client.builder.AwsClientBuilder
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
+import com.amazonaws.auth.AWSStaticCredentialsProvider
+import com.amazonaws.auth.BasicAWSCredentials
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 
 fun getEnv(envVar: String): String? {
     val value = System.getenv(envVar)
@@ -137,16 +145,49 @@ object Config {
     }
 
     object AwsS3 {
-        val maxConnections: Int = (getEnv("K2HB_AWS_S3_MAX_CONNECTIONS") ?: "1000").toInt()
+        val maxS3Connections: Int = (getEnv("K2HB_AWS_S3_MAX_CONNECTIONS") ?: "2000").toInt()
         val useLocalStack = (getEnv("K2HB_AWS_S3_USE_LOCALSTACK") ?: "false").toBoolean()
         val region = getEnv("K2HB_AWS_S3_REGION") ?: dataworksRegion
-        val archiveBucket = getEnv("K2HB_AWS_S3_ARCHIVE_BUCKET") ?: "ucarchive"
-        val archiveDirectory = getEnv("K2HB_AWS_S3_ARCHIVE_DIRECTORY") ?: "ucdata_main"
-        val parallelPuts = (getEnv("K2HB_AWS_S3_PARALLEL_PUTS") ?: "false").toBoolean()
-        val batchPuts = (getEnv("K2HB_AWS_S3_BATCH_PUTS") ?: "false").toBoolean()
 
         const val localstackServiceEndPoint = "http://aws-s3:4566/"
         const val localstackAccessKey = "AWS_ACCESS_KEY_ID"
         const val localstackSecretKey = "AWS_SECRET_ACCESS_KEY"
+
+        val s3: AmazonS3 by lazy {
+            if (useLocalStack) {
+                AmazonS3ClientBuilder.standard()
+                    .withEndpointConfiguration(AwsClientBuilder.EndpointConfiguration(localstackServiceEndPoint, dataworksRegion))
+                    .withClientConfiguration(ClientConfiguration().apply {
+                        withProtocol(Protocol.HTTP)
+                        maxConnections = maxS3Connections
+                    })
+                    .withCredentials(AWSStaticCredentialsProvider(BasicAWSCredentials(localstackAccessKey, localstackSecretKey)))
+                    .withPathStyleAccessEnabled(true)
+                    .disableChunkedEncoding()
+                    .build()
+            }
+            else {
+                AmazonS3ClientBuilder.standard()
+                    .withCredentials(DefaultAWSCredentialsProviderChain())
+                    .withRegion(region)
+                    .withClientConfiguration(ClientConfiguration().apply {
+                        maxConnections = maxS3Connections
+                    })
+                    .build()
+            }
+        }
+    }
+
+    object ArchiveS3 {
+        val archiveBucket = getEnv("K2HB_AWS_S3_ARCHIVE_BUCKET") ?: "ucarchive"
+        val archiveDirectory = getEnv("K2HB_AWS_S3_ARCHIVE_DIRECTORY") ?: "ucdata_main"
+        val parallelPuts = (getEnv("K2HB_AWS_S3_PARALLEL_PUTS") ?: "false").toBoolean()
+        val batchPuts = (getEnv("K2HB_AWS_S3_BATCH_PUTS") ?: "false").toBoolean()
+    }
+
+    object ManifestS3 {
+        val manifestBucket = getEnv("K2HB_AWS_S3_MANIFEST_BUCKET") ?: "manifests"
+        val manifestDirectory = getEnv("K2HB_AWS_S3_MANIFEST_DIRECTORY") ?: "streaming"
+        val writeManifests = (getEnv("K2HB_AWS_S3_WRITE_MANIFESTS") ?: "true").toBoolean()
     }
 }

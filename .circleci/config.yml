@@ -93,15 +93,16 @@ jobs:
             done
             sleep 5
 
-            docker exec -i metadatastore mysql --host=127.0.0.1 --user=root --password=password metadatastore  < ./docker/metadatastore/create_table.sql
-            docker exec -i metadatastore mysql --host=127.0.0.1 --user=root --password=password metadatastore  < ./docker/metadatastore/grant_user.sql
+            docker exec -i metadatastore mysql --user=root --password=password metadatastore  < ./docker/metadatastore/create_table.sql
+            docker exec -i metadatastore mysql --user=root --password=password metadatastore  < ./docker/metadatastore/grant_user.sql
 
             docker-compose -f docker-compose.yaml up -d kafka2s3
             docker-compose -f docker-compose.yaml build --build-arg K2HB_WRITE_TO_METADATA_STORE=true kafka2hbase
-            docker-compose -f docker-compose.yaml up -d kafka2hbase
+            docker-compose -f docker-compose.yaml up -d kafka2hbase kafka2hbaseequality
             docker-compose -f docker-compose.yaml rm integration-test
-            docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon :integration-test -x test
-            docker cp integration-test:/home/gradle/build/test-results .
+            docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test
+            docker-compose -f docker-compose.yaml run --name integration-load-test integration-test gradle --no-daemon --rerun-tasks integration-load-test
+            docker-compose -f docker-compose.yaml run --name integration-test-equality integration-test gradle --no-daemon --rerun-tasks integration-test-equality
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -262,4 +263,3 @@ workflows:
           filters:
             branches:
               only: master
-

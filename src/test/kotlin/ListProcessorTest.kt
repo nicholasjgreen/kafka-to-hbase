@@ -23,8 +23,9 @@ class ListProcessorTest : StringSpec() {
             val hbaseClient = hbaseClient()
             val metadataStoreClient = metadataStoreClient()
             val consumer = kafkaConsumer()
-            val s3Service = awsS3Service()
-            processor.processRecords(hbaseClient, consumer, metadataStoreClient, s3Service, messageParser(), consumerRecords())
+            val s3Service = archiveAwsS3Service()
+            val manifestService = manifestAwsS3Service()
+            processor.processRecords(hbaseClient, consumer, metadataStoreClient, s3Service, manifestService, messageParser(), consumerRecords())
             verifyS3Interactions(s3Service)
             verifyHbaseInteractions(hbaseClient)
             verifyKafkaInteractions(consumer)
@@ -38,7 +39,7 @@ class ListProcessorTest : StringSpec() {
         validateMetadataHbasePayloads(captor)
     }
 
-    private fun verifyS3Interactions(s3Service: AwsS3Service) = runBlocking {
+    private fun verifyS3Interactions(s3Service: ArchiveAwsS3Service) = runBlocking {
         val tableCaptor = argumentCaptor<String>()
         val payloadCaptor = argumentCaptor<List<HbasePayload>>()
         verify(s3Service, times(10)).putObjects(tableCaptor.capture(), payloadCaptor.capture())
@@ -143,7 +144,7 @@ class ListProcessorTest : StringSpec() {
 
     private fun messageParser() =
             mock<MessageParser> {
-                val hbaseKeys = (0..1000000).map { Bytes.toBytes("$it") }
+                val hbaseKeys = (0..1000000).map { Pair("id", Bytes.toBytes("$it")) }
                 on { generateKeyFromRecordBody(any()) } doReturnConsecutively hbaseKeys
             }
 
@@ -190,8 +191,9 @@ class ListProcessorTest : StringSpec() {
                 }
             })
 
-    private fun awsS3Service(): AwsS3Service = mock<AwsS3Service> { on { runBlocking { putObjects(any(), any()) } } doAnswer { } }
-
+    private fun archiveAwsS3Service(): ArchiveAwsS3Service = mock<ArchiveAwsS3Service> { on { runBlocking { putObjects(any(), any()) } } doAnswer { } }
+    private fun manifestAwsS3Service(): ManifestAwsS3Service = mock<ManifestAwsS3Service> { on { runBlocking { putManifestFile(any(), any()) } } doAnswer { } }
+    
     private fun json(id: Any) = """{ "message": { "_id": { "id": "$id" } } }"""
     private fun topicName(topicNumber: Int) = "db.database%02d.collection%02d".format(topicNumber, topicNumber)
     private fun hbaseBody(index: Int) =

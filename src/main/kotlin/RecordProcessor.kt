@@ -10,7 +10,7 @@ open class RecordProcessor(validator: Validator, private val converter: Converte
     open fun processRecord(record: ConsumerRecord<ByteArray, ByteArray>, hbase: HbaseClient,
                            metadataStoreClient: MetadataStoreClient, parser: MessageParser) {
         recordAsJson(record)?.let { json ->
-            val formattedKey = parser.generateKeyFromRecordBody(json)
+            val (unformattedId, formattedKey) = parser.generateKeyFromRecordBody(json)
             if (formattedKey.isEmpty()) {
                 logger.warn("Empty key for record", "record", getDataStringForRecord(record))
                 return

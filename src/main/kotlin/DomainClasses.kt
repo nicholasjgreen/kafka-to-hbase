@@ -1,6 +1,6 @@
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-data class HbasePayload(val key: ByteArray, val body: ByteArray, val version: Long, val record: ConsumerRecord<ByteArray, ByteArray>) {
+data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String, val version: Long, val record: ConsumerRecord<ByteArray, ByteArray>) {
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -9,6 +9,7 @@ data class HbasePayload(val key: ByteArray, val body: ByteArray, val version: Lo
         other as HbasePayload
 
         if (!key.contentEquals(other.key)) return false
+        if (!id.contentEquals(other.id)) return false
         if (!body.contentEquals(other.body)) return false
         if (version != other.version) return false
 
@@ -17,6 +18,7 @@ data class HbasePayload(val key: ByteArray, val body: ByteArray, val version: Lo
 
     override fun hashCode(): Int {
         var result = key.contentHashCode()
+        result = 31 * result + id.hashCode()
         result = 31 * result + body.contentHashCode()
         result = 31 * result + version.hashCode()
         return result
@@ -25,6 +27,7 @@ data class HbasePayload(val key: ByteArray, val body: ByteArray, val version: Lo
     override fun toString(): String {
         return """{ 
             |key: '${String(key)}', 
+            |id: '${id}', 
             |body: '${String(body)}',
             |record: {
             |   offset: ${record.offset()},
@@ -34,3 +37,7 @@ data class HbasePayload(val key: ByteArray, val body: ByteArray, val version: Lo
 |       }""".trimMargin().replace(Regex("""\s+"""), " ")
     }
 }
+
+data class ManifestRecord(val id: String, val timestamp: Long, val db: String, val collection: String,
+                          val source: String, val externalOuterSource: String, val externalInnerSource: String,
+                          val originalId: String)

@@ -23,7 +23,7 @@ class MetadataStoreClientTest : StringSpec({
                 on { partition() } doReturn payloadNumber
                 on { offset() } doReturn payloadNumber.toLong()
             }
-            HbasePayload("key-$payloadNumber".toByteArray(), "body-$payloadNumber".toByteArray(),
+            HbasePayload("key-$payloadNumber".toByteArray(), "body-$payloadNumber".toByteArray(), "id-$payloadNumber",
                     payloadNumber.toLong(), record)
         }
 

@@ -6,8 +6,9 @@ import sun.misc.Signal
 suspend fun main() =
     MetadataStoreClient.connect().use { metadataStore ->
         KafkaConsumer<ByteArray, ByteArray>(Config.Kafka.consumerProps).use { kafka ->
-            val awsS3Service = AwsS3Service.connect()
-            val job = shovelAsync(kafka, metadataStore, awsS3Service, Config.Kafka.pollTimeout)
+            val archiveAwsS3Service = ArchiveAwsS3Service.connect()
+            val manifestAwsS3Service = ManifestAwsS3Service.connect()
+            val job = shovelAsync(kafka, metadataStore, archiveAwsS3Service, manifestAwsS3Service, Config.Kafka.pollTimeout)
             handleSignal(job, "INT")
             handleSignal(job, "TERM")
             job.await()

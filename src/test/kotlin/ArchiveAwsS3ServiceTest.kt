@@ -13,13 +13,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.zip.GZIPInputStream
 
-class AwsS3ServiceTest : StringSpec() {
+class ArchiveAwsS3ServiceTest : StringSpec() {
     init {
         "Key and custom metadata set correctly on individual puts" {
             val amazonS3 = mock<AmazonS3>()
-            val awsS3Service = AwsS3Service(amazonS3)
+            val archiveAwsS3Service = ArchiveAwsS3Service(amazonS3)
             val payloads = hbasePayloads()
-            awsS3Service.putObjects("database:collection", payloads)
+            archiveAwsS3Service.putObjects("database:collection", payloads)
             val requestCaptor = argumentCaptor<PutObjectRequest>()
             verify(amazonS3, times(200)).putObject(requestCaptor.capture())
             verifyNoMoreInteractions(amazonS3)
@@ -40,9 +40,9 @@ class AwsS3ServiceTest : StringSpec() {
 
         "Batch puts set request parameters correctly" {
             val amazonS3 = mock<AmazonS3>()
-            val awsS3Service = AwsS3Service(amazonS3)
+            val archiveAwsS3Service = ArchiveAwsS3Service(amazonS3)
             val payloads = hbasePayloads()
-            awsS3Service.putObjectsAsBatch("database:collection", payloads)
+            archiveAwsS3Service.putObjectsAsBatch("database:collection", payloads)
             val requestCaptor = argumentCaptor<PutObjectRequest>()
             verify(amazonS3, times(1)).putObject(requestCaptor.capture())
             verifyNoMoreInteractions(amazonS3)
@@ -65,7 +65,7 @@ class AwsS3ServiceTest : StringSpec() {
                     on { offset() } doReturn index.toLong()
                     on { partition() } doReturn 10
                 }
-                HbasePayload(Bytes.toBytes("key-$index"), messageBody(index).toByteArray(), payloadTime(index), consumerRecord)
+                HbasePayload(Bytes.toBytes("key-$index"), messageBody(index).toByteArray(), "testId1", payloadTime(index), consumerRecord)
             }
 
     private fun messageBody(index: Int) =

@@ -10,7 +10,7 @@ import org.apache.kafka.common.TopicPartition
 class ListProcessor(validator: Validator, private val converter: Converter) : BaseProcessor(validator, converter) {
 
     fun processRecords(hbase: HbaseClient, consumer: KafkaConsumer<ByteArray, ByteArray>, metadataClient: MetadataStoreClient,
-        s3Service: AwsS3Service, parser: MessageParser, records: ConsumerRecords<ByteArray, ByteArray>) {
+        s3Service: ArchiveAwsS3Service, manifestService: ManifestAwsS3Service, parser: MessageParser, records: ConsumerRecords<ByteArray, ByteArray>) {
         runBlocking {
             records.partitions().forEach { partition ->
                 val partitionRecords = records.records(partition)
@@ -31,6 +31,9 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                                 "partition","${partition.partition()}", "offset", "$lastPosition")
                             consumer.commitSync(mapOf(partition to OffsetAndMetadata(lastPosition + 1)))
                             logSuccessfulPuts(table, payloads)
+                            if (Config.ManifestS3.writeManifests) {
+                                putManifest(manifestService, table, payloads)
+                            }
                         } else {
                             lastCommittedOffset(consumer, partition)?.let { consumer.seek(partition, it) }
                             logger.error("Batch failed, not committing offset, resetting position to last commit",
@@ -54,10 +57,10 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
             }
         }
 
-    private suspend fun putInS3(s3Service: AwsS3Service, table: String, payloads: List<HbasePayload>) =
+    private suspend fun putInS3(s3Service: ArchiveAwsS3Service, table: String, payloads: List<HbasePayload>) =
         withContext(Dispatchers.IO) {
             try {
-                if (Config.AwsS3.batchPuts) {
+                if (Config.ArchiveS3.batchPuts) {
                     s3Service.putObjectsAsBatch(table, payloads)
                 } else {
                     s3Service.putObjects(table, payloads)
@@ -90,6 +93,18 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
             )
         }
 
+    private suspend fun putManifest(manifestService: ManifestAwsS3Service, table: String, payloads: List<HbasePayload>) =
+        withContext(Dispatchers.IO) {
+            try {
+                manifestService.putManifestFile(table, payloads)
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                logger.error("Failed to put manifest file in to s3", e, "error", e.message ?: "")
+                false
+            }
+        }
+
 
     private fun logSuccessfulPuts(table: String, payloads: List<HbasePayload>) =
         payloads.forEach {
@@ -109,13 +124,15 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
     ): List<HbasePayload> =
         records.mapNotNull { record ->
             recordAsJson(record)?.let { json ->
-                val formattedKey = parser.generateKeyFromRecordBody(json)
-                if (formattedKey.isNotEmpty()) hbasePayload(json, formattedKey, record) else null
+                val (unformattedId, formattedKey) = parser.generateKeyFromRecordBody(json)
+                val qualifiedId = if (unformattedId == null) "" else unformattedId
+                if (formattedKey.isNotEmpty()) hbasePayload(json, qualifiedId, formattedKey, record) else null
             }
         }
 
     private fun hbasePayload(
         json: JsonObject,
+        unformattedId: String,
         formattedKey: ByteArray,
         record: ConsumerRecord<ByteArray, ByteArray>
     ): HbasePayload {
@@ -123,7 +140,7 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
         val message = json["message"] as JsonObject
         message["timestamp_created_from"] = source
         val version = converter.getTimestampAsLong(timestamp)
-        return HbasePayload(formattedKey, Bytes.toBytes(json.toJsonString()), version, record)
+        return HbasePayload(formattedKey, Bytes.toBytes(json.toJsonString()), unformattedId, version, record)
     }
 
     companion object {

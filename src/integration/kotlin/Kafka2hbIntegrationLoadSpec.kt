@@ -1,4 +1,5 @@
 
+import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.GetObjectRequest
 import com.amazonaws.services.s3.model.ListObjectsV2Request
 import com.amazonaws.services.s3.model.ListObjectsV2Result
@@ -34,6 +35,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
         private val log = Logger.getLogger(Kafka2hbIntegrationLoadSpec::class.toString())
         private const val TOPIC_COUNT = 10
         private const val RECORDS_PER_TOPIC = 1_000
+        private const val BATCHES_PER_TOPIC = 2
         private const val DB_NAME = "load-test-database"
         private const val COLLECTION_NAME = "load-test-collection"
     }
@@ -44,6 +46,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
             verifyHbase()
             verifyMetadataStore(TOPIC_COUNT * RECORDS_PER_TOPIC, DB_NAME, false)
             verifyS3()
+            verifyManifests()
         }
     }
 
@@ -96,7 +99,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
     }
 
     private fun verifyS3() {
-        val contentsList = allObjectContentsAsJson()
+        val contentsList = allArchiveObjectContentsAsJson()
         contentsList.size shouldBe TOPIC_COUNT * RECORDS_PER_TOPIC
         contentsList.forEach {
             it["traceId"].asJsonPrimitive.asString shouldBe "00002222-abcd-4567-1234-1234567890ab"
@@ -109,32 +112,64 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
         }
     }
 
-    private fun allObjectContentsAsJson(): List<JsonObject> =
-            objectSummaries()
+    private fun verifyManifests() {
+        val contentsList = allManifestObjectContentsAsString()
+        contentsList.forEach {
+            val manifestLines = it.split("\n")
+            manifestLines.filter(String::isNotBlank).forEach {
+                val fields = it.split("|")
+                fields.size shouldBe 8
+                fields.get(0) shouldNotBe ""
+                fields.get(1) shouldNotBe ""
+                fields.get(2) shouldNotBe ""
+                fields.get(3) shouldNotBe ""
+                fields.get(4) shouldBe "STREAMED"
+                fields.get(5) shouldBe "K2HB"
+                fields.get(6) shouldNotBe ""
+                fields.get(7) shouldBe "KAFKA_RECORD"
+            }
+        }
+    }
+
+    private fun allArchiveObjectContentsAsJson(): List<JsonObject> =
+            objectSummaries(Config.ArchiveS3.archiveBucket, Config.ArchiveS3.archiveDirectory, ArchiveAwsS3Service.s3)
                 .filter { it.key.endsWith("jsonl.gz") && it.key.contains("load_test") }
                 .map(S3ObjectSummary::getKey)
-                .map(this@Kafka2hbIntegrationLoadSpec::objectContents)
+                .map(this@Kafka2hbIntegrationLoadSpec::archiveObjectContents)
                 .map(::String)
                 .flatMap { it.split("\n") }
                 .filter(String::isNotEmpty)
                 .map { Gson().fromJson(it, JsonObject::class.java) }
 
-    private fun objectContents(key: String) =
-            GZIPInputStream(AwsS3Service.s3.getObject(GetObjectRequest(Config.AwsS3.archiveBucket, key)).objectContent).use {
+    private fun archiveObjectContents(key: String) =
+            GZIPInputStream(ArchiveAwsS3Service.s3.getObject(GetObjectRequest(Config.ArchiveS3.archiveBucket, key)).objectContent).use {
                 ByteArrayOutputStream().also { output -> it.copyTo(output) }
             }.toByteArray()
 
-    private fun objectSummaries(): MutableList<S3ObjectSummary> {
+    private fun allManifestObjectContentsAsString(): List<String> =
+            objectSummaries(Config.ManifestS3.manifestBucket, Config.ManifestS3.manifestDirectory, ManifestAwsS3Service.s3)
+                .filter { it.key.endsWith("csv") && it.key.contains("load-test") }
+                .map(S3ObjectSummary::getKey)
+                .map(this@Kafka2hbIntegrationLoadSpec::manifestObjectContents)
+                .map(::String)
+
+    private fun manifestObjectContents(key: String) =
+            ManifestAwsS3Service.s3.getObject(GetObjectRequest(Config.ManifestS3.manifestBucket, key))
+                .objectContent.use {
+                    ByteArrayOutputStream().also { output -> it.copyTo(output) }
+                }.toByteArray()
+
+    private fun objectSummaries(s3BucketName: String, s3Prefix: String, s3Connection: AmazonS3): MutableList<S3ObjectSummary> {
         val objectSummaries = mutableListOf<S3ObjectSummary>()
         val request = ListObjectsV2Request().apply {
-            bucketName = Config.AwsS3.archiveBucket
-            prefix = Config.AwsS3.archiveDirectory
+            bucketName = s3BucketName
+            prefix = s3Prefix
         }
 
         var objectListing: ListObjectsV2Result?
 
         do {
-            objectListing = AwsS3Service.s3.listObjectsV2(request)
+            objectListing = s3Connection.listObjectsV2(request)
             objectSummaries.addAll(objectListing.objectSummaries)
             request.continuationToken = objectListing.nextContinuationToken
         } while (objectListing != null && objectListing.isTruncated)

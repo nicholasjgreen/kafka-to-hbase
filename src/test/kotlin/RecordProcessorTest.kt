@@ -47,6 +47,8 @@ class RecordProcessorTest : StringSpec() {
 
     private val testByteArray: ByteArray = byteArrayOf(0xA1.toByte(), 0xA1.toByte(), 0xA1.toByte(), 0xA1.toByte())
 
+    private val testId: String = "testId1"
+
     private fun reset() {
         mockValidator = mock()
         mockConverter = spy()
@@ -59,27 +61,32 @@ class RecordProcessorTest : StringSpec() {
         reset(metadataStoreClient)
     }
 
+    private fun getValidMessages(): Triple<String, String, ConsumerRecord<ByteArray, ByteArray>> {
+        val messageBody = """{
+            "message": {
+               "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
+               "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+            }
+        }"""
+        val persistedBody = Gson().fromJson("""{
+            "message": {
+                "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
+                "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                "timestamp_created_from":"_lastModifiedDateTime"
+            }
+        }""", com.google.gson.JsonObject::class.java).toString()
+
+        val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
+        whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(Pair(testId, testByteArray))
+
+        return Triple(messageBody, persistedBody, record)
+    }
+
     init {
 
         "valid record is sent to hbase successfully" {
             reset()
-            val messageBody = """{
-                "message": {
-                   "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
-                   "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
-                }
-            }"""
-
-            val persistedBody = Gson().fromJson("""{
-                "message": {
-                   "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
-                   "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
-                    "timestamp_created_from":"_lastModifiedDateTime"
-                }
-            }""", com.google.gson.JsonObject::class.java).toString()
-
-            val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
-            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
+            val (messageBody, persistedBody, record) = getValidMessages()
             processor.processRecord(record, hbaseClient, metadataStoreClient, mockMessageParser)
             verify(hbaseClient).putVersion("database:collection", testByteArray, persistedBody.toByteArray(), 1544799662000)
             verify(metadataStoreClient).recordProcessingAttempt(TextUtils().printableKey(testByteArray), record, 1544799662000)
@@ -89,7 +96,7 @@ class RecordProcessorTest : StringSpec() {
             reset()
             val messageBody = """{"message":{"_id":{"test_key_a":,"test_key_b":"test_value_b"}}}"""
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 111, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
-            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
+            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(Pair(testId, testByteArray))
             processor.processRecord(record, hbaseClient, metadataStoreClient, mockMessageParser)
             verifyZeroInteractions(hbaseClient)
             verifyZeroInteractions(metadataStoreClient)
@@ -143,7 +150,7 @@ class RecordProcessorTest : StringSpec() {
             val processor = RecordProcessor(mockValidator, mockConverter)
             val messageBody = """{"message":{"_id":{"test_key_a":,"test_key_b":"test_value_b"}}}"""
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 111, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
-            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
+            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(Pair(testId, testByteArray))
 
             shouldThrow<DlqException> {
                 processor.processRecord(record, hbaseClient, metadataStoreClient, mockMessageParser)
@@ -161,7 +168,7 @@ class RecordProcessorTest : StringSpec() {
                 }
             }"""
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
-            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(ByteArray(0))
+            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(Pair(null, ByteArray(0)))
 
             processor.processRecord(record, hbaseClient, metadataStoreClient, mockMessageParser)
 
@@ -170,22 +177,7 @@ class RecordProcessorTest : StringSpec() {
 
         "exception in hbase communication causes severe log message" {
             reset()
-            val messageBody = """{
-                "message": {
-                   "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
-                   "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
-                }
-            }"""
-            val persistedBody = Gson().fromJson("""{
-                "message": {
-                    "_id":{"test_key_a":"test_value_a","test_key_b":"test_value_b"},
-                    "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
-                    "timestamp_created_from":"_lastModifiedDateTime"
-                }
-            }""", com.google.gson.JsonObject::class.java).toString()
-
-            val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, testByteArray, messageBody.toByteArray())
-            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
+            val (messageBody, persistedBody, record) = getValidMessages()
             whenever(hbaseClient.putVersion("database:collection", testByteArray, persistedBody.toByteArray(), 1544799662000)).doThrow(RuntimeException("testException"))
 
             try {
@@ -210,7 +202,7 @@ class RecordProcessorTest : StringSpec() {
             reset()
             val messageBody = "Hello everyone"
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, "key".toByteArray(), messageBody.toByteArray())
-            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
+            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(Pair(testId, testByteArray))
             val jsonObject = JsonObject()
             doReturn(jsonObject).`when`(mockConverter).convertToJson(record.value())
             doThrow(InvalidMessageException("oops!!", Exception())).`when`(mockValidator).validate(jsonObject.toJsonString())
@@ -225,7 +217,7 @@ class RecordProcessorTest : StringSpec() {
             reset()
             val messageBody = "Hello everyone"
             val record: ConsumerRecord<ByteArray, ByteArray> = ConsumerRecord("db.database.collection", 1, 11, 1544799662000, TimestampType.CREATE_TIME, 1111, 1, 1, "key".toByteArray(), messageBody.toByteArray())
-            doReturn(testByteArray).`when`(mockMessageParser).generateKeyFromRecordBody(any())
+            doReturn(Pair(testId, testByteArray)).`when`(mockMessageParser).generateKeyFromRecordBody(any())
             doThrow(IllegalArgumentException()).`when`(mockConverter).convertToJson(record.value())
 
             processor.processRecord(record, hbaseClient, metadataStoreClient, mockMessageParser)
@@ -256,7 +248,7 @@ class RecordProcessorTest : StringSpec() {
                 messageBody.toByteArray()
             )
 
-            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(testByteArray)
+            whenever(mockMessageParser.generateKeyFromRecordBody(any())).thenReturn(Pair(testId, testByteArray))
 
             val mockConnection = mock<org.apache.hadoop.hbase.client.Connection> {
                 on { isClosed } doReturn true

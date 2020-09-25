@@ -33,12 +33,14 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val s3Client = getS3Client()
             val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries.forEach { s3Client.deleteObject("kafka2s3", it.key) }
+            val summariesManifests = s3Client.listObjectsV2("manifests", "streaming").objectSummaries
+            summariesManifests.forEach { s3Client.deleteObject("manifests", it.key) }
 
             verifyMetadataStore(0, topic, true)
 
             val body = wellFormedValidPayloadEquality()
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            val hbaseKey = parser.generateKey(converter.convertToJson(getEqualityId().toByteArray()))
+            val (recordId, hbaseKey) = parser.generateKey(converter.convertToJson(getEqualityId().toByteArray()))
             println("Sending well-formed record to kafka topic '$topic'.")
             producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
             println("Sent well-formed record to kafka topic '$topic'.")
@@ -48,6 +50,9 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             String(storedValue!!) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
             val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries1.size shouldBe 0
+            val summariesManifests1 = s3Client.listObjectsV2("manifests", "streaming").objectSummaries
+            summariesManifests1.size shouldBe 0
+
 
             verifyMetadataStore(1, topic, true)
         }
@@ -67,7 +72,7 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val tableName = matcher.groupValues[2]
             val qualifiedTableName = sampleQualifiedTableName(namespace, tableName)
             val kafkaTimestamp1 = converter.getTimestampAsLong(getISO8601Timestamp())
-            val key = parser.generateKey(converter.convertToJson(getEqualityId().toByteArray()))
+            val (id, key) = parser.generateKey(converter.convertToJson(getEqualityId().toByteArray()))
             val body1 = wellFormedValidPayloadEquality()
             hbase.putVersion(qualifiedTableName, key, body1, kafkaTimestamp1)
 
