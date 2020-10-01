@@ -25,12 +25,12 @@ class ManifestAwsS3ServiceTest : StringSpec() {
             verifyNoMoreInteractions(amazonS3)
             val request = requestCaptor.firstValue
             request.bucketName shouldBe "manifests"
-            request.key shouldBe "streaming/${today()}/db.database-one.collection_one_10_1-100.csv"
+            request.key shouldBe "streaming/${today()}/db.database-one.collection_one_10_1-100.txt"
             val lineReader = LineNumberReader(InputStreamReader(request.inputStream))
 
             var lineCount = 0
             lineReader.forEachLine {
-                it shouldBe messageBody(lineReader.lineNumber).replace('\n', ' ')
+                it shouldBe manifestBody(lineReader.lineNumber).replace('\n', ' ')
                 lineCount++
             }
             lineCount shouldBe payloads.count()
@@ -57,13 +57,33 @@ class ManifestAwsS3ServiceTest : StringSpec() {
                     on { offset() } doReturn index.toLong()
                     on { partition() } doReturn 10
                 }
-                HbasePayload(Bytes.toBytes("key-$index"), messageBody(index).toByteArray(), "id-$index", payloadTime(index), consumerRecord)
+                if(index % 2 == 0) {
+                    HbasePayload(Bytes.toBytes("key-$index"), messageBody(index).toByteArray(), "{\"id\":\"id-$index\"}", payloadTime(index), consumerRecord)
+                } else {
+                    HbasePayload(Bytes.toBytes("key-$index"), messageBody(index).toByteArray(), "id-$index", payloadTime(index), consumerRecord)
+                }
             }
 
     private fun messageBody(index: Int) =
         """
-        id-$index|${payloadTime(index)}|database-one|collection_one|STREAMED|K2HB|id-$index|KAFKA_RECORD
+        {
+            "message": {
+                "dbObject": "abcdefghijklmnopqrstuvwxyz" 
+            },
+            "position": $index 
+        }
         """.trimIndent()
+
+    private fun manifestBody(index: Int) =
+        if(index % 2 == 0) {
+            """
+            id-$index|${payloadTime(index)}|database-one|collection_one|STREAMED|K2HB|"{""id"":""id-$index""}"|KAFKA_RECORD
+            """.trimIndent()
+        } else {
+            """
+            id-$index|${payloadTime(index)}|database-one|collection_one|STREAMED|K2HB|id-$index|KAFKA_RECORD
+            """.trimIndent()
+        }
 
     private fun validateUserMetadata(userMetadata: MutableMap<String, String>) {
         userMetadata["database"] shouldBe "database-one"

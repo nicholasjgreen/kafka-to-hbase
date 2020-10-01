@@ -21,6 +21,8 @@ import java.util.zip.GZIPOutputStream
 import kotlin.system.measureTimeMillis
 import org.apache.commons.text.StringEscapeUtils
 import com.beust.klaxon.JsonObject
+import com.beust.klaxon.KlaxonException
+import com.beust.klaxon.Parser
 
 open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
 
@@ -52,8 +54,34 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
         }.toByteArray()
 
     private fun manifestRecordForPayload(database: String, collection: String, payload: HbasePayload): ManifestRecord
-            = ManifestRecord(payload.id, payload.version, database, collection, 
+            = ManifestRecord(stripId(payload.id), payload.version, database, collection, 
                 MANIFEST_RECORD_SOURCE, MANIFEST_RECORD_COMPONENT, MANIFEST_RECORD_TYPE, payload.id)
+
+    private fun stripId(id: String): String {
+        try {
+            val parser: Parser = Parser.default()
+            val stringBuilder: StringBuilder = StringBuilder(id)
+            val json = parser.parse(stringBuilder) as JsonObject
+            val id_value = json["id"]
+            if (id_value != null) {
+                when (id_value) {
+                    is String -> {
+                        return id_value
+                    }
+                    is Int -> {
+                        return "$id_value"
+                    }
+                    else -> {
+                        return id
+                    }
+                }
+            } else {
+                return id
+            }
+        } catch (e: KlaxonException) {
+            return id
+        }
+    }
 
     // K2HB_MANIFEST_FILE_PATH: s3://manifest/streaming/<yyyy>/<mm>/<dd>/<db>_<collection>_<uniqueid>.json
     private fun dateStampedPrefix()
@@ -66,7 +94,7 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
         val firstOffset = firstRecord.offset()
         val lastOffset =  last.offset()
         val topic = firstRecord.topic()
-        return "${topic}_${partition}_$firstOffset-$lastOffset.csv"
+        return "${topic}_${partition}_$firstOffset-$lastOffset.txt"
     }
     
     private fun dateNowPath() = simpleDateFormatter().format(Calendar.getInstance().getTime())

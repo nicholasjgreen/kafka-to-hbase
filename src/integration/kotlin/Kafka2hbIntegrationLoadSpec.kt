@@ -148,7 +148,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
 
     private fun allManifestObjectContentsAsString(): List<String> =
             objectSummaries(Config.ManifestS3.manifestBucket, Config.ManifestS3.manifestDirectory, ManifestAwsS3Service.s3)
-                .filter { it.key.endsWith("csv") && it.key.contains("load-test") }
+                .filter { it.key.endsWith("txt") && it.key.contains("load-test") }
                 .map(S3ObjectSummary::getKey)
                 .map(this@Kafka2hbIntegrationLoadSpec::manifestObjectContents)
                 .map(::String)
