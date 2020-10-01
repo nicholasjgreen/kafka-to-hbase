@@ -11,16 +11,21 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
 
   kafka:
-    image: confluentinc/cp-kafka:4.1.0
+    image: wurstmeister/kafka:2.12-2.5.0
     ports:
       - "9092:9092"
     container_name: kafka
     depends_on:
       - zookeeper
     environment:
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_HOST_NAME: "kafka"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DELETE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 20
+      KAFKA_CREATE_TOPICS: "db.test.collection:20:1"
 
   hbase:
     image: hbase:latest

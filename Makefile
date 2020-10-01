@@ -118,6 +118,9 @@ integration-all: down destroy build up integration-test-ucfs-and-equality
 hbase-shell: ## Open an hbase shell in the running hbase container
 	docker exec -it hbase hbase shell
 
+kafka-shell: ## Open an shell in the running kafka broker container
+	docker exec -it kafka sh
+
 build: build-base ## build main images
 	docker-compose build
 

@@ -1,10 +1,7 @@
 import com.beust.klaxon.Klaxon
 import com.google.gson.Gson
 import com.google.gson.JsonObject
-import io.kotest.core.spec.Spec
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.core.test.TestCase
-import io.kotest.core.test.TestResult
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
 import lib.*
@@ -72,9 +69,9 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val tableName = matcher.groupValues[2]
             val qualifiedTableName = sampleQualifiedTableName(namespace, tableName)
             val kafkaTimestamp1 = converter.getTimestampAsLong(getISO8601Timestamp())
-            val (id, key) = parser.generateKey(converter.convertToJson(getEqualityId().toByteArray()))
+            val (recordId, hbaseKey) = parser.generateKey(converter.convertToJson(getEqualityId().toByteArray()))
             val body1 = wellFormedValidPayloadEquality()
-            hbase.putVersion(qualifiedTableName, key, body1, kafkaTimestamp1)
+            hbase.putVersion(qualifiedTableName, hbaseKey, body1, kafkaTimestamp1)
 
             verifyMetadataStore(0, topic, true)
 
@@ -90,14 +87,14 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             summaries1.size shouldBe 0
 
             val storedNewValue =
-                waitFor { hbase.getCellAfterTimestamp(qualifiedTableName, key, referenceTimestamp) }
+                waitFor { hbase.getCellAfterTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
             Gson().fromJson(
                 String(storedNewValue!!),
                 JsonObject::class.java
             ) shouldBe Gson().fromJson(String(body2), JsonObject::class.java)
 
             val storedPreviousValue =
-                waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
+                waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
             String(storedPreviousValue!!) shouldBe String(body1)
 
             verifyMetadataStore(1, topic, true)
@@ -141,7 +138,7 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val actual = s3Object.bufferedReader().use(BufferedReader::readText)
             val malformedRecord = MalformedRecord(
                 "key4", String(body),
-                "Invalid schema for key4:$topic:0:0: Message failed schema validation: '#: 6 schema violations found'."
+                "Invalid schema for key4:$topic:9:0: Message failed schema validation: '#: 6 schema violations found'."
             )
             val expected = Klaxon().toJsonString(malformedRecord)
             actual shouldBe expected

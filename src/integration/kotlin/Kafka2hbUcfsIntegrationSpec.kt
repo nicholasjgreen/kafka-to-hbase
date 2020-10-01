@@ -74,12 +74,12 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             hbase.ensureTable(qualifiedTableName)
             val body = wellFormedValidPayload("agent_core", "agentToDoArchive")
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            val (id, key) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
+            val (recordId, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
             log.info("Sending well-formed record to kafka topic '$topic'.")
             producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
             log.info("Sent well-formed record to kafka topic '$topic'.")
             val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            val storedValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
+            val storedValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
             String(storedValue!!) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
 
             verifyMetadataStore(1, topic, true)
@@ -96,13 +96,13 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val converter = Converter()
             val topic = uniqueTopicName()
             val matcher = TextUtils().topicNameTableMatcher(topic)!!
-            val (id, key) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
+            val (recordId, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
             val namespace = matcher.groupValues[1]
             val tableName = matcher.groupValues[2]
             val qualifiedTableName = sampleQualifiedTableName(namespace, tableName)
             val kafkaTimestamp1 = converter.getTimestampAsLong(getISO8601Timestamp())
             val body1 = wellFormedValidPayload(namespace, tableName)
-            hbase.putVersion(qualifiedTableName, key, body1, kafkaTimestamp1)
+            hbase.putVersion(qualifiedTableName, hbaseKey, body1, kafkaTimestamp1)
 
             verifyMetadataStore(0, topic, true)
 
@@ -119,14 +119,14 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             summaries1.size shouldBe 0
 
             val storedNewValue =
-                waitFor { hbase.getCellAfterTimestamp(qualifiedTableName, key, referenceTimestamp) }
+                waitFor { hbase.getCellAfterTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
             Gson().fromJson(
                 String(storedNewValue!!),
                 JsonObject::class.java
             ) shouldBe Gson().fromJson(String(body2), JsonObject::class.java)
 
             val storedPreviousValue =
-                waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, key, referenceTimestamp) }
+                waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
             String(storedPreviousValue!!) shouldBe String(body1)
 
             verifyMetadataStore(1, topic, true)
@@ -172,7 +172,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val actual = s3Object.bufferedReader().use(BufferedReader::readText)
             val malformedRecord = MalformedRecord(
                 "key4", String(body),
-                "Invalid schema for key4:$topic:0:0: Message failed schema validation: '#: required key [message] not found'."
+                "Invalid schema for key4:$topic:9:0: Message failed schema validation: '#: required key [message] not found'."
             )
             val expected = Klaxon().toJsonString(malformedRecord)
             actual shouldBe expected

@@ -109,64 +109,64 @@ jobs:
           path: test-results
           destination: test-results
 
-  snyk-pr:
-    docker:
-      - image: circleci/openjdk:8-jdk
-    environment:
-      IMAGE_NAME: kafka-to-hbase
-    steps:
-      - checkout
-      # First snyk scan only looks for sev:high and will fail if found
-      - snyk/scan:
-          organization: dwp-dataworks
-          severity-threshold: high
-          target-file: build.gradle.kts
-          project: '${CIRCLE_PROJECT_REPONAME}/pr-kotlin'
-      - setup_remote_docker
-      - setversion
-      - run:
-          name: "Build docker image"
-          command: |
-            docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
-            VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
-            docker build --build-arg VERSION=$VERSION --build-arg K2HB_WRITE_TO_METADATA_STORE=true -t $IMAGE_NAME:latest .
-      # Second snyk scan examines Docker container for sev:high and will fail if found
-      - snyk/scan:
-          organization: dwp-dataworks
-          docker-image-name: '$IMAGE_NAME:latest'
-          severity-threshold: high
-          target-file: Dockerfile
-          monitor-on-build: false
-          project: '${CIRCLE_PROJECT_REPONAME}/pr-docker'
-
-  snyk-master:
-    docker:
-      - image: circleci/openjdk:8-jdk
-    environment:
-      IMAGE_NAME: kafka-to-hbase
-    steps:
-      - checkout
-      # First snyk scan only looks for sev:high and will fail if found
-      - snyk/scan:
-          organization: dwp-dataworks
-          severity-threshold: high
-          target-file: build.gradle.kts
-          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-kotlin'
-      - setup_remote_docker
-      - setversion
-      - run:
-          name: "Build docker image"
-          command: |
-            docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
-            VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
-            docker build --build-arg VERSION=$VERSION --build-arg K2HB_WRITE_TO_METADATA_STORE=true -t $IMAGE_NAME:latest .
-      # Second snyk scan examines Docker container for sev:high and will fail if found
-      - snyk/scan:
-          organization: dwp-dataworks
-          docker-image-name: '$IMAGE_NAME:latest'
-          severity-threshold: high
-          target-file: Dockerfile
-          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-docker'
+# snyk-pr:
+#   docker:
+#     - image: circleci/openjdk:8-jdk
+#   environment:
+#     IMAGE_NAME: kafka-to-hbase
+#   steps:
+#     - checkout
+#     # First snyk scan only looks for sev:high and will fail if found
+#     - snyk/scan:
+#         organization: dwp-dataworks
+#         severity-threshold: high
+#         target-file: build.gradle.kts
+#         project: '${CIRCLE_PROJECT_REPONAME}/pr-kotlin'
+#     - setup_remote_docker
+#     - setversion
+#     - run:
+#         name: "Build docker image"
+#         command: |
+#           docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
+#           VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
+#           docker build --build-arg VERSION=$VERSION --build-arg K2HB_WRITE_TO_METADATA_STORE=true -t $IMAGE_NAME:latest .
+#     # Second snyk scan examines Docker container for sev:high and will fail if found
+#     - snyk/scan:
+#         organization: dwp-dataworks
+#         docker-image-name: '$IMAGE_NAME:latest'
+#         severity-threshold: high
+#         target-file: Dockerfile
+#         monitor-on-build: false
+#         project: '${CIRCLE_PROJECT_REPONAME}/pr-docker'
+#
+# snyk-master:
+#   docker:
+#     - image: circleci/openjdk:8-jdk
+#   environment:
+#     IMAGE_NAME: kafka-to-hbase
+#   steps:
+#     - checkout
+#     # First snyk scan only looks for sev:high and will fail if found
+#     - snyk/scan:
+#         organization: dwp-dataworks
+#         severity-threshold: high
+#         target-file: build.gradle.kts
+#         project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-kotlin'
+#     - setup_remote_docker
+#     - setversion
+#     - run:
+#         name: "Build docker image"
+#         command: |
+#           docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
+#           VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
+#           docker build --build-arg VERSION=$VERSION --build-arg K2HB_WRITE_TO_METADATA_STORE=true -t $IMAGE_NAME:latest .
+#     # Second snyk scan examines Docker container for sev:high and will fail if found
+#     - snyk/scan:
+#         organization: dwp-dataworks
+#         docker-image-name: '$IMAGE_NAME:latest'
+#         severity-threshold: high
+#         target-file: Dockerfile
+#         project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}-docker'
 
 
   publish-github-release:
@@ -233,18 +233,18 @@ workflows:
       - test:
           requires:
             - build
-      - snyk-pr:
-          requires:
-            - build
-          filters:
-            branches:
-              ignore: master
-      - snyk-master:
-          requires:
-            - build
-          filters:
-            branches:
-              only: master
+      #- snyk-pr:
+      #    requires:
+      #      - build
+      #    filters:
+      #      branches:
+      #        ignore: master
+      #- snyk-master:
+      #    requires:
+      #      - build
+      #    filters:
+      #      branches:
+      #        only: master
       - publish-github-release:
           requires:
             - test
