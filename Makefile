@@ -4,6 +4,8 @@ RDBMS_READY_REGEX='mysqld: ready for connections'
 aws_dev_account=NOT_SET
 temp_image_name=NOT_SET
 aws_default_region=NOT_SET
+tutorial_topic=my-topic4
+tutorial_partitions=2
 
 .PHONY: help
 help:
@@ -118,13 +120,16 @@ integration-all: down destroy build up integration-test-ucfs-and-equality
 hbase-shell: ## Open an hbase shell in the running hbase container
 	docker exec -it hbase hbase shell
 
-kafka-shell: ## Open an shell in the running kafka broker container
+kafka-shell: ## Open an shell in the running kafka broker container in root
 	docker exec -it kafka sh
+
+kafka-shell-bin: ## Open an shell in the running kafka broker container in /opt/kafka/bin
+	docker exec -w "/opt/kafka/bin" -it kafka sh -c 'ls'
 
 build: build-base ## build main images
 	docker-compose build
 
-build-base: ## build the base images which certain images extend.
+build-base: ## Build the base images which certain images extend.
 	@{ \
 		pushd docker; \
 		docker build --tag dwp-java:latest --file .java/Dockerfile . ; \
@@ -135,7 +140,7 @@ build-base: ## build the base images which certain images extend.
 		popd; \
 	}
 
-push-local-to-ecr: #Push a temp version of k2hb to AWS DEV ECR
+push-local-to-ecr: ## Push a temp version of k2hb to AWS DEV ECR
 	@{ \
 		export AWS_DEV_ACCOUNT=$(aws_dev_account); \
 		export TEMP_IMAGE_NAME=$(temp_image_name); \
@@ -144,3 +149,30 @@ push-local-to-ecr: #Push a temp version of k2hb to AWS DEV ECR
 		docker tag kafka2hbase ${AWS_DEV_ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${TEMP_IMAGE_NAME}; \
 		docker push ${AWS_DEV_ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${TEMP_IMAGE_NAME}; \
 	}
+
+kafka-command: ## Run an arbitrary command in the kafka server
+	docker exec -w "/opt/kafka/bin" -it kafka sh -c '$(command)'
+
+tutorial-list-all: ## List topics in the kafka server
+	make kafka-command command="./kafka-topics.sh --zookeeper zookeeper:2181 --list"
+
+tutorial-list-topic: ## List only tutorial_topic in the kafka server
+	make kafka-command command="./kafka-topics.sh --zookeeper zookeeper:2181 --list | fgrep $(tutorial_topic)"
+
+tutorial-create-topic: ## Create tutorial_topic in the kafka server
+	make kafka-command command="./kafka-topics.sh --if-not-exists --create --topic $(tutorial_topic) --zookeeper zookeeper:2181 --replication-factor 1 --partitions $(tutorial_partition)"
+
+tutorial-describe-topic: ## Describe tutorial_topic in the kafka server
+	make kafka-command command="./kafka-topics.sh --describe --topic $(tutorial_topic) --zookeeper zookeeper:2181"
+
+tutorial-publish-simple: ## Publish to tutorial_topic in the kafka server with just a value, and null key. Starts a shell where we can type commands.
+	make kafka-command command="./kafka-console-producer.sh --broker-list localhost:9092 --topic $(tutorial_topic)"
+
+tutorial-publish-with-key: ## Publish to tutorial_topic in the kafka server with a key:value. Starts a shell where we can type commands.
+	make kafka-command command="./kafka-console-producer.sh --broker-list localhost:9092 --topic $(tutorial_topic) --property parse.key=true --property key.separator=:"
+
+tutorial-subscribe-by-group: ## Subscribe to tutorial_topic:all in the kafka server. Starts a shell where we can observe.
+	make kafka-command command="./kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic $(tutorial_topic) --group my-consumer-group --from-beginning --property print.key=true --property print.value=true"
+
+tutorial-subscribe-by-parition: ## Subscribe to tutorial_topic:tutorial_partition in the kafka server. Starts a shell where we can observe.
+	make kafka-command command="./kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic $(tutorial_topic) --from-beginning --partition $(tutorial_partition) --property print.key=true --property print.value=true"
