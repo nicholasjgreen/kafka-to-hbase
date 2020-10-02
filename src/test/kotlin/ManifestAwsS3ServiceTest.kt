@@ -25,7 +25,7 @@ class ManifestAwsS3ServiceTest : StringSpec() {
             verifyNoMoreInteractions(amazonS3)
             val request = requestCaptor.firstValue
             request.bucketName shouldBe "manifests"
-            request.key shouldBe "streaming/${today()}/db.database-one.collection_one_10_1-100.txt"
+            request.key shouldBe "streaming/db.database-one.collection_one_10_1-100.txt"
             val lineReader = LineNumberReader(InputStreamReader(request.inputStream))
 
             var lineCount = 0
@@ -90,7 +90,6 @@ class ManifestAwsS3ServiceTest : StringSpec() {
         userMetadata["collection"] shouldBe "collection_one"
     }
 
-    private fun today() = dateFormat().format(Date())
     private fun payloadTime(index: Int) = payloadTimestamp(index).time
     private fun payloadTimestamp(index: Int) = dateFormat().parse(payloadDate(index))
     private fun dateFormat() = SimpleDateFormat("yyyy/MM/dd").apply { timeZone = TimeZone.getTimeZone("UTC") }

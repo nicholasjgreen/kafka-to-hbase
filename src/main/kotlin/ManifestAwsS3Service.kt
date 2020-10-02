@@ -29,7 +29,7 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
     open suspend fun putManifestFile(hbaseTable: String, payloads: List<HbasePayload>) {
         if (payloads.isNotEmpty()) {
             val (database, collection) = hbaseTable.split(Regex(":"))
-            val prefix = dateStampedPrefix()
+            val prefix = "${Config.ManifestS3.manifestDirectory}"
             val fileName = manifestFileName(payloads)
             val key = "${prefix}/${fileName}"
             logger.info("Putting manifest into s3", "size", "${payloads.size}", "hbase_table", hbaseTable, "key", key)
@@ -83,10 +83,6 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
         }
     }
 
-    // K2HB_MANIFEST_FILE_PATH: s3://manifest/streaming/<yyyy>/<mm>/<dd>/<db>_<collection>_<uniqueid>.json
-    private fun dateStampedPrefix()
-            = "${Config.ManifestS3.manifestDirectory}/${dateNowPath()}"
-
     private fun manifestFileName(payloads: List<HbasePayload>): String {
         val firstRecord = payloads.first().record
         val last = payloads.last().record
@@ -96,8 +92,6 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
         val topic = firstRecord.topic()
         return "${topic}_${partition}_$firstOffset-$lastOffset.txt"
     }
-    
-    private fun dateNowPath() = simpleDateFormatter().format(Calendar.getInstance().getTime())
 
     private fun objectMetadata(body: ByteArray, database: String, collection: String)
         = ObjectMetadata().apply {
@@ -116,8 +110,6 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
             "${escape(manifestRecord.id)}|${escape(manifestRecord.timestamp.toString())}|${escape(manifestRecord.db.replace('_', '-'))}|${escape(manifestRecord.collection)}|${escape(manifestRecord.source)}|${escape(manifestRecord.externalOuterSource)}|${escape(manifestRecord.originalId)}|${escape(manifestRecord.externalInnerSource)}\n"
 
     private fun escape(value: String) = StringEscapeUtils.escapeCsv(value)
-
-    private fun simpleDateFormatter() = SimpleDateFormat("yyyy/MM/dd").apply { timeZone = TimeZone.getTimeZone("UTC") }
 
     companion object {
         fun connect() = ManifestAwsS3Service(s3)
