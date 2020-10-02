@@ -174,5 +174,5 @@ tutorial-publish-with-key: ## Publish to tutorial_topic in the kafka server with
 tutorial-subscribe-by-group: ## Subscribe to tutorial_topic:all in the kafka server. Starts a shell where we can observe.
 	make kafka-command command="./kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic $(tutorial_topic) --group my-consumer-group --from-beginning --property print.key=true --property print.value=true"
 
-tutorial-subscribe-by-parition: ## Subscribe to tutorial_topic:tutorial_partition in the kafka server. Starts a shell where we can observe.
+tutorial-subscribe-by-partition: ## Subscribe to tutorial_topic:tutorial_partition in the kafka server. Starts a shell where we can observe.
 	make kafka-command command="./kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic $(tutorial_topic) --from-beginning --partition $(tutorial_partition) --property print.key=true --property print.value=true"
