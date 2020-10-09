@@ -22,16 +22,16 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
         if (Config.MetadataStore.writeToMetadataStore) {
             logger.info("Putting batch into metadata store", "size", "${payloads.size}")
             val timeTaken = measureTimeMillis {
-                with(recordProcessingAttemptStatement) {
+                recordProcessingAttemptStatement().use { statement ->
                     payloads.forEach {
-                        setString(1, textUtils.printableKey(it.key))
-                        setLong(2, it.version)
-                        setString(3, it.record.topic())
-                        setInt(4, it.record.partition())
-                        setLong(5, it.record.offset())
-                        addBatch()
+                        statement.setString(1, textUtils.printableKey(it.key))
+                        statement.setLong(2, it.version)
+                        statement.setString(3, it.record.topic())
+                        statement.setInt(4, it.record.partition())
+                        statement.setLong(5, it.record.offset())
+                        statement.addBatch()
                     }
-                    executeBatch()
+                    statement.executeBatch()
                 }
             }
             logger.info("Put batch into metadata store", "time_taken", "$timeTaken", "size", "${payloads.size}")
@@ -42,7 +42,7 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
     }
 
     private fun preparedStatement(hbaseId: String, lastUpdated: Long, record: ConsumerRecord<ByteArray, ByteArray>) =
-        recordProcessingAttemptStatement.apply {
+        recordProcessingAttemptStatement().apply {
             setString(1, hbaseId)
             setLong(2, lastUpdated)
             setString(3, record.topic())
@@ -51,12 +51,12 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
         }
 
 
-    private val recordProcessingAttemptStatement by lazy {
+    private fun recordProcessingAttemptStatement() =
         connection.prepareStatement("""
             INSERT INTO ${Config.MetadataStore.metadataStoreTable} (hbase_id, hbase_timestamp, topic_name, kafka_partition, kafka_offset)
             VALUES (?, ?, ?, ?, ?)
         """.trimIndent())
-    }
+
 
     companion object {
         private val isUsingAWS = Config.MetadataStore.isUsingAWS

@@ -41,6 +41,7 @@ class MetadataStoreClientTest : StringSpec({
         }
         verify(statement, times(100)).addBatch()
         verify(statement, times(1)).executeBatch()
+        verify(statement, times(1)).close()
         verifyNoMoreInteractions(statement)
     }
 
