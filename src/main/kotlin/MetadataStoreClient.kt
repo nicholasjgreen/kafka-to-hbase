@@ -32,6 +32,10 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
                         statement.addBatch()
                     }
                     statement.executeBatch()
+
+                    if (!connection.autoCommit) {
+                        connection.commit()
+                    }
                 }
             }
             logger.info("Put batch into metadata store", "time_taken", "$timeTaken", "size", "${payloads.size}")
@@ -64,7 +68,9 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
 
         fun connect(): MetadataStoreClient {
             val (url, properties) = connectionProperties()
-            return MetadataStoreClient(DriverManager.getConnection(url, properties))
+            return MetadataStoreClient(DriverManager.getConnection(url, properties).apply {
+                autoCommit = Config.MetadataStore.autoCommit
+            })
         }
 
         fun connectionProperties(): Pair<String, Properties> {

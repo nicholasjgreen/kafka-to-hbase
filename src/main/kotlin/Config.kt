@@ -1,4 +1,13 @@
+
 import LogConfiguration.Companion.start_time_milliseconds
+import com.amazonaws.ClientConfiguration
+import com.amazonaws.Protocol
+import com.amazonaws.auth.AWSStaticCredentialsProvider
+import com.amazonaws.auth.BasicAWSCredentials
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+import com.amazonaws.client.builder.AwsClientBuilder
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.HConstants
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -10,14 +19,6 @@ import java.io.File
 import java.time.Duration
 import java.util.*
 import java.util.regex.Pattern
-import com.amazonaws.ClientConfiguration
-import com.amazonaws.Protocol
-import com.amazonaws.client.builder.AwsClientBuilder
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.AmazonS3ClientBuilder
-import com.amazonaws.auth.AWSStaticCredentialsProvider
-import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 
 fun getEnv(envVar: String): String? {
     val value = System.getenv(envVar)
@@ -117,6 +118,7 @@ object Config {
     object MetadataStore {
         val writeToMetadataStore = (getEnv("K2HB_WRITE_TO_METADATA_STORE") ?: "true").toBoolean()
         val metadataStoreTable = getEnv("K2HB_METADATA_STORE_TABLE") ?: "ucfs"
+        val autoCommit = (getEnv("K2HB_METADATA_STORE_AUTO_COMMIT") ?: "false").toBoolean()
 
         private val useAwsSecretsString = getEnv("K2HB_USE_AWS_SECRETS") ?: "true"
 
