@@ -32,7 +32,7 @@ object Config {
 
     const val metaDataRefreshKey = "metadata.max.age.ms"
     const val schemaFileProperty = "schema.location"
-    const val mainSchemaFile = "message.schema.json"
+    const val mainSchemaFile = "business_message.schema.json"
     const val equalitySchemaFile = "equality_message.schema.json"
     const val dataworksRegion = "eu-west-2"
     object Shovel {
