@@ -17,23 +17,17 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                 val payloads = payloads(partitionRecords, parser)
                 textUtils.qualifiedTableName(partition.topic())?.let { table ->
                     coroutineScope {
-                        val s3OkDeferred = async { putInS3(s3Service, table, payloads) }
-                        val hbaseOk = putInHbase(hbase, table, payloads)
+                        val s3Ok = async { putInS3(s3Service, table, payloads) }
+                        val hbaseOk = async { putInHbase(hbase, table, payloads) }
+                        val metadataStoreOk = async { putInMetadataStore(metadataClient, payloads) }
+                        val manifestOk = async { putManifest(manifestService, table, payloads) }
 
-                        val commitOffset = if (hbaseOk) {
-                            putInMetadataStore(metadataClient, payloads)
-                        }
-                        else false
-
-                        if (s3OkDeferred.await() && commitOffset) {
+                        if (s3Ok.await() && hbaseOk.await() && metadataStoreOk.await() && manifestOk.await()) {
                             val lastPosition = lastPosition(partitionRecords)
                             logger.info("Batch succeeded, committing offset", "topic", partition.topic(),
                                 "partition","${partition.partition()}", "offset", "$lastPosition")
                             consumer.commitSync(mapOf(partition to OffsetAndMetadata(lastPosition + 1)))
                             logSuccessfulPuts(table, payloads)
-                            if (Config.ManifestS3.writeManifests) {
-                                putManifest(manifestService, table, payloads)
-                            }
                         } else {
                             lastCommittedOffset(consumer, partition)?.let { consumer.seek(partition, it) }
                             logger.error("Batch failed, not committing offset, resetting position to last commit",
@@ -96,7 +90,9 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
     private suspend fun putManifest(manifestService: ManifestAwsS3Service, table: String, payloads: List<HbasePayload>) =
         withContext(Dispatchers.IO) {
             try {
-                manifestService.putManifestFile(table, payloads)
+                if (Config.ManifestS3.writeManifests) {
+                    manifestService.putManifestFile(table, payloads)
+                }
                 true
             } catch (e: Exception) {
                 e.printStackTrace()

@@ -35,7 +35,7 @@ class ListProcessorTest : StringSpec() {
 
     private fun verifyMetadataStoreInteractions(metadataStoreClient: MetadataStoreClient) {
         val captor = argumentCaptor<List<HbasePayload>>()
-        verify(metadataStoreClient, times(5)).recordBatch(captor.capture())
+        verify(metadataStoreClient, times(10)).recordBatch(captor.capture())
         validateMetadataHbasePayloads(captor)
     }
 
@@ -66,7 +66,6 @@ class ListProcessorTest : StringSpec() {
         captor.allValues.forEachIndexed { payloadsNo, payloads ->
             payloads.size shouldBe 100
             payloads.forEachIndexed { index, payload ->
-                println("payloadsNo: '$payloadsNo', index: $index, $payload")
                 String(payload.key).toInt() shouldBe index + ((payloadsNo) * 100)
                 String(payload.body) shouldBe hbaseBody(index)
                 payload.record.partition() shouldBe (index + 1) % 20
@@ -76,14 +75,14 @@ class ListProcessorTest : StringSpec() {
     }
 
     private fun validateMetadataHbasePayloads(captor: KArgumentCaptor<List<HbasePayload>>) {
-        captor.allValues.size shouldBe 5
+        captor.allValues.size shouldBe 10
         captor.allValues.forEachIndexed { payloadsNo, payloads ->
             payloads.size shouldBe 100
             payloads.forEachIndexed { index, payload ->
-                String(payload.key).toInt() shouldBe (index + 100) + (payloadsNo * 2 * 100)
+                String(payload.key).toInt() shouldBe (index) + (payloadsNo * 100)
                 String(payload.body) shouldBe hbaseBody(index)
                 payload.record.partition() shouldBe (index + 1) % 20
-                payload.record.offset() shouldBe ((payloadsNo + 1) * (index + 1)) * 40
+                payload.record.offset() shouldBe ((payloadsNo + 1) * (index + 1)) * 20
             }
         }
     }
