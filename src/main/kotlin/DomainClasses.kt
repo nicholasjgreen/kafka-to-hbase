@@ -1,6 +1,6 @@
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String, val version: Long, val record: ConsumerRecord<ByteArray, ByteArray>) {
+data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String, val version: Long, val versionCreatedFrom: String, val versionRaw: String, val record: ConsumerRecord<ByteArray, ByteArray>) {
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -12,6 +12,8 @@ data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String,
         if (!id.contentEquals(other.id)) return false
         if (!body.contentEquals(other.body)) return false
         if (version != other.version) return false
+        if (versionRaw != other.versionRaw) return false
+        if (versionCreatedFrom != other.versionCreatedFrom) return false
 
         return true
     }
@@ -21,6 +23,8 @@ data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String,
         result = 31 * result + id.hashCode()
         result = 31 * result + body.contentHashCode()
         result = 31 * result + version.hashCode()
+        result = 31 * result + versionRaw.hashCode()
+        result = 31 * result + versionCreatedFrom.hashCode()
         return result
     }
 
