@@ -1,5 +1,6 @@
 {
-  "$id": "http://dataworks.uc.dwp.gov.uk/schemas/data_message.schema.json",
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$id": "http://dataworks.uc.dwp.gov.uk/schemas/audit_message.schema.json",
   "type": "object",
   "properties": {
     "traceId": {
@@ -53,10 +54,13 @@
           "minProperties": 1,
           "minLength": 1,
           "properties": {
-            "messageId": {
+            "auditId": {
               "type": "string"
             }
-          }
+          },
+          "required": [
+            "auditId"
+          ]
         }
       },
       "required": [

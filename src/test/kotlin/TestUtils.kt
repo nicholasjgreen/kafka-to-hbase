@@ -14,6 +14,12 @@ class TestUtils {
                 put(Config.schemaFileProperty, Config.equalitySchemaFile)
             }
         }
+
+        fun auditMessageValidator(){
+            Config.Validator.properties = Properties().apply {
+                put(Config.schemaFileProperty, Config.auditSchemaFile)
+            }
+        }
     }
 
 }

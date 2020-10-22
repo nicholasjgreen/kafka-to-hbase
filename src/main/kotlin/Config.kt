@@ -34,6 +34,7 @@ object Config {
     const val schemaFileProperty = "schema.location"
     const val mainSchemaFile = "business_message.schema.json"
     const val equalitySchemaFile = "equality_message.schema.json"
+    const val auditSchemaFile = "audit_message.schema.json"
     const val dataworksRegion = "eu-west-2"
     object Shovel {
         val reportFrequency = getEnv("K2HB_KAFKA_REPORT_FREQUENCY")?.toInt() ?: 100
