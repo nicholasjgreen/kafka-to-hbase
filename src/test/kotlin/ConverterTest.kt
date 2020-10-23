@@ -149,7 +149,115 @@ class ConverterTest : StringSpec({
         }
     }
 
-    "Last modified date time returned when valid created date time" {
+    "Kafka message date time returned when record type is MONGO_DELETE" {
+        val jsonString = """{
+            "timestamp": "2020-10-23T14:08:02.000+0000"
+            "message": {
+                "@type": "MONGO_DELETE",
+                "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                "createdDateTime": "2019-11-13T14:02:03.001+0000",
+            }
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "2020-10-23T14:08:02.000+0000"
+        fieldName shouldBe "kafkaMessageDateTime"
+    }
+
+    "Kafka message date time not set if no timestamp present in message" {
+        val jsonString = """{
+            "message": {
+                "@type": "MONGO_DELETE",
+                "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                "createdDateTime": "2019-11-13T14:02:03.001+0000",
+            }
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "2018-12-14T15:01:02.000+0000"
+        fieldName shouldBe "_lastModifiedDateTime"
+    }
+
+    "Kafka message date time not set if timestamp is blank" {
+        val jsonString = """{
+            "timestamp": ""
+            "message": {
+                "@type": "MONGO_DELETE",
+                "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                "createdDateTime": "2019-11-13T14:02:03.001+0000",
+            }
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "2018-12-14T15:01:02.000+0000"
+        fieldName shouldBe "_lastModifiedDateTime"
+    }
+
+    "Kafka message date time not set if timestamp is null" {
+        val jsonString = """{
+            "timestamp": null
+            "message": {
+                "@type": "MONGO_DELETE",
+                "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                "createdDateTime": "2019-11-13T14:02:03.001+0000",
+            }
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "2018-12-14T15:01:02.000+0000"
+        fieldName shouldBe "_lastModifiedDateTime"
+    }
+
+    "Last modified date time returned when type field is blank" {
+        val jsonString = """{
+            "message": {
+                "@type": "",
+                "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                "createdDateTime": "2019-11-13T14:02:03.001+0000",
+            }
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "2018-12-14T15:01:02.000+0000"
+        fieldName shouldBe "_lastModifiedDateTime"
+    }
+
+    "Last modified date time returned when type field is null" {
+        val jsonString = """{
+            "message": {
+                "@type": null,
+                "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                "createdDateTime": "2019-11-13T14:02:03.001+0000",
+            }
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "2018-12-14T15:01:02.000+0000"
+        fieldName shouldBe "_lastModifiedDateTime"
+    }
+
+    "Last modified date time returned when type field is valid but not mongo_delete" {
+        val jsonString = """{
+            "message": {
+                "@type": "MONGO_INSERT",
+                "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+                "createdDateTime": "2019-11-13T14:02:03.001+0000",
+            }
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "2018-12-14T15:01:02.000+0000"
+        fieldName shouldBe "_lastModifiedDateTime"
+    }
+
+    "Last modified date time returned when valid last modified date time" {
         val jsonString = """{
             "message": {
                 "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
@@ -238,6 +346,38 @@ class ConverterTest : StringSpec({
                 "_lastModifiedDateTime": null,
                 "createdDateTime": null,
             }
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "1980-01-01T00:00:00.000+0000"
+        fieldName shouldBe "epoch"
+    }
+
+    "Null message returns epoch" {
+        val jsonString = """{
+            "message": null
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "1980-01-01T00:00:00.000+0000"
+        fieldName shouldBe "epoch"
+    }
+
+    "Blank message returns epoch" {
+        val jsonString = """{
+            "message": ""
+        }"""
+
+        val json: JsonObject = converter.convertToJson(jsonString.toByteArray())
+        val (timestamp, fieldName) = converter.getLastModifiedTimestamp(json)
+        timestamp shouldBe "1980-01-01T00:00:00.000+0000"
+        fieldName shouldBe "epoch"
+    }
+
+    "No message returns epoch" {
+        val jsonString = """{
         }"""
 
         val json: JsonObject = converter.convertToJson(jsonString.toByteArray())

@@ -50,7 +50,16 @@ open class Converter {
 
     open fun getLastModifiedTimestamp(json: JsonObject?): Pair<String, String> {
         val epoch = "1980-01-01T00:00:00.000+0000"
+        val recordType = json?.lookup<String?>("message.@type")?.get(0)
         val lastModifiedTimestampStr = json?.lookup<String?>("message._lastModifiedDateTime")?.get(0)
+
+        if (recordType == "MONGO_DELETE") {
+            val kafkaTimestampStr = json?.lookup<String?>("timestamp")?.get(0)
+            if (!kafkaTimestampStr.isNullOrBlank()) {
+                return Pair(kafkaTimestampStr, "kafkaMessageDateTime")
+            }
+        }
+
         if (!lastModifiedTimestampStr.isNullOrBlank()) {
             return Pair(lastModifiedTimestampStr, "_lastModifiedDateTime")
         }
