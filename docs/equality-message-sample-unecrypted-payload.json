@@ -1,3 +1,8 @@
 {
-  "claimantId" : "83bf14e1-d105-4229-81cb-874b7e3d1a58"
+  "sexualOrientation" : "NOT_SPECIFIED",
+  "claimantId" : "aaa-guid-bbb",
+  "ethnicGroup" : "WHITE",
+  "maritalStatus" : "NOT_MARRIED_OR_IN_PARTNERSHIP",
+  "ethnicitySubgroup" : "BRITISH",
+  "religion" : "NONE"
 }

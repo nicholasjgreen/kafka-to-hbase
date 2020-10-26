@@ -1,13 +1,13 @@
 {
-  "auditId" : "0cacba02-bc36-4ef1-9ac4-432ba053d6b1",
-  "obfuscatedToString" : "VIEW_CLAIMANT_TODO_LIST - {AUDIT_ID=0cacba02-bc36-4ef1-9ac4-432ba053d6b1, IP_ADDRESS=127.0.0.1, CITIZEN_ID=83bf14e1-d105-4229-81cb-874b7e3d1a58}",
+  "auditId" :  "aaa-guid-bbb",
+  "obfuscatedToString" : "VIEW_CLAIMANT_TODO_LIST - {AUDIT_ID=iii-guid-jjj, IP_ADDRESS=127.0.0.1, CITIZEN_ID=ccc-guid-ddd}",
   "aborted" : false,
   "context" : {
-    "CITIZEN_ID" : "83bf14e1-d105-4229-81cb-874b7e3d1a58",
-    "CLAIMANT1_ID" : "83bf14e1-d105-4229-81cb-874b7e3d1a58",
+    "CITIZEN_ID" :  "ccc-guid-ddd",
+    "CLAIMANT1_ID" : "eee-guid-fff",
     "IP_ADDRESS" : "127.0.0.1",
-    "CONTRACT_ID" : "a01c5bcf-5f91-404a-be9d-395fb4f9e04f",
-    "AUDIT_ID" : "0cacba02-bc36-4ef1-9ac4-432ba053d6b1",
+    "CONTRACT_ID" : "ggg-guid-hhh",
+    "AUDIT_ID" : "iii-guid-jjj",
     "CLAIMANT2_ID" : null
   },
   "auditType" : "VIEW_CLAIMANT_TODO_LIST"
