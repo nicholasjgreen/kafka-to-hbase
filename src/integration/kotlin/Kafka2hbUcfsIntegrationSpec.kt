@@ -172,7 +172,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val actual = s3Object.bufferedReader().use(BufferedReader::readText)
             val malformedRecord = MalformedRecord(
                 "key4", String(body),
-                "Invalid schema for key4:$topic:9:0: Message failed schema validation: '#: required key [message] not found'."
+                "Invalid schema for key4:$topic:9:0: Message failed schema validation: '#: 6 schema violations found'."
             )
             val expected = Klaxon().toJsonString(malformedRecord)
             actual shouldBe expected

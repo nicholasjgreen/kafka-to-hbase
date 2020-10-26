@@ -3,6 +3,15 @@
   "$id": "http://dataworks.uc.dwp.gov.uk/schemas/message.schema.json",
   "type": "object",
   "properties": {
+    "traceId": {
+      "type": ["string", "null"]
+    },
+    "unitOfWorkId": {
+      "type": ["string", "null"]
+    },
+    "@type": {
+      "type": "string"
+    },
     "message": {
       "type": "object",
       "properties": {
@@ -62,9 +71,22 @@
         "dbObject",
         "encryption"
       ]
+    },
+    "version": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": ["string", "null"],
+      "pattern": "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}(\\+\\d{4}|Z)?)?$",
+      "$comment": "Note that the values we receive e.g. '2019-07-04T07:27:35.104+0000' are not suitable for the builtin date-time format."
     }
   },
   "required": [
-    "message"
+    "traceId",
+    "unitOfWorkId",
+    "@type",
+    "message",
+    "version",
+    "timestamp"
   ]
 }

@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "traceId": {
-      "type": "string"
+      "type": ["string", "null"]
     },
     "unitOfWorkId": {
       "type": ["string", "null"]
@@ -24,7 +24,7 @@
           "properties": {
             "keyEncryptionKeyId": {
               "type": "string",
-              "pattern": "^cloudhsm:.*$"
+              "pattern": "^cloudhsm:\\d+,\\d+$"
             },
             "encryptedEncryptionKey": {
               "type": "string",
@@ -55,7 +55,8 @@
           "minLength": 1,
           "properties": {
             "auditId": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [
