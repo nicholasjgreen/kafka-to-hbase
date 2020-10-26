@@ -56,7 +56,7 @@ All the schemas are found in [src/main/resources](src/main/resources)
 * All require the `$.message.encryption` block, and carry the dbObject as encrypted data.
 * We reject any message with a `$.message.dbObject` that looks like JSON.
 
-### UC Business Data Schema
+### UC Business Data Schema
 
 * For Business messages we should only assert that `$.message._id` exists, as what is in it can vary a lot per collection, in structure, type and content.
 * Business messages always have `$.message.db`.
