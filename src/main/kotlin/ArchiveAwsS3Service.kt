@@ -1,8 +1,4 @@
 
-import Config.AwsS3.localstackAccessKey
-import Config.AwsS3.localstackSecretKey
-import Config.AwsS3.localstackServiceEndPoint
-import Config.dataworksRegion
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.amazonaws.services.s3.model.PutObjectRequest

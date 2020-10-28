@@ -44,7 +44,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
 
             val body = wellFormedValidPayload(namespace, tableName)
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            val (recordId, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
+            val (_, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
             log.info("Sending well-formed record to kafka topic '$topic'.")
             producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
             log.info("Sent well-formed record to kafka topic '$topic'.")
@@ -74,7 +74,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             hbase.ensureTable(qualifiedTableName)
             val body = wellFormedValidPayload("agent_core", "agentToDoArchive")
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            val (recordId, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
+            val (_, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
             log.info("Sending well-formed record to kafka topic '$topic'.")
             producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
             log.info("Sent well-formed record to kafka topic '$topic'.")
@@ -96,7 +96,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val converter = Converter()
             val topic = uniqueTopicName()
             val matcher = TextUtils().topicNameTableMatcher(topic)!!
-            val (recordId, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
+            val (_, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
             val namespace = matcher.groupValues[1]
             val tableName = matcher.groupValues[2]
             val qualifiedTableName = sampleQualifiedTableName(namespace, tableName)
@@ -199,7 +199,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
 
             val body = wellFormedValidPayload(namespace, tableName)
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            val (recordId, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
+            val (_, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
             log.info("Sending well-formed record to kafka topic '$topic'.")
             producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
             log.info("Sent well-formed record to kafka topic '$topic'.")

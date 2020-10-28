@@ -201,7 +201,7 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
             logger.info("Hbase connection configuration",
                     HConstants.ZOOKEEPER_ZNODE_PARENT, Config.Hbase.config.get(HConstants.ZOOKEEPER_ZNODE_PARENT),
                     HConstants.ZOOKEEPER_QUORUM, Config.Hbase.config.get(HConstants.ZOOKEEPER_QUORUM),
-                    "hbase.zookeeper.port", "${Config.Hbase.config.get("hbase.zookeeper.port")}")
+                    "hbase.zookeeper.port", Config.Hbase.config.get("hbase.zookeeper.port"))
 
             return HbaseClient(
                     ConnectionFactory.createConnection(HBaseConfiguration.create(Config.Hbase.config)),

@@ -1,82 +1,75 @@
 
-import Config.AwsS3.localstackAccessKey
-import Config.AwsS3.localstackSecretKey
-import Config.AwsS3.localstackServiceEndPoint
-import Config.dataworksRegion
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.amazonaws.services.s3.model.PutObjectRequest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.apache.commons.codec.binary.Hex
+import com.beust.klaxon.JsonObject
+import com.beust.klaxon.KlaxonException
+import com.beust.klaxon.Parser
+import org.apache.commons.text.StringEscapeUtils
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.zip.GZIPOutputStream
 import kotlin.system.measureTimeMillis
-import org.apache.commons.text.StringEscapeUtils
-import com.beust.klaxon.JsonObject
-import com.beust.klaxon.KlaxonException
-import com.beust.klaxon.Parser
 
 open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
 
-    open suspend fun putManifestFile(hbaseTable: String, payloads: List<HbasePayload>) {
+    open suspend fun putManifestFile(payloads: List<HbasePayload>) {
         if (payloads.isNotEmpty()) {
-            val (database, collection) = hbaseTable.split(Regex(":"))
-            val prefix = "${Config.ManifestS3.manifestDirectory}"
+            val prefix = Config.ManifestS3.manifestDirectory
             val fileName = manifestFileName(payloads)
             val key = "${prefix}/${fileName}"
-            logger.info("Putting manifest into s3", "size", "${payloads.size}", "hbase_table", hbaseTable, "key", key)
-            val timeTaken = measureTimeMillis { putManifest(database, collection, key, manifestBody(database, collection, payloads)) }
-            logger.info("Put manifest into s3", "time_taken", "$timeTaken", "size", "${payloads.size}", "hbase_table", hbaseTable, "key", key)
+            logger.info("Putting manifest into s3", "size", "${payloads.size}", "key", key)
+            val timeTaken = measureTimeMillis { putManifest(key, manifestBody(payloads)) }
+            logger.info("Put manifest into s3", "time_taken", "$timeTaken", "size", "${payloads.size}", "key", key)
         }
     }
 
-    private fun putManifest(database: String, collection: String, key: String, body: ByteArray) =
+    private fun putManifest(key: String, body: ByteArray) =
         amazonS3.putObject(PutObjectRequest(Config.ManifestS3.manifestBucket, key,
-                ByteArrayInputStream(body), objectMetadata(body, database, collection)))
+                ByteArrayInputStream(body), objectMetadata(body)))
 
-    private fun manifestBody(database: String, collection: String, payloads: List<HbasePayload>) =
+    private fun manifestBody(payloads: List<HbasePayload>) =
         ByteArrayOutputStream().also {
             BufferedOutputStream(it).use { bufferedOutputStream ->
                 payloads.forEach { payload ->
-                    val manifestRecord = manifestRecordForPayload(database, collection, payload)
-                    val body = csv(manifestRecord)
-                    bufferedOutputStream.write(body.toString().toByteArray(Charset.forName("UTF-8")))
+                    manifestRecordForPayload(payload)?.let { manifestRecord ->
+                        bufferedOutputStream.write(csv(manifestRecord).toByteArray(Charset.forName("UTF-8")))
+                    }
                 }
             }
         }.toByteArray()
 
-    private fun manifestRecordForPayload(database: String, collection: String, payload: HbasePayload): ManifestRecord
-            = ManifestRecord(stripId(payload.id), payload.version, database, collection, 
-                MANIFEST_RECORD_SOURCE, MANIFEST_RECORD_COMPONENT, MANIFEST_RECORD_TYPE, payload.id)
+    private fun manifestRecordForPayload(payload: HbasePayload): ManifestRecord? {
+        return textUtils.topicNameTableMatcher(payload.record.topic())?.let {
+            val (database, collection) = it.destructured
+            ManifestRecord(stripId(payload.id), payload.version, database, collection,
+                    MANIFEST_RECORD_SOURCE, MANIFEST_RECORD_COMPONENT, MANIFEST_RECORD_TYPE, payload.id)
+        }
+    }
 
     private fun stripId(id: String): String {
         try {
             val parser: Parser = Parser.default()
             val stringBuilder: StringBuilder = StringBuilder(id)
             val json = parser.parse(stringBuilder) as JsonObject
-            val id_value = json["id"]
-            if (id_value != null) {
-                when (id_value) {
+            val idValue = json["id"]
+            return if (idValue != null) {
+                when (idValue) {
                     is String -> {
-                        return id_value
+                        idValue
                     }
                     is Int -> {
-                        return "$id_value"
+                        "$idValue"
                     }
                     else -> {
-                        return id
+                        id
                     }
                 }
             } else {
-                return id
+                id
             }
         } catch (e: KlaxonException) {
             return id
@@ -85,15 +78,19 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
 
     private fun manifestFileName(payloads: List<HbasePayload>): String {
         val firstRecord = payloads.first().record
-        val last = payloads.last().record
-        val partition = firstRecord.partition()
+        val firstPartition = firstRecord.partition()
         val firstOffset = firstRecord.offset()
-        val lastOffset =  last.offset()
-        val topic = firstRecord.topic()
-        return "${topic}_${partition}_$firstOffset-$lastOffset.txt"
+        val firstTopic = firstRecord.topic()
+
+        val lastRecord = payloads.last().record
+        val lastPartition = lastRecord.partition()
+        val lastOffset =  lastRecord.offset()
+        val lastTopic = lastRecord.topic()
+
+        return "${firstTopic}_${firstPartition}_$firstOffset-${lastTopic}_${lastPartition}_$lastOffset.txt"
     }
 
-    private fun objectMetadata(body: ByteArray, database: String, collection: String)
+    private fun objectMetadata(body: ByteArray)
         = ObjectMetadata().apply {
             contentLength = body.size.toLong()
             contentType = "application/text"
@@ -101,9 +98,6 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
             addUserMetadata("batch_receipt_time", SimpleDateFormat("yyyy/MM/dd HH:mm:ss").apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             }.format(Date()))
-
-            addUserMetadata("database", database.replace('_', '-'))
-            addUserMetadata("collection", collection)
         }
 
     private fun csv(manifestRecord: ManifestRecord) =
@@ -116,8 +110,8 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
         val textUtils = TextUtils()
         val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(ManifestAwsS3Service::class.toString())
         val s3 = Config.AwsS3.s3
-        val MANIFEST_RECORD_SOURCE = "STREAMED"
-        val MANIFEST_RECORD_COMPONENT = "K2HB"
-        val MANIFEST_RECORD_TYPE = "KAFKA_RECORD"
+        const val MANIFEST_RECORD_SOURCE = "STREAMED"
+        const val MANIFEST_RECORD_COMPONENT = "K2HB"
+        const val MANIFEST_RECORD_TYPE = "KAFKA_RECORD"
     }
 }

@@ -54,7 +54,7 @@ open class Converter {
         val lastModifiedTimestampStr = json?.lookup<String?>("message._lastModifiedDateTime")?.get(0)
 
         if (recordType == "MONGO_DELETE") {
-            val kafkaTimestampStr = json?.lookup<String?>("timestamp")?.get(0)
+            val kafkaTimestampStr = json.lookup<String?>("timestamp")[0]
             if (!kafkaTimestampStr.isNullOrBlank()) {
                 return Pair(kafkaTimestampStr, "kafkaMessageDateTime")
             }

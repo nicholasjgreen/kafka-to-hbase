@@ -25,7 +25,7 @@ fun getEnv(envVar: String): String? {
     return if (value.isNullOrEmpty()) null else value
 }
 
-fun String.toDuration() = Duration.parse(this)
+fun String.toDuration(): Duration = Duration.parse(this)
 fun readFile(fileName: String): String = File(fileName).readText(Charsets.UTF_8)
 
 object Config {
@@ -148,13 +148,13 @@ object Config {
     }
 
     object AwsS3 {
-        val maxS3Connections: Int = (getEnv("K2HB_AWS_S3_MAX_CONNECTIONS") ?: "2000").toInt()
-        val useLocalStack = (getEnv("K2HB_AWS_S3_USE_LOCALSTACK") ?: "false").toBoolean()
-        val region = getEnv("K2HB_AWS_S3_REGION") ?: dataworksRegion
+        private val maxS3Connections: Int = (getEnv("K2HB_AWS_S3_MAX_CONNECTIONS") ?: "2000").toInt()
+        private val useLocalStack = (getEnv("K2HB_AWS_S3_USE_LOCALSTACK") ?: "false").toBoolean()
+        private val region = getEnv("K2HB_AWS_S3_REGION") ?: dataworksRegion
 
-        const val localstackServiceEndPoint = "http://aws-s3:4566/"
-        const val localstackAccessKey = "AWS_ACCESS_KEY_ID"
-        const val localstackSecretKey = "AWS_SECRET_ACCESS_KEY"
+        private const val localstackServiceEndPoint = "http://aws-s3:4566/"
+        private const val localstackAccessKey = "AWS_ACCESS_KEY_ID"
+        private const val localstackSecretKey = "AWS_SECRET_ACCESS_KEY"
 
         val s3: AmazonS3 by lazy {
             if (useLocalStack) {

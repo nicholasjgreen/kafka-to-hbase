@@ -1,3 +1,4 @@
+
 import com.beust.klaxon.JsonObject
 import kotlinx.coroutines.*
 import org.apache.hadoop.hbase.util.Bytes
@@ -6,14 +7,13 @@ import org.apache.kafka.clients.consumer.ConsumerRecords
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
-import java.text.SimpleDateFormat
-import java.util.*
 
 class ListProcessor(validator: Validator, private val converter: Converter) : BaseProcessor(validator, converter) {
 
     fun processRecords(hbase: HbaseClient, consumer: KafkaConsumer<ByteArray, ByteArray>, metadataClient: MetadataStoreClient,
         s3Service: ArchiveAwsS3Service, manifestService: ManifestAwsS3Service, parser: MessageParser, records: ConsumerRecords<ByteArray, ByteArray>) {
         runBlocking {
+            val successfulPayloads = mutableListOf<HbasePayload>()
             records.partitions().forEach { partition ->
                 val partitionRecords = records.records(partition)
                 val payloads = payloads(partitionRecords, parser)
@@ -22,14 +22,14 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                         val s3Ok = async { putInS3(s3Service, table, payloads) }
                         val hbaseOk = async { putInHbase(hbase, table, payloads) }
                         val metadataStoreOk = async { putInMetadataStore(metadataClient, payloads) }
-                        val manifestOk = async { putManifest(manifestService, table, payloads) }
 
-                        if (s3Ok.await() && hbaseOk.await() && metadataStoreOk.await() && manifestOk.await()) {
+                        if (s3Ok.await() && hbaseOk.await() && metadataStoreOk.await()) {
                             val lastPosition = lastPosition(partitionRecords)
                             logger.info("Batch succeeded, committing offset", "topic", partition.topic(),
                                 "partition","${partition.partition()}", "offset", "$lastPosition")
                             consumer.commitSync(mapOf(partition to OffsetAndMetadata(lastPosition + 1)))
                             logSuccessfulPuts(table, payloads)
+                            successfulPayloads.addAll(payloads)
                         } else {
                             lastCommittedOffset(consumer, partition)?.let { consumer.seek(partition, it) }
                             logger.error("Batch failed, not committing offset, resetting position to last commit",
@@ -39,6 +39,7 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                     }
                 }
             }
+            putManifest(manifestService, successfulPayloads)
         }
     }
 
@@ -87,16 +88,16 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                 "Failed to put record", "table", table,
                 "key", textUtils.printableKey(it.key), 
                 "version", "${it.version}",
-                "version_created_from", "${it.versionCreatedFrom}",
-                "version_raw", "${it.versionRaw}"
+                "version_created_from", it.versionCreatedFrom,
+                "version_raw", it.versionRaw
             )
         }
 
-    private suspend fun putManifest(manifestService: ManifestAwsS3Service, table: String, payloads: List<HbasePayload>) =
+    private suspend fun putManifest(manifestService: ManifestAwsS3Service, payloads: List<HbasePayload>) =
         withContext(Dispatchers.IO) {
             try {
                 if (Config.ManifestS3.writeManifests) {
-                    manifestService.putManifestFile(table, payloads)
+                    manifestService.putManifestFile(payloads)
                 }
                 true
             } catch (e: Exception) {
@@ -114,13 +115,13 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                 "table", table, 
                 "key", textUtils.printableKey(it.key), 
                 "version", "${it.version}",
-                "version_created_from", "${it.versionCreatedFrom}",
-                "version_raw", "${it.versionRaw}"
+                "version_created_from", it.versionCreatedFrom,
+                "version_raw", it.versionRaw
             )
         }
 
     private fun lastCommittedOffset(consumer: KafkaConsumer<ByteArray, ByteArray>, partition: TopicPartition): Long? =
-        consumer.committed(partition)?.let { it.offset() }
+            consumer.committed(partition)?.offset()
 
     private fun lastPosition(partitionRecords: MutableList<ConsumerRecord<ByteArray, ByteArray>>) =
         partitionRecords[partitionRecords.size - 1].offset()
@@ -132,7 +133,7 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
         records.mapNotNull { record ->
             recordAsJson(record)?.let { json ->
                 val (unformattedId, formattedKey) = parser.generateKeyFromRecordBody(json)
-                val qualifiedId = if (unformattedId == null) "" else unformattedId
+                val qualifiedId = unformattedId ?: ""
                 if (formattedKey.isNotEmpty()) hbasePayload(json, qualifiedId, formattedKey, record) else null
             }
         }

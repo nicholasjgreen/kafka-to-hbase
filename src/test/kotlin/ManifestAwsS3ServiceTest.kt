@@ -4,14 +4,12 @@ import com.amazonaws.services.s3.model.PutObjectRequest
 import com.nhaarman.mockitokotlin2.*
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import org.apache.commons.codec.binary.Hex
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.io.InputStreamReader
 import java.io.LineNumberReader
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.zip.GZIPInputStream
 
 class ManifestAwsS3ServiceTest : StringSpec() {
     init {
@@ -19,13 +17,13 @@ class ManifestAwsS3ServiceTest : StringSpec() {
             val amazonS3 = mock<AmazonS3>()
             val manifestAwsS3Service = ManifestAwsS3Service(amazonS3)
             val payloads = hbasePayloads()
-            manifestAwsS3Service.putManifestFile("database_one:collection_one", payloads)
+            manifestAwsS3Service.putManifestFile(payloads)
             val requestCaptor = argumentCaptor<PutObjectRequest>()
             verify(amazonS3, times(1)).putObject(requestCaptor.capture())
             verifyNoMoreInteractions(amazonS3)
             val request = requestCaptor.firstValue
             request.bucketName shouldBe "manifests"
-            request.key shouldBe "streaming/db.database-one.collection_one_10_1-100.txt"
+            request.key shouldBe "streaming/db.database-one.collection_one_10_1-db.database-one.collection_one_10_100.txt"
             val lineReader = LineNumberReader(InputStreamReader(request.inputStream))
 
             var lineCount = 0
@@ -40,12 +38,10 @@ class ManifestAwsS3ServiceTest : StringSpec() {
             val amazonS3 = mock<AmazonS3>()
             val manifestAwsS3Service = ManifestAwsS3Service(amazonS3)
             val payloads = hbasePayloads()
-            manifestAwsS3Service.putManifestFile("database_one:collection_one", payloads)
+            manifestAwsS3Service.putManifestFile(payloads)
             val requestCaptor = argumentCaptor<PutObjectRequest>()
             verify(amazonS3, times(1)).putObject(requestCaptor.capture())
             verifyNoMoreInteractions(amazonS3)
-            val request = requestCaptor.firstValue
-            validateUserMetadata(request.metadata.userMetadata)
         }
     }
 
@@ -85,10 +81,6 @@ class ManifestAwsS3ServiceTest : StringSpec() {
             """.trimIndent()
         }
 
-    private fun validateUserMetadata(userMetadata: MutableMap<String, String>) {
-        userMetadata["database"] shouldBe "database-one"
-        userMetadata["collection"] shouldBe "collection_one"
-    }
 
     private fun payloadTime(index: Int) = payloadTimestamp(index).time
     private fun payloadTimestamp(index: Int) = dateFormat().parse(payloadDate(index))

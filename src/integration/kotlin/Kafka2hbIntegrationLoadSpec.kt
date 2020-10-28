@@ -21,7 +21,7 @@ import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.Scan
 import org.apache.hadoop.hbase.client.Table
 import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.log4j.Logger
+import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPInputStream
 import kotlin.time.ExperimentalTime
@@ -32,12 +32,11 @@ import kotlin.time.seconds
 class Kafka2hbIntegrationLoadSpec : StringSpec() {
 
     companion object {
-        private val log = Logger.getLogger(Kafka2hbIntegrationLoadSpec::class.toString())
         private const val TOPIC_COUNT = 10
         private const val RECORDS_PER_TOPIC = 1_000
-        private const val BATCHES_PER_TOPIC = 2
         private const val DB_NAME = "load-test-database"
         private const val COLLECTION_NAME = "load-test-collection"
+        private val logger = LoggerFactory.getLogger(Kafka2hbIntegrationLoadSpec::class.java)
     }
 
     init {
@@ -58,9 +57,9 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
             val topic = topicName(collectionNumber)
             repeat(RECORDS_PER_TOPIC) { messageNumber ->
                 val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-                logger.info("Sending record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
+                logger.debug("Sending record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
                 producer.sendRecord(topic.toByteArray(), recordId(collectionNumber, messageNumber), body(messageNumber), timestamp)
-                logger.info("Sent record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
+                logger.debug("Sent record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
             }
         }
         logger.info("Started record producer")
@@ -116,17 +115,17 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
         val contentsList = allManifestObjectContentsAsString()
         contentsList.forEach {
             val manifestLines = it.split("\n")
-            manifestLines.filter(String::isNotBlank).forEach {
-                val fields = it.split("|")
+            manifestLines.filter(String::isNotBlank).forEach { line ->
+                val fields = line.split("|")
                 fields.size shouldBe 8
-                fields.get(0) shouldNotBe ""
-                fields.get(1) shouldNotBe ""
-                fields.get(2) shouldNotBe ""
-                fields.get(3) shouldNotBe ""
-                fields.get(4) shouldBe "STREAMED"
-                fields.get(5) shouldBe "K2HB"
-                fields.get(6) shouldNotBe ""
-                fields.get(7) shouldBe "KAFKA_RECORD"
+                fields[0] shouldNotBe ""
+                fields[1] shouldNotBe ""
+                fields[2] shouldNotBe ""
+                fields[3] shouldNotBe ""
+                fields[4] shouldBe "STREAMED"
+                fields[5] shouldBe "K2HB"
+                fields[6] shouldNotBe ""
+                fields[7] shouldBe "KAFKA_RECORD"
             }
         }
     }

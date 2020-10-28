@@ -190,8 +190,8 @@ class ListProcessorTest : StringSpec() {
                 }
             })
 
-    private fun archiveAwsS3Service(): ArchiveAwsS3Service = mock<ArchiveAwsS3Service> { on { runBlocking { putObjects(any(), any()) } } doAnswer { } }
-    private fun manifestAwsS3Service(): ManifestAwsS3Service = mock<ManifestAwsS3Service> { on { runBlocking { putManifestFile(any(), any()) } } doAnswer { } }
+    private fun archiveAwsS3Service(): ArchiveAwsS3Service = mock { on { runBlocking { putObjects(any(), any()) } } doAnswer { } }
+    private fun manifestAwsS3Service(): ManifestAwsS3Service = mock { on { runBlocking { putManifestFile(any()) } } doAnswer { } }
     
     private fun json(id: Any) = """{ "message": { "_id": { "id": "$id" } } }"""
     private fun topicName(topicNumber: Int) = "db.database%02d.collection%02d".format(topicNumber, topicNumber)
