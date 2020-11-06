@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import lib.*
@@ -18,8 +19,6 @@ import kotlin.time.seconds
 
 @ExperimentalTime
 class Kafka2hbUcfsIntegrationSpec : StringSpec() {
-
-    private val log = Logger.getLogger(Kafka2hbUcfsIntegrationSpec::class.toString())
 
     init {
         "UCFS Messages with new identifiers are written to hbase but not to dlq" {
@@ -51,7 +50,14 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val storedValue =
                 waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
-            String(storedValue!!) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
+
+            storedValue shouldNotBe null
+            val jsonObject = Gson().fromJson(String(storedValue!!), JsonObject::class.java)
+            val putTime = jsonObject["put_time"].asJsonPrimitive.asString
+            putTime shouldNotBe null
+            val expected = Gson().fromJson(String(body), JsonObject::class.java)
+            expected.addProperty("put_time", putTime)
+            String(storedValue!!) shouldBe expected.toString()
 
             val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries1.size shouldBe 0
@@ -80,8 +86,13 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             log.info("Sent well-formed record to kafka topic '$topic'.")
             val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val storedValue = waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
-            String(storedValue!!) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
 
+            val jsonObject = Gson().fromJson(String(storedValue!!), JsonObject::class.java)
+            val putTime = jsonObject["put_time"].asJsonPrimitive.asString
+            putTime shouldNotBe null
+            val expected = Gson().fromJson(String(body), JsonObject::class.java)
+            expected.addProperty("put_time", putTime)
+            String(storedValue!!) shouldBe expected.toString()
             verifyMetadataStore(1, topic, true)
         }
 
@@ -120,10 +131,12 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
 
             val storedNewValue =
                 waitFor { hbase.getCellAfterTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
-            Gson().fromJson(
-                String(storedNewValue!!),
-                JsonObject::class.java
-            ) shouldBe Gson().fromJson(String(body2), JsonObject::class.java)
+            val jsonObject = Gson().fromJson(String(storedNewValue!!), JsonObject::class.java)
+            val putTime = jsonObject["put_time"].asJsonPrimitive.asString
+            putTime shouldNotBe null
+            val expected = Gson().fromJson(String(body2), JsonObject::class.java)
+            expected.addProperty("put_time", putTime)
+            String(storedNewValue!!) shouldBe expected.toString()
 
             val storedPreviousValue =
                 waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
@@ -219,7 +232,12 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             }
 
             log.info("storedValue: $storedValue")
-            String(storedValue) shouldBe Gson().fromJson(String(body), JsonObject::class.java).toString()
+            val jsonObject = Gson().fromJson(String(storedValue!!), JsonObject::class.java)
+            val putTime = jsonObject["put_time"].asJsonPrimitive.asString
+            putTime shouldNotBe null
+            val expected = Gson().fromJson(String(body), JsonObject::class.java)
+            expected.addProperty("put_time", putTime)
+            String(storedValue!!) shouldBe expected.toString()
 
             val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries1.size shouldBe 0
@@ -227,4 +245,5 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
         }
     }
 
+    private val log = Logger.getLogger(Kafka2hbUcfsIntegrationSpec::class.toString())
 }

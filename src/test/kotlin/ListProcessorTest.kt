@@ -1,4 +1,6 @@
 
+import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.nhaarman.mockitokotlin2.*
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -67,7 +69,10 @@ class ListProcessorTest : StringSpec() {
             payloads.size shouldBe 100
             payloads.forEachIndexed { index, payload ->
                 String(payload.key).toInt() shouldBe index + ((payloadsNo) * 100)
-                String(payload.body) shouldBe hbaseBody(index)
+                val body = Gson().fromJson(String(payload.body), JsonObject::class.java)
+                val putTime = body["put_time"].asJsonPrimitive.asString
+                putTime shouldNotBe null
+                String(payload.body) shouldBe hbaseBody(index, putTime)
                 payload.record.partition() shouldBe (index + 1) % 20
                 payload.record.offset() shouldBe ((payloadsNo + 1) * (index + 1)) * 20
             }
@@ -80,7 +85,10 @@ class ListProcessorTest : StringSpec() {
             payloads.size shouldBe 100
             payloads.forEachIndexed { index, payload ->
                 String(payload.key).toInt() shouldBe (index) + (payloadsNo * 100)
-                String(payload.body) shouldBe hbaseBody(index)
+                val body = Gson().fromJson(String(payload.body), JsonObject::class.java)
+                val putTime = body["put_time"].asJsonPrimitive.asString
+                putTime shouldNotBe null
+                String(payload.body) shouldBe hbaseBody(index, putTime)
                 payload.record.partition() shouldBe (index + 1) % 20
                 payload.record.offset() shouldBe ((payloadsNo + 1) * (index + 1)) * 20
             }
@@ -195,7 +203,7 @@ class ListProcessorTest : StringSpec() {
     
     private fun json(id: Any) = """{ "message": { "_id": { "id": "$id" } } }"""
     private fun topicName(topicNumber: Int) = "db.database%02d.collection%02d".format(topicNumber, topicNumber)
-    private fun hbaseBody(index: Int) =
-            """{"message":{"_id":{"id":"${(index % 100) + 1}"},"timestamp_created_from":"epoch"}}"""
+    private fun hbaseBody(index: Int, putTime: String = "") =
+            """{"message":{"_id":{"id":"${(index % 100) + 1}"},"timestamp_created_from":"epoch"}""" + (if (putTime.isNotBlank()) ""","put_time":"$putTime"""" else "") + "}"
     private fun tableName(tableNumber: Int) =  "database%02d:collection%02d".format(tableNumber, tableNumber)
 }

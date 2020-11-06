@@ -7,6 +7,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
+import java.text.SimpleDateFormat
+import java.util.*
 
 class ListProcessor(validator: Validator, private val converter: Converter) : BaseProcessor(validator, converter) {
 
@@ -147,6 +149,7 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
         val (timestamp, source) = converter.getLastModifiedTimestamp(json)
         val message = json["message"] as JsonObject
         message["timestamp_created_from"] = source
+        json["put_time"] = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(Date())
         val version = converter.getTimestampAsLong(timestamp)
         return HbasePayload(formattedKey, Bytes.toBytes(json.toJsonString()), unformattedId, version, source, timestamp, record)
     }
