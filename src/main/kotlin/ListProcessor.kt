@@ -110,17 +110,19 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
         }
 
 
-    private fun logSuccessfulPuts(table: String, payloads: List<HbasePayload>) =
+    private fun logSuccessfulPuts(table: String, payloads: List<HbasePayload>) {
         payloads.forEach {
             logger.info(
-                "Put record", 
-                "table", table, 
-                "key", textUtils.printableKey(it.key), 
-                "version", "${it.version}",
-                "version_created_from", it.versionCreatedFrom,
-                "version_raw", it.versionRaw
+                    "Put record",
+                    "table", table,
+                    "key", textUtils.printableKey(it.key),
+                    "version", "${it.version}",
+                    "version_created_from", it.versionCreatedFrom,
+                    "version_raw", it.versionRaw,
+                    "time_since_last_modified", "${(it.putTime - it.version) / 1000}"
             )
         }
+    }
 
     private fun lastCommittedOffset(consumer: KafkaConsumer<ByteArray, ByteArray>, partition: TopicPartition): Long? =
             consumer.committed(partition)?.offset()
@@ -149,9 +151,11 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
         val (timestamp, source) = converter.getLastModifiedTimestamp(json)
         val message = json["message"] as JsonObject
         message["timestamp_created_from"] = source
-        json["put_time"] = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(Date())
+        val putTime = Date()
+        json["put_time"] = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(putTime)
         val version = converter.getTimestampAsLong(timestamp)
-        return HbasePayload(formattedKey, Bytes.toBytes(json.toJsonString()), unformattedId, version, source, timestamp, record)
+        return HbasePayload(formattedKey, Bytes.toBytes(json.toJsonString()), unformattedId, version, source,
+                timestamp, record, putTime.time)
     }
 
     companion object {
