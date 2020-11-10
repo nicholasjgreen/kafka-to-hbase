@@ -150,7 +150,7 @@ class HbaseClientTest : StringSpec({
         val hbaseClient = HbaseClient(connection, "cf".toByteArray(), "record".toByteArray(), 2)
         hbaseClient.ensureTable("$namespace:$tableQualifier")
         verify(adm, times(0)).createNamespace(any())
-        verify(adm, times(0)).createTable(any())
+        verify(adm, times(0)).createTable(any(), any())
     }
 
     "Namespace and table created" {
@@ -165,6 +165,8 @@ class HbaseClientTest : StringSpec({
         val newNamespace = "ns2"
         val newTableQualifier = "table2"
         val newQualifiedTableName = "$newNamespace:$newTableQualifier"
+        val splits = calculateSplits(2).toTypedArray()
+
         hbaseClient.ensureTable(newQualifiedTableName)
 
         verify(adm, times(1)).createNamespace(any())
@@ -180,7 +182,13 @@ class HbaseClientTest : StringSpec({
             setRegionReplication(hbaseRegionReplication)
         }
 
-        verify(adm, times(1)).createTable(tableDescriptor)
+        val splitsCaptor = argumentCaptor<Array<ByteArray>>()
+        val htableDescriptorCaptor = argumentCaptor<HTableDescriptor>()
+
+        verify(adm, times(1)).createTable(htableDescriptorCaptor.capture(), splitsCaptor.capture())
+
+        htableDescriptorCaptor.firstValue shouldBe tableDescriptor
+        splitsCaptor.firstValue shouldBe splits
     }
 
     "Namespace not created but table is created" {
@@ -203,6 +211,7 @@ class HbaseClientTest : StringSpec({
         val hbaseClient = HbaseClient(connection, dataFamily, dataQualifier, hbaseRegionReplication)
         val newTableQualifier = "table2"
         val newQualifiedTableName = "$namespace:$newTableQualifier"
+        val splits = calculateSplits(2).toTypedArray()
         hbaseClient.ensureTable(newQualifiedTableName)
 
         verify(newAdm, times(0)).createNamespace(any())
@@ -218,6 +227,12 @@ class HbaseClientTest : StringSpec({
             setRegionReplication(hbaseRegionReplication)
         }
 
-        verify(newAdm, times(1)).createTable(tableDescriptor)
+        val splitsCaptor = argumentCaptor<Array<ByteArray>>()
+        val htableDescriptorCaptor = argumentCaptor<HTableDescriptor>()
+
+        verify(newAdm, times(1)).createTable(htableDescriptorCaptor.capture(), splitsCaptor.capture())
+
+        htableDescriptorCaptor.firstValue shouldBe tableDescriptor
+        splitsCaptor.firstValue shouldBe splits
     }
 })

@@ -5,12 +5,17 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import lib.*
+import org.apache.hadoop.hbase.TableName
 import org.apache.kafka.clients.producer.KafkaProducer
 import java.io.BufferedReader
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.time.ExperimentalTime
+import kotlin.time.minutes
+import kotlin.time.seconds
 
 @ExperimentalTime
 class Kafka2hbEqualityIntegrationSpec : StringSpec() {
@@ -27,7 +32,9 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val namespace = matcher.groupValues[1]
             val tableName = matcher.groupValues[2]
             val qualifiedTableName = sampleQualifiedTableName(namespace, tableName)
+
             hbase.ensureTable(qualifiedTableName)
+
             val s3Client = getS3Client()
             val summaries = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries.forEach { s3Client.deleteObject("kafka2s3", it.key) }
@@ -59,7 +66,7 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val summariesManifests1 = s3Client.listObjectsV2("manifests", "streaming").objectSummaries
             summariesManifests1.size shouldBe 0
 
-
+            verifyHbaseRegions(expectedTablesToRegions, regionReplication, regionServers)
             verifyMetadataStore(1, topic, true)
         }
 
@@ -159,5 +166,8 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             verifyMetadataStore(0, topic, true)
         }
     }
-
 }
+
+private const val regionReplication = 3
+private const val regionServers = 2
+private const val expectedTablesToRegions = 5

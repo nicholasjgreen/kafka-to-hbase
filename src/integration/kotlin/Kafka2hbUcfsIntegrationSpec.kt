@@ -1,4 +1,3 @@
-
 import com.beust.klaxon.Klaxon
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -6,8 +5,10 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import lib.*
+import org.apache.hadoop.hbase.TableName
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.log4j.Logger
 import java.io.BufferedReader
@@ -22,6 +23,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
 
     init {
         "UCFS Messages with new identifiers are written to hbase but not to dlq" {
+
             val hbase = HbaseClient.connect()
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             val parser = MessageParser()
@@ -64,6 +66,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val summariesManifests1 = s3Client.listObjectsV2("manifests", "manifest_prefix").objectSummaries
             summariesManifests1.size shouldBe 1
 
+            verifyHbaseRegions(expectedTablesToRegions, regionReplication, regionServers)
             verifyMetadataStore(1, topic, true)
         }
 
@@ -244,6 +247,10 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             verifyMetadataStore(1, topic, true)
         }
     }
-
+  
     private val log = Logger.getLogger(Kafka2hbUcfsIntegrationSpec::class.toString())
 }
+
+private const val regionReplication = 3
+private const val regionServers = 2
+private const val expectedTablesToRegions = 1

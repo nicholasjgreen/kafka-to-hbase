@@ -19,6 +19,8 @@ import java.io.File
 import java.time.Duration
 import java.util.*
 import java.util.regex.Pattern
+import kotlin.time.ExperimentalTime
+import kotlin.time.hours
 
 fun getEnv(envVar: String): String? {
     val value = System.getenv(envVar)
@@ -69,6 +71,9 @@ object Config {
         val logKeys: Boolean = getEnv("K2HB_HBASE_LOG_KEYS")?.toBoolean() ?: true
         var DEFAULT_QUALIFIED_TABLE_PATTERN = """^\w+\.([-\w]+)\.([-.\w]+)$"""
         var qualifiedTablePattern = getEnv("K2HB_QUALIFIED_TABLE_PATTERN") ?: DEFAULT_QUALIFIED_TABLE_PATTERN
+        val regionSplits = getEnv("K2HB_HBASE_REGION_SPLITS") ?: "2"
+        @ExperimentalTime
+        val creationTimeoutSeconds = getEnv("K2HB_HBASE_CREATION_TIMEOUT_SECONDS")?.toInt() ?: 1.hours.inSeconds.toInt()
     }
 
     object Kafka {

@@ -1,4 +1,3 @@
-
 import org.apache.hadoop.hbase.*
 import org.apache.hadoop.hbase.client.*
 import org.apache.hadoop.hbase.io.TimeRange
@@ -6,8 +5,10 @@ import org.apache.hadoop.hbase.io.compress.Compression.Algorithm
 import java.io.IOException
 import kotlin.system.measureTimeMillis
 
-open class HbaseClient(val connection: Connection, private val columnFamily: ByteArray,
-                       private val columnQualifier: ByteArray, private val hbaseRegionReplication: Int): AutoCloseable {
+open class HbaseClient(
+    val connection: Connection, private val columnFamily: ByteArray,
+    private val columnQualifier: ByteArray, private val hbaseRegionReplication: Int
+) : AutoCloseable {
 
     @Throws(IOException::class)
     open fun putList(tableName: String, payloads: List<HbasePayload>) {
@@ -43,18 +44,14 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
                     "max_attempts", "${Config.Hbase.retryMaxAttempts}", "retry_delay", "$delay", "error_message","${e.message}")
                 Thread.sleep(delay)
                 exception = e
-            }
-            finally {
+            } finally {
                 attempts++
             }
         }
 
-        if (!success) {
-            if (exception != null) {
-                throw exception
-            }
+        if (!success && exception != null) {
+            throw exception
         }
-
     }
 
     @Throws(Exception::class)
@@ -79,7 +76,6 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         }
     }
 
-
     private fun attemptPut(tableName: String, key: ByteArray, version: Long, body: ByteArray) {
 
         connection.getTable(TableName.valueOf(tableName)).use { table ->
@@ -94,8 +90,10 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
                     })
 
                     if (!exists) {
-                        logger.warn("Put record does not exist","attempts", "$attempts",
-                            "key", textUtils.printableKey(key), "table", tableName, "version", "$version")
+                        logger.warn(
+                            "Put record does not exist", "attempts", "$attempts",
+                            "key", textUtils.printableKey(key), "table", tableName, "version", "$version"
+                        )
                         if (++attempts >= Config.Hbase.maxExistenceChecks) {
                             logger.error("Put record does not exist after max retry attempts",
                                 "attempts", "$attempts", "key", textUtils.printableKey(key), "table", tableName, "version", "$version")
@@ -143,37 +141,53 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
             try {
                 logger.info("Creating namespace", "namespace", namespace)
                 connection.admin.createNamespace(NamespaceDescriptor.create(namespace).build())
-            }
-            catch (e: NamespaceExistException) {
+            } catch (e: NamespaceExistException) {
                 logger.info("Namespace already exists, probably created by another process", "namespace", namespace)
-            }
-            finally {
+            } finally {
                 namespaces[namespace] = true
             }
         }
 
         if (!tables.contains(tableName)) {
-            logger.info("Creating table", "table_name", "$dataTableName")
-            try {
-                connection.admin.createTable(HTableDescriptor(dataTableName).apply {
-                    addFamily(
-                        HColumnDescriptor(columnFamily)
-                            .apply {
-                                maxVersions = Int.MAX_VALUE
-                                minVersions = 1
-                                compressionType = Algorithm.GZ
-                                compactionCompressionType = Algorithm.GZ
-                            })
-                    regionReplication = hbaseRegionReplication
-                })
-            } catch (e: TableExistsException) {
-                logger.info("Didn't create table, table already exists, probably created by another process",
-                    "table_name", tableName)
-            } finally {
-                tables[tableName] = true
+
+            val hbaseTable = HTableDescriptor(dataTableName).apply {
+                addFamily(
+                    HColumnDescriptor(columnFamily)
+                        .apply {
+                            maxVersions = Int.MAX_VALUE
+                            minVersions = 1
+                            compressionType = Algorithm.GZ
+                            compactionCompressionType = Algorithm.GZ
+                        })
+                regionReplication = hbaseRegionReplication
             }
+
+            createTableInHbase(hbaseTable)
         }
     }
+
+    private fun createTableInHbase(hbaseTable: HTableDescriptor) {
+
+        val regionSplits = Config.Hbase.regionSplits.toInt()
+        val splits = calculateSplits(regionSplits)
+
+        try {
+            logger.info("Creating table",
+                "table_name", hbaseTable.nameAsString,
+                "region_splits", "$regionSplits")
+
+            connection.admin.createTable(hbaseTable, splits.toTypedArray())
+        } catch (e: TableExistsException) {
+            logger.info(
+                "Didn't create table, table already exists, probably created by another process",
+                "table_name", hbaseTable.nameAsString
+            )
+        } finally {
+            tables[hbaseTable.nameAsString] = true
+        }
+    }
+
+    open fun getTableRegions(tableName: TableName): MutableList<HRegionInfo> = connection.admin.getTableRegions(tableName)
 
     private val namespaces by lazy {
         val extantNamespaces = mutableMapOf<String, Boolean>()
@@ -186,7 +200,7 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         extantNamespaces
     }
 
-    private val tables by lazy {
+    val tables by lazy {
         val names = mutableMapOf<String, Boolean>()
 
         connection.admin.listTableNames().forEach {
@@ -198,23 +212,24 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
 
     companion object {
         fun connect(): HbaseClient {
-            logger.info("Hbase connection configuration",
-                    HConstants.ZOOKEEPER_ZNODE_PARENT, Config.Hbase.config.get(HConstants.ZOOKEEPER_ZNODE_PARENT),
-                    HConstants.ZOOKEEPER_QUORUM, Config.Hbase.config.get(HConstants.ZOOKEEPER_QUORUM),
-                    "hbase.zookeeper.port", Config.Hbase.config.get("hbase.zookeeper.port"))
+            logger.info(
+                "Hbase connection configuration",
+                HConstants.ZOOKEEPER_ZNODE_PARENT, Config.Hbase.config.get(HConstants.ZOOKEEPER_ZNODE_PARENT),
+                HConstants.ZOOKEEPER_QUORUM, Config.Hbase.config.get(HConstants.ZOOKEEPER_QUORUM),
+                "hbase.zookeeper.port", Config.Hbase.config.get("hbase.zookeeper.port")
+            )
 
             return HbaseClient(
-                    ConnectionFactory.createConnection(HBaseConfiguration.create(Config.Hbase.config)),
-                    Config.Hbase.columnFamily.toByteArray(),
-                    Config.Hbase.columnQualifier.toByteArray(),
-                    Config.Hbase.regionReplication)
+                ConnectionFactory.createConnection(HBaseConfiguration.create(Config.Hbase.config)),
+                Config.Hbase.columnFamily.toByteArray(),
+                Config.Hbase.columnQualifier.toByteArray(),
+                Config.Hbase.regionReplication
+            )
         }
 
         private val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(HbaseClient::class.toString())
         private val textUtils = TextUtils()
     }
 
-
     override fun close() = connection.close()
-
 }
