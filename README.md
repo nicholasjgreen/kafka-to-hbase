@@ -17,7 +17,7 @@ of the message and one to store a count and last received date of the
 topic. These are configured using the `K2HB_KAFKA_TOPIC_*` and
 `K2HB_KAFKA_DATA_*` environment variables.
 
-By default if the kafka topic is `db.database-name.collection-name` the data table is `database_name:collection_name` 
+By default, if the kafka topic is `db.database-name.collection-name` the data table is `database_name:collection_name` 
 with a column family of `topic`. 
 Collections support additional `.` characters but hbase does not, so from `db.database-name.coll-ection.name` we would 
 get a table `database_name:coll_ection_name`
@@ -38,11 +38,11 @@ ROW                                       COLUMN+CELL
 
 Kafka2Hbase will attempt to create the required namespaces, tables and column families on startup - If they already exist, nothing will happen. 
 
-By default the data table column family has a maximum of MAXINT versions (approximately 2.1 billion) and a minimum of 1 version; There is no TTL.
+By default, the data table column family has a maximum of MAXINT versions (approximately 2.1 billion) and a minimum of 1 version; There is no TTL.
 
 ## Agreed Schemas with upstream sources.
 
-Currently the only upstream source is the UC Kafka Broker.
+Currently, the only upstream source is the UC Kafka Broker.
 
 All the schemas are found in [src/main/resources](src/main/resources)
 
@@ -84,3 +84,40 @@ All the schemas are found in [src/main/resources](src/main/resources)
 * Sample kafka message: [audit-message-sample.json](docs/audit-message-sample.json)
 * Sample unencrypted message payload from `dbObject`: [audit-message-sample-unencrypted-payload.json](docs/audit-message-sample-unencrypted-payload.json)
   * Note that k2hb does not decrypt this, it is for reference only
+
+### Environment Variables
+|----|---|                                                                                                                                                                                    
+| K2HB_AWS_S3_BATCH_PUTS | A toggle for whether to use batch puts for writing to s3, e.g. `true` |                                                                                                                                                                          
+| K2HB_AWS_S3_USE_LOCALSTACK | A toggle for whether to use localstack for local development, e.g. `true` |
+| K2HB_HBASE_ZOOKEEPER_PARENT | The node in zookeeper that identifies hbase e.g. `/hbase` |                                                                                                                                                                  
+| K2HB_HBASE_ZOOKEEPER_PORT | The port to use for connecting to zookeeper i.e. `2181` |                                                                                                                                                                    
+| K2HB_HBASE_ZOOKEEPER_QUORUM | The zookeeper host e.g. `hbase.dataworks.dwp.gov.uk` |                                                                                                                                                                        
+| K2HB_HBASE_OPERATION_TIMEOUT_MILLISECONDS | Top-level restriction for making sure a blocking operation in Table will not be blocked more than this |                                                                                                                                                                  
+| K2HB_HBASE_PAUSE_MILLISECONDS | The time in milliseconds for hbase to pause when writing to Hbase, e.g. `50` |                                                                                                                                                                    
+| K2HB_HBASE_RETRIES | The number of retries that will be attempted before failing to write to Hbase |                                                                                                                                                                  
+| K2HB_HBASE_RPC_TIMEOUT_MILLISECONDS | How long HBase client applications take for a remote call to time out. |                                                                                                                                                          
+| K2HB_KAFKA_DLQ_TOPIC | The topic to listen for on the kafka dlq, e.g. `test-dlq-topic` |                                                                                                                                                       
+| K2HB_RDS_USER | The user to use when connecting to the metadatastore e.g. `k2hbwriter` |                                                                                                                                                                      
+| K2HB_RDS_PASSWORD_SECRET_NAME | The name of the secret manager secret used to store the database users password  |                                                                                                                                                      
+| K2HB_RDS_DATABASE_NAME | The database that holds the reconciler table e.g. `metadatastore` |                                                                                                                                                   
+| K2HB_METADATA_STORE_TABLE | The reconciler database table we want to write to e.g. `ucfs` |                                                                                                                                                                        
+| K2HB_RDS_ENDPOINT | The reconciler database host or endpoint |                                                                                                                                                                  
+| K2HB_RDS_PORT | The port to connect to when establishing metadata store connection, e.g. `3306` |                                                                                                                                
+| K2HB_RDS_CA_CERT_PATH | The certification location that is needed for authenticating with the rds database, e.g. `/certs/AmazonRootCA1.pem` |                                                                                                                                                                    
+| K2HB_USE_AWS_SECRETS | Whether to look up the metadatastore password in aws secret manager |                                                                                                                                                           
+| K2HB_KAFKA_INSECURE | A toggle for whether the connection for kafka is insecure |                                                                                                                                                
+| K2HB_KAFKA_MAX_POLL_RECORDS | The number of unreconciled records to read at a time. |                                                                                                                                                      
+| K2HB_KAFKA_META_REFRESH_MS | The refresh in milliseconds for kafka metadata, e.g. `1000` |                                                                                                                                                        
+| K2HB_KAFKA_POLL_TIMEOUT | The timeout for how long it will wait when polling Kafka, e.g. `PT10S` |   
+| K2HB_HBASE_REGION_SPLITS | The number of regions to set when k2hb creates a missing table e.g. `2` | 
+| K2HB_WRITE_TO_METADATA_STORE | Whether the application should write to the metadata store |
+| K2HB_VALIDATOR_SCHEMA | A json file that encompasses the validator schema, e.g. `business_message.schema.json` |
+| K2HB_KAFKA_TOPIC_REGEX | The regex for getting the Kafka topic name, e.g. `(db[.]{1}[-\w]+[.]{1}[-.\w]+)` |
+| K2HB_QUALIFIED_TABLE_PATTERN | The regex pattern for getting the table name from the topic, e.g. `\w+\.([-\w]+)\.([-.\w]+)` |
+| K2HB_AWS_S3_MANIFEST_DIRECTORY | The name of the directory for the AWS S3 manifest, e.g. `manifest_prefix` |            
+| K2HB_TRUSTSTORE_PATH | The SSL truststore location which is needed if Insecure Kafka is not true |         
+| K2HB_TRUSTSTORE_PASSWORD | The SSL truststore password which is needed if Insecure Kafka is not true |       
+| K2HB_KEYSTORE_PATH | The SSL keystore path which is needed if Insecure Kafka is not true |     
+| K2HB_KEYSTORE_PASSWORD | The SSL keystore password which is needed if Insecure Kafka is not true |     
+| K2HB_PRIVATE_KEY_PASSWORD | The SSL private key password which is needed if Insecure Kafka is not true |                                                                                                                                                                                            
+ 
