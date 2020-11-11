@@ -1,6 +1,8 @@
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String, val version: Long, val versionCreatedFrom: String, val versionRaw: String, val record: ConsumerRecord<ByteArray, ByteArray>, val putTime: Long) {
+data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String, val version: Long,
+                        val versionCreatedFrom: String, val versionRaw: String,
+                        val record: ConsumerRecord<ByteArray, ByteArray>, val putTime: Long, val timeOnQueue: Long) {
 
 
     override fun toString(): String {
@@ -30,6 +32,7 @@ data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String,
         if (versionRaw != other.versionRaw) return false
         if (record != other.record) return false
         if (putTime != other.putTime) return false
+        if (timeOnQueue != other.timeOnQueue) return false
 
         return true
     }
@@ -43,8 +46,10 @@ data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String,
         result = 31 * result + versionRaw.hashCode()
         result = 31 * result + record.hashCode()
         result = 31 * result + putTime.hashCode()
+        result = 31 * result + timeOnQueue.hashCode()
         return result
     }
+
 }
 
 data class ManifestRecord(val id: String, val timestamp: Long, val db: String, val collection: String,

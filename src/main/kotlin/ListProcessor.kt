@@ -119,7 +119,7 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                     "version", "${it.version}",
                     "version_created_from", it.versionCreatedFrom,
                     "version_raw", it.versionRaw,
-                    "time_since_last_modified", "${(it.putTime - it.version) / 1000}"
+                    "time_since_last_modified", "${(it.putTime - it.timeOnQueue) / 1000}"
             )
         }
     }
@@ -153,9 +153,12 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
         message["timestamp_created_from"] = source
         val putTime = Date()
         json["put_time"] = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(putTime)
+
         val version = converter.getTimestampAsLong(timestamp)
+        val timeOnQueue = json.string("timestamp")?.let { converter.getTimestampAsLong(it) } ?: version
+
         return HbasePayload(formattedKey, Bytes.toBytes(json.toJsonString()), unformattedId, version, source,
-                timestamp, record, putTime.time)
+                timestamp, record, putTime.time, timeOnQueue)
     }
 
     companion object {

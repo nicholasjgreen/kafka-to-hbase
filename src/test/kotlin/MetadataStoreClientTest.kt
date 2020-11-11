@@ -68,7 +68,7 @@ private fun testAutoCommit(autoCommit: Boolean) {
             on { offset() } doReturn payloadNumber.toLong()
         }
         HbasePayload("key-$payloadNumber".toByteArray(), "body-$payloadNumber".toByteArray(), "id-$payloadNumber",
-                payloadNumber.toLong(), "_lastModifiedDateTime", "2020-01-01T00:00:00.000", record, 1000L)
+                payloadNumber.toLong(), "_lastModifiedDateTime", "2020-01-01T00:00:00.000", record, 1000L, 2000L)
     }
 
     client.recordBatch(payloads)
