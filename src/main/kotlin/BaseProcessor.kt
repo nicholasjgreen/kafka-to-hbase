@@ -2,6 +2,7 @@ import Config.Kafka.dlqTopic
 import com.beust.klaxon.Klaxon
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.slf4j.LoggerFactory
 
 open class BaseProcessor(private val validator: Validator, private val converter: Converter) {
 
@@ -55,4 +56,8 @@ open class BaseProcessor(private val validator: Validator, private val converter
 
     fun getDataStringForRecord(record: ConsumerRecord<ByteArray, ByteArray>) =
         "${String(record.key() ?: ByteArray(0))}:${record.topic()}:${record.partition()}:${record.offset()}"
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(BaseProcessor::class.java)
+    }
 }

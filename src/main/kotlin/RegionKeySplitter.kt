@@ -1,3 +1,8 @@
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+val logger: Logger = LoggerFactory.getLogger("RegionKeySplitterKt")
+
 fun calculateSplits(numberOfRegions: Int): List<ByteArray> {
     // We expect to make one less Split than the number of Regions required.
     // Each split will be offset, for example;

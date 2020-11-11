@@ -5,10 +5,8 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import lib.*
-import org.apache.hadoop.hbase.TableName
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.log4j.Logger
 import java.io.BufferedReader
@@ -59,7 +57,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             putTime shouldNotBe null
             val expected = Gson().fromJson(String(body), JsonObject::class.java)
             expected.addProperty("put_time", putTime)
-            String(storedValue!!) shouldBe expected.toString()
+            String(storedValue) shouldBe expected.toString()
 
             val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries1.size shouldBe 0
@@ -95,7 +93,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             putTime shouldNotBe null
             val expected = Gson().fromJson(String(body), JsonObject::class.java)
             expected.addProperty("put_time", putTime)
-            String(storedValue!!) shouldBe expected.toString()
+            String(storedValue) shouldBe expected.toString()
             verifyMetadataStore(1, topic, true)
         }
 
@@ -139,7 +137,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             putTime shouldNotBe null
             val expected = Gson().fromJson(String(body2), JsonObject::class.java)
             expected.addProperty("put_time", putTime)
-            String(storedNewValue!!) shouldBe expected.toString()
+            String(storedNewValue) shouldBe expected.toString()
 
             val storedPreviousValue =
                 waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
@@ -235,12 +233,12 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             }
 
             log.info("storedValue: $storedValue")
-            val jsonObject = Gson().fromJson(String(storedValue!!), JsonObject::class.java)
+            val jsonObject = Gson().fromJson(String(storedValue), JsonObject::class.java)
             val putTime = jsonObject["put_time"].asJsonPrimitive.asString
             putTime shouldNotBe null
             val expected = Gson().fromJson(String(body), JsonObject::class.java)
             expected.addProperty("put_time", putTime)
-            String(storedValue!!) shouldBe expected.toString()
+            String(storedValue) shouldBe expected.toString()
 
             val summaries1 = s3Client.listObjectsV2("kafka2s3", "prefix").objectSummaries
             summaries1.size shouldBe 0
