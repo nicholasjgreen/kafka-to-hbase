@@ -165,7 +165,7 @@ class HbaseClientTest : StringSpec({
         val newNamespace = "ns2"
         val newTableQualifier = "table2"
         val newQualifiedTableName = "$newNamespace:$newTableQualifier"
-        val splits = calculateSplits(2).toTypedArray()
+        val splits = RegionKeySplitter.calculateSplits(2).toTypedArray()
 
         hbaseClient.ensureTable(newQualifiedTableName)
 
@@ -211,7 +211,7 @@ class HbaseClientTest : StringSpec({
         val hbaseClient = HbaseClient(connection, dataFamily, dataQualifier, hbaseRegionReplication)
         val newTableQualifier = "table2"
         val newQualifiedTableName = "$namespace:$newTableQualifier"
-        val splits = calculateSplits(2).toTypedArray()
+        val splits = RegionKeySplitter.calculateSplits(2).toTypedArray()
         hbaseClient.ensureTable(newQualifiedTableName)
 
         verify(newAdm, times(0)).createNamespace(any())

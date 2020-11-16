@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 class RegionKeySplitterTest : StringSpec({
     "Splits are equally sized" {
         for (regionCount in 1..10_000) {
-            calculateSplits(regionCount).let { splits ->
+            RegionKeySplitter.calculateSplits(regionCount).let { splits ->
                 assertEquals(regionCount - 1, splits.size)
                 gaps(splits).let { gaps ->
                     gaps.indices.forEach { index ->

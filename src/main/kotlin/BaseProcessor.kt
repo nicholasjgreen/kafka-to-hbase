@@ -1,8 +1,9 @@
+
 import Config.Kafka.dlqTopic
 import com.beust.klaxon.Klaxon
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.slf4j.LoggerFactory
+import uk.gov.dwp.dataworks.logging.DataworksLogger
 
 open class BaseProcessor(private val validator: Validator, private val converter: Converter) {
 
@@ -13,11 +14,11 @@ open class BaseProcessor(private val validator: Validator, private val converter
                 json
             }
         } catch (e: IllegalArgumentException) {
-            logger.warn("Could not parse message body", "record", getDataStringForRecord(record))
+            logger.warn("Could not parse message body", "record" to getDataStringForRecord(record))
             sendMessageToDlq(record, "Invalid json")
             null
         } catch (e: InvalidMessageException) {
-            logger.warn("Schema validation error", "record", getDataStringForRecord(record), "message", "${e.message}")
+            logger.warn("Schema validation error", "record" to getDataStringForRecord(record), "message" to "${e.message}")
             sendMessageToDlq(record, "Invalid schema for ${getDataStringForRecord(record)}: ${e.message}")
             null
         }
@@ -28,7 +29,7 @@ open class BaseProcessor(private val validator: Validator, private val converter
         val originalOffset = record.offset().toString()
         val recordKey: ByteArray? = if (record.key() != null) record.key() else null
         val stringKey = if (recordKey != null) String(recordKey) else "UNKNOWN"
-        logger.warn("Error processing record, sending to dlq", "reason", reason, "key", stringKey)
+        logger.warn("Error processing record, sending to dlq", "reason" to reason, "key" to stringKey)
 
         try {
             val malformedRecord = MalformedRecord(stringKey, String(body), reason)
@@ -37,18 +38,18 @@ open class BaseProcessor(private val validator: Validator, private val converter
                 ProducerRecord(dlqTopic, null, null, recordKey, jsonString.toByteArray(), null)
 
             logger.info(
-                "Sending message to dlq", "key", stringKey, "original_topic", originalTopic,
-                "original_offset", originalOffset
+                "Sending message to dlq", "key" to stringKey, "original_topic" to originalTopic,
+                "original_offset" to originalOffset
             )
             val metadata = DlqProducer.getInstance().send(producerRecord)?.get()
             logger.info(
-                "Sent message to dlq", "key", stringKey, "dlq_topic",
-                metadata?.topic().toString(), "dlq_offset", "${metadata?.offset()}"
+                "Sent message to dlq", "key" to stringKey, "dlq_topic" to metadata?.topic().toString(),
+                "dlq_offset" to "${metadata?.offset()}"
             )
         } catch (e: Exception) {
             logger.error(
                 "Error sending message to dlq",
-                "key", String(record.key()), "topic", record.topic(), "offset", "${record.offset()}"
+                "key" to String(record.key()), "topic" to record.topic(), "offset" to "${record.offset()}"
             )
             throw DlqException("Exception while sending message to DLQ : $e")
         }
@@ -58,6 +59,6 @@ open class BaseProcessor(private val validator: Validator, private val converter
         "${String(record.key() ?: ByteArray(0))}:${record.topic()}:${record.partition()}:${record.offset()}"
 
     companion object {
-        private val logger = LoggerFactory.getLogger(BaseProcessor::class.java)
+        private val logger = DataworksLogger.getLogger(BaseProcessor::class.java.toString())
     }
 }

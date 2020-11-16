@@ -1,3 +1,4 @@
+
 import com.beust.klaxon.Klaxon
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -64,7 +65,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val summariesManifests1 = s3Client.listObjectsV2("manifests", "manifest_prefix").objectSummaries
             summariesManifests1.size shouldBe 1
 
-            verifyHbaseRegions(expectedTablesToRegions, regionReplication, regionServers)
+            verifyHbaseRegions(qualifiedTableName, regionReplication, regionServers)
             verifyMetadataStore(1, topic, true)
         }
 
@@ -118,9 +119,7 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
 
             verifyMetadataStore(0, topic, true)
 
-            delay(1000)
             val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            delay(1000)
 
             val body2 = wellFormedValidPayload(namespace, tableName)
 
@@ -160,13 +159,22 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
 
             verifyMetadataStore(0, topic, true)
 
-            delay(10_000)
-            val s3Object = s3Client.getObject(
-                "kafka2s3",
-                "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key3"
-            ).objectContent
-            val actual = s3Object.bufferedReader().use(BufferedReader::readText)
-            actual shouldBe expected
+            withTimeout(15.minutes) {
+                while (true) {
+                    try {
+                        val s3Object = s3Client.getObject(
+                                "kafka2s3",
+                                "prefix/test-dlq-topic/${SimpleDateFormat(dateFormat).format(Date())}/key3"
+                        ).objectContent
+                        val actual = s3Object.bufferedReader().use(BufferedReader::readText)
+                        actual shouldBe expected
+                        break
+                    }
+                    catch (e: Exception) {
+                        delay(5.seconds)
+                    }
+                }
+            }
 
             verifyMetadataStore(0, topic, true)
         }
@@ -179,17 +187,29 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             producer.sendRecord(topic.toByteArray(), "key4".toByteArray(), body, timestamp)
-            delay(10.seconds)
-            val key = "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key4"
+            val key = "prefix/test-dlq-topic/${SimpleDateFormat(dateFormat).format(Date())}/key4"
             log.info("key: $key")
-            val s3Object = s3Client.getObject("kafka2s3", key).objectContent
-            val actual = s3Object.bufferedReader().use(BufferedReader::readText)
-            val malformedRecord = MalformedRecord(
-                "key4", String(body),
-                "Invalid schema for key4:$topic:9:0: Message failed schema validation: '#: 6 schema violations found'."
-            )
-            val expected = Klaxon().toJsonString(malformedRecord)
-            actual shouldBe expected
+            withTimeout(15.minutes) {
+                while (true) {
+                    try {
+                        val s3Object = s3Client.getObject(
+                                "kafka2s3",
+                                "prefix/test-dlq-topic/${SimpleDateFormat(dateFormat).format(Date())}/key4"
+                        ).objectContent
+                        val actual = s3Object.bufferedReader().use(BufferedReader::readText)
+                        val malformedRecord = MalformedRecord(
+                                "key4", String(body),
+                                "Invalid schema for key4:$topic:9:0: Message failed schema validation: '#: 6 schema violations found'."
+                        )
+                        val expected = Klaxon().toJsonString(malformedRecord)
+                        actual shouldBe expected
+                        break
+                    }
+                    catch (e: Exception) {
+                        // try again
+                    }
+                }
+            }
 
             verifyMetadataStore(0, topic, true)
         }
@@ -247,8 +267,8 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
     }
   
     private val log = Logger.getLogger(Kafka2hbUcfsIntegrationSpec::class.toString())
+    private val dateFormat = "YYYY-MM-dd"
+    private val regionReplication = 3
+    private val regionServers = 2
 }
 
-private const val regionReplication = 3
-private const val regionServers = 2
-private const val expectedTablesToRegions = 1

@@ -5,12 +5,15 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import lib.*
 import org.apache.kafka.clients.producer.KafkaProducer
 import java.io.BufferedReader
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.time.ExperimentalTime
+import kotlin.time.minutes
+import kotlin.time.seconds
 
 @ExperimentalTime
 class Kafka2hbEqualityIntegrationSpec : StringSpec() {
@@ -41,9 +44,7 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val body = wellFormedValidPayloadEquality()
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val (_, hbaseKey) = parser.generateKey(converter.convertToJson(getEqualityId().toByteArray()))
-            println("Sending well-formed record to kafka topic '$topic'.")
             producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
-            println("Sent well-formed record to kafka topic '$topic'.")
             val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
 
             val storedValue =
@@ -61,7 +62,7 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val summariesManifests1 = s3Client.listObjectsV2("manifests", "streaming").objectSummaries
             summariesManifests1.size shouldBe 0
 
-            verifyHbaseRegions(expectedTablesToRegions, regionReplication, regionServers)
+            verifyHbaseRegions(qualifiedTableName, regionReplication, regionServers)
             verifyMetadataStore(1, topic, true)
         }
 
@@ -126,13 +127,22 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val malformedRecord = MalformedRecord("key3", String(body), "Invalid json")
             val expected = Klaxon().toJsonString(malformedRecord)
 
-            delay(10_000L)
-            val s3Object = s3Client.getObject(
-                "kafka2s3",
-                "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key3"
-            ).objectContent
-            val actual = s3Object.bufferedReader().use(BufferedReader::readText)
-            actual shouldBe expected
+            withTimeout(15.minutes) {
+                while (true) {
+                    try {
+                        val s3Object = s3Client.getObject(
+                                "kafka2s3",
+                                "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key3"
+                        ).objectContent
+                        val actual = s3Object.bufferedReader().use(BufferedReader::readText)
+                        actual shouldBe expected
+                        break
+                    }
+                    catch (e: Exception) {
+                        delay(5.seconds)
+                    }
+                }
+            }
 
             verifyMetadataStore(0, topic, true)
         }
@@ -145,18 +155,29 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             producer.sendRecord(topic.toByteArray(), "key4".toByteArray(), body, timestamp)
-            delay(10_000)
-            val s3Object = s3Client.getObject(
-                "kafka2s3",
-                "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key4"
-            ).objectContent
-            val actual = s3Object.bufferedReader().use(BufferedReader::readText)
-            val malformedRecord = MalformedRecord(
-                "key4", String(body),
-                "Invalid schema for key4:$topic:9:0: Message failed schema validation: '#: 6 schema violations found'."
-            )
-            val expected = Klaxon().toJsonString(malformedRecord)
-            actual shouldBe expected
+
+            withTimeout(15.minutes) {
+                while (true) {
+                    try {
+                        val s3Object = s3Client.getObject(
+                                "kafka2s3",
+                                "prefix/test-dlq-topic/${SimpleDateFormat("YYYY-MM-dd").format(Date())}/key4"
+                        ).objectContent
+                        val actual = s3Object.bufferedReader().use(BufferedReader::readText)
+                        val malformedRecord = MalformedRecord(
+                                "key4", String(body),
+                                "Invalid schema for key4:$topic:9:0: Message failed schema validation: '#: 6 schema violations found'."
+                        )
+                        val expected = Klaxon().toJsonString(malformedRecord)
+                        actual shouldBe expected
+                        break
+                    }
+                    catch (e: Exception) {
+                        delay(5.seconds)
+                    }
+                }
+            }
+
 
             verifyMetadataStore(0, topic, true)
         }
@@ -165,4 +186,3 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
 
 private const val regionReplication = 3
 private const val regionServers = 2
-private const val expectedTablesToRegions = 5

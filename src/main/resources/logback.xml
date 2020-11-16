@@ -8,7 +8,7 @@
         <file>${LOG_DIRECTORY}/k2hb.log</file>
 
         <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
-            <layout class="LoggerLayoutAppender"/>
+            <layout class="uk.gov.dwp.dataworks.logging.LoggerLayoutAppender" />
         </encoder>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">

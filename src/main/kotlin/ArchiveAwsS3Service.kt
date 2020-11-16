@@ -7,6 +7,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.commons.codec.binary.Hex
+import uk.gov.dwp.dataworks.logging.DataworksLogger
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -22,14 +23,15 @@ open class ArchiveAwsS3Service(private val amazonS3: AmazonS3) {
         if (payloads.isNotEmpty()) {
             val (database, collection) = hbaseTable.split(Regex(":"))
             val key = batchKey(database, collection, payloads)
-            logger.info("Putting batch into s3", "size", "${payloads.size}", "hbase_table", hbaseTable, "key", key)
+            logger.info("Putting batch into s3", "size" to "${payloads.size}", "hbase_table" to hbaseTable, "key" to key)
             val timeTaken = measureTimeMillis { putBatchObject(key, batchBody(payloads)) }
-            logger.info("Put batch into s3", "time_taken", "$timeTaken", "size", "${payloads.size}", "hbase_table", hbaseTable, "key", key)
+            logger.info("Put batch into s3", "time_taken" to "$timeTaken", "size" to  "${payloads.size}",
+                "hbase_table" to hbaseTable, "key" to key)
         }
     }
 
     open suspend fun putObjects(hbaseTable: String, payloads: List<HbasePayload>) {
-        logger.info("Putting batch into s3", "size", "${payloads.size}", "hbase_table", hbaseTable)
+        logger.info("Putting batch into s3", "size" to "${payloads.size}", "hbase_table" to hbaseTable)
         val timeTaken = measureTimeMillis {
             val (database, collection) = hbaseTable.split(Regex(":"))
             coroutineScope {
@@ -42,7 +44,7 @@ open class ArchiveAwsS3Service(private val amazonS3: AmazonS3) {
                 }
             }
         }
-        logger.info("Put batch into s3", "time_taken", "$timeTaken", "size", "${payloads.size}", "hbase_table", hbaseTable)
+        logger.info("Put batch into s3", "time_taken" to "$timeTaken", "size" to "${payloads.size}", "hbase_table" to hbaseTable)
     }
 
     private fun putBatchObject(key: String, body: ByteArray) =
@@ -122,7 +124,7 @@ open class ArchiveAwsS3Service(private val amazonS3: AmazonS3) {
     companion object {
         fun connect() = ArchiveAwsS3Service(s3)
         val textUtils = TextUtils()
-        val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(ArchiveAwsS3Service::class.toString())
+        val logger = DataworksLogger.getLogger(ArchiveAwsS3Service::class.toString())
         val s3 = Config.AwsS3.s3
     }
 }

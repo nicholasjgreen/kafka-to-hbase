@@ -7,6 +7,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
+import uk.gov.dwp.dataworks.logging.DataworksLogger
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -27,15 +28,15 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
 
                         if (s3Ok.await() && hbaseOk.await() && metadataStoreOk.await()) {
                             val lastPosition = lastPosition(partitionRecords)
-                            logger.info("Batch succeeded, committing offset", "topic", partition.topic(),
-                                "partition","${partition.partition()}", "offset", "$lastPosition")
+                            logger.info("Batch succeeded, committing offset", "topic" to partition.topic(),
+                                "partition" to "${partition.partition()}", "offset" to "$lastPosition")
                             consumer.commitSync(mapOf(partition to OffsetAndMetadata(lastPosition + 1)))
                             logSuccessfulPuts(table, payloads)
                             successfulPayloads.addAll(payloads)
                         } else {
                             lastCommittedOffset(consumer, partition)?.let { consumer.seek(partition, it) }
                             logger.error("Batch failed, not committing offset, resetting position to last commit",
-                                "topic", partition.topic(), "partition", "${partition.partition()}")
+                                "topic" to partition.topic(), "partition" to "${partition.partition()}")
                             logFailedPuts(table, payloads)
                         }
                     }
@@ -51,7 +52,7 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                 metadataClient.recordBatch(payloads)
                 true
             } catch (e: Exception) {
-                logger.error("Failed to put batch into metadatastore", e, "error", e.message ?: "")
+                logger.error("Failed to put batch into metadatastore", e, "error" to (e.message ?: ""))
                 false
             }
         }
@@ -67,7 +68,7 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                 true
             } catch (e: Exception) {
                 e.printStackTrace()
-                logger.error("Failed to put batch into s3", e, "error", e.message ?: "")
+                logger.error("Failed to put batch into s3", e, "error" to (e.message ?: ""))
                 false
             }
         }
@@ -78,7 +79,7 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                 hbase.putList(table, payloads)
                 true
             } catch (e: Exception) {
-                logger.error("Failed to put batch into hbase", e, "error", e.message ?: "")
+                logger.error("Failed to put batch into hbase", e, "error" to (e.message ?: ""))
                 false
             }
         }
@@ -87,11 +88,11 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
     private fun logFailedPuts(table: String, payloads: List<HbasePayload>) =
         payloads.forEach {
             logger.error(
-                "Failed to put record", "table", table,
-                "key", textUtils.printableKey(it.key), 
-                "version", "${it.version}",
-                "version_created_from", it.versionCreatedFrom,
-                "version_raw", it.versionRaw
+                "Failed to put record", "table" to table,
+                "key" to textUtils.printableKey(it.key),
+                "version" to "${it.version}",
+                "version_created_from" to it.versionCreatedFrom,
+                "version_raw" to it.versionRaw
             )
         }
 
@@ -104,7 +105,7 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                 true
             } catch (e: Exception) {
                 e.printStackTrace()
-                logger.error("Failed to put manifest file in to s3", e, "error", e.message ?: "")
+                logger.error("Failed to put manifest file in to s3", e, "error" to (e.message ?: ""))
                 false
             }
         }
@@ -114,12 +115,12 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
         payloads.forEach {
             logger.info(
                     "Put record",
-                    "table", table,
-                    "key", textUtils.printableKey(it.key),
-                    "version", "${it.version}",
-                    "version_created_from", it.versionCreatedFrom,
-                    "version_raw", it.versionRaw,
-                    "time_since_last_modified", "${(it.putTime - it.timeOnQueue) / 1000}"
+                    "table" to table,
+                    "key" to textUtils.printableKey(it.key),
+                    "version" to "${it.version}",
+                    "version_created_from" to it.versionCreatedFrom,
+                    "version_raw" to it.versionRaw,
+                    "time_since_last_modified" to "${(it.putTime - it.timeOnQueue) / 1000}"
             )
         }
     }
@@ -163,6 +164,6 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
 
     companion object {
         private val textUtils = TextUtils()
-        private val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(ListProcessor::class.toString())
+        private val logger = DataworksLogger.getLogger(ListProcessor::class.toString())
     }
 }

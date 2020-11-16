@@ -1,5 +1,6 @@
 import com.beust.klaxon.JsonObject
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import uk.gov.dwp.dataworks.logging.DataworksLogger
 import java.io.ByteArrayOutputStream
 import java.io.ObjectOutputStream
 
@@ -12,7 +13,7 @@ open class RecordProcessor(validator: Validator, private val converter: Converte
         recordAsJson(record)?.let { json ->
             val (unformattedId, formattedKey) = parser.generateKeyFromRecordBody(json)
             if (formattedKey.isEmpty()) {
-                logger.warn("Empty key for record", "record", getDataStringForRecord(record))
+                logger.warn("Empty key for record", "record" to getDataStringForRecord(record))
                 return
             }
             writeRecordToHbase(json, record, hbase, metadataStoreClient, formattedKey)
@@ -37,10 +38,10 @@ open class RecordProcessor(validator: Validator, private val converter: Converte
                 val recordBodyJson = json.toJsonString()
                 hbase.put(qualifiedTableName!!, formattedKey, recordBodyJson.toByteArray(), lastModifiedTimestampLong)
             } else {
-                logger.error("Could not derive table name from topic", "topic", record.topic())
+                logger.error("Could not derive table name from topic", "topic" to record.topic())
             }
         } catch (e: Exception) {
-            logger.error("Error writing record to HBase", e, "record", getDataStringForRecord(record))
+            logger.error("Error writing record to HBase", e, "record" to getDataStringForRecord(record))
             throw HbaseWriteException("Error writing record to HBase: $e")
         }
     }
@@ -57,7 +58,7 @@ open class RecordProcessor(validator: Validator, private val converter: Converte
     }
 
     companion object {
-        val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(RecordProcessor::class.toString())
+        val logger = DataworksLogger.getLogger(RecordProcessor::class.toString())
     }
 
 }

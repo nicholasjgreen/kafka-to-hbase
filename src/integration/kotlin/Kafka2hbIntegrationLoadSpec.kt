@@ -9,14 +9,15 @@ import com.google.gson.JsonObject
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import lib.getISO8601Timestamp
+import lib.metadataStoreConnection
 import lib.sampleQualifiedTableName
 import lib.sendRecord
-import lib.verifyMetadataStore
 import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.Scan
 import org.apache.hadoop.hbase.client.Table
@@ -43,7 +44,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
         "Many messages sent to many topics" {
             publishRecords()
             verifyHbase()
-            verifyMetadataStore(TOPIC_COUNT * RECORDS_PER_TOPIC, DB_NAME, false)
+            verifyMetadataStore(TOPIC_COUNT * RECORDS_PER_TOPIC, DB_NAME, COLLECTION_NAME)
             verifyS3()
             verifyManifests()
         }
@@ -55,11 +56,13 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
         logger.info("Starting record producer...")
         repeat(TOPIC_COUNT) { collectionNumber ->
             val topic = topicName(collectionNumber)
+            val excludedTopic = excludedTopicName(collectionNumber)
             repeat(RECORDS_PER_TOPIC) { messageNumber ->
                 val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
                 logger.debug("Sending record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
                 producer.sendRecord(topic.toByteArray(), recordId(collectionNumber, messageNumber), body(messageNumber), timestamp)
-                logger.debug("Sent record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic'.")
+                producer.sendRecord(excludedTopic.toByteArray(), recordId(collectionNumber, messageNumber), body(messageNumber), timestamp)
+                logger.debug("Sent record $messageNumber/$RECORDS_PER_TOPIC to kafka topic '$topic' and to excluded topic '$excludedTopic'.")
             }
         }
         logger.info("Started record producer")
@@ -82,7 +85,9 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
 
 
                 loadTestTables(hbase).forEach { tableName ->
+                    tableName shouldNotContain "excluded"
                     launch (Dispatchers.IO) {
+
                         hbase.connection.getTable(TableName.valueOf(tableName)).use { table ->
                             do {
                                 val foundRecords = recordCount(table)
@@ -194,6 +199,9 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
     private fun topicName(collectionNumber: Int)
             = "db.$DB_NAME$collectionNumber.$COLLECTION_NAME$collectionNumber"
 
+    private fun excludedTopicName(collectionNumber: Int)
+            = "db.excluded.$COLLECTION_NAME$collectionNumber"
+
     private fun recordId(collectionNumber: Int, messageNumber: Int) =
             "key-$messageNumber/$collectionNumber".toByteArray()
 
@@ -221,6 +229,19 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
             "timestamp_created_from": "_lastModifiedDateTime"
         }
     }""".toByteArray()
+
+
+    private fun verifyMetadataStore(expectedCount: Int, database: String, collection: String) =
+            metadataStoreConnection().use { connection ->
+                connection.createStatement().use { statement ->
+                    val results =
+                            statement.executeQuery("SELECT count(*) FROM ucfs WHERE topic_name like '%$database%' and topic_name like '%$collection%'")
+                    results.next() shouldBe true
+                    val count = results.getLong(1)
+                    count shouldBe expectedCount.toLong()
+                }
+            }
+
 }
 
 

@@ -1,3 +1,5 @@
+import uk.gov.dwp.dataworks.logging.DataworksLogger
+
 class TextUtils {
 
     private val qualifiedTablePattern = Regex(Config.Hbase.qualifiedTablePattern)
@@ -13,7 +15,7 @@ class TextUtils {
             targetTable(namespace, tableName)
         }
         else {
-            logger.error("Could not derive table name", "topic", topic)
+            logger.error("Could not derive table name", "topic" to topic)
             null
         }
     }
@@ -37,7 +39,7 @@ class TextUtils {
             }
 
     companion object {
-        private val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(TextUtils::class.toString())
+        private val logger = DataworksLogger.getLogger(TextUtils::class.toString())
     }
 
 }

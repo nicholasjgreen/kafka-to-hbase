@@ -1,5 +1,7 @@
 package lib
 
+import HbaseClient
+import MetadataStoreClient
 import com.amazonaws.ClientConfiguration
 import com.amazonaws.Protocol
 import com.amazonaws.auth.AWSStaticCredentialsProvider
@@ -9,10 +11,7 @@ import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 import org.apache.hadoop.hbase.TableName
 import java.sql.Connection
 import java.sql.DriverManager
@@ -20,7 +19,6 @@ import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.*
 import kotlin.time.ExperimentalTime
-import kotlin.time.minutes
 import kotlin.time.seconds
 
 fun getId() = """{ "exampleId": "aaaa1111-abcd-4567-1234-1234567890ab"}"""
@@ -106,48 +104,32 @@ fun metadataStoreConnection(): Connection {
     return DriverManager.getConnection(url, properties)
 }
 
-fun verifyMetadataStore(expectedCount: Int, expectedTopicName: String, exactMatch: Boolean = true) =
-    metadataStoreConnection().use { connection ->
-        connection.createStatement().use { statement ->
-            val results =
-                statement.executeQuery("SELECT count(*) FROM ucfs WHERE topic_name like '%$expectedTopicName%'")
-            results.next() shouldBe true
-            val count = results.getLong(1)
-            if (exactMatch) {
-                count shouldBe expectedCount.toLong()
-            } else {
-                count shouldBeGreaterThanOrEqual expectedCount.toLong()
-            }
-        }
-    }
-
 @ExperimentalTime
-suspend fun verifyHbaseRegions(expectedTablesToRegions: Int, regionReplication: Int, regionServers: Int) {
-
-    var waitSoFarSecs = 0
-    val longInterval = 5
-
-    val foundTablesToRegions = mutableMapOf<String, Int>()
-
-    HbaseClient.connect().use { hbase ->
-        withTimeout(10.minutes) {
-            do {
-                val foundTablesSorted = testTables()
-                delay(longInterval.seconds)
-                waitSoFarSecs += longInterval
-            }
-            while (expectedTablesToRegions != foundTablesSorted.size)
-
-            testTables().forEach { tableName ->
-                launch(Dispatchers.IO) {
-                    val regionsWithReplication = hbase.getTableRegions(TableName.valueOf(tableName)).size
-                    foundTablesToRegions[tableName] = regionsWithReplication
+fun verifyMetadataStore(expectedCount: Int, expectedTopicName: String, exactMatch: Boolean = true) =
+        metadataStoreConnection().use { connection ->
+            connection.createStatement().use { statement ->
+                val results =
+                        statement.executeQuery("SELECT count(*) FROM ucfs WHERE topic_name like '%$expectedTopicName%'")
+                results.next() shouldBe true
+                val count = results.getLong(1)
+                if (exactMatch && count > 0 && expectedCount > 0) {
+                    count shouldBe expectedCount.toLong()
+                } else {
+                    count shouldBeGreaterThanOrEqual expectedCount.toLong()
                 }
             }
         }
-    }
-    foundTablesToRegions.values.contains(regionReplication * regionServers) shouldBe true
-    foundTablesToRegions.values.toSet().size shouldBe 1
-}
 
-fun testTables(): MutableSet<String> = HbaseClient.connect().tables.keys
+@ExperimentalTime
+suspend fun verifyHbaseRegions(tableName: String, regionReplication: Int, regionServers: Int) {
+    HbaseClient.connect().use { hbase ->
+
+        var regionsWithReplication = hbase.getTableRegions(TableName.valueOf(tableName))?.size
+        while (regionsWithReplication == null) {
+            regionsWithReplication = hbase.getTableRegions(TableName.valueOf(tableName))?.size
+            delay(1.seconds)
+        }
+
+        regionsWithReplication shouldBe regionReplication * regionServers
+    }
+}

@@ -26,6 +26,7 @@ dependencies {
     implementation("ch.qos.logback", "logback-classic", "1.2.3")
     implementation("org.apache.commons", "commons-text", "1.8")
     implementation("commons-codec","commons-codec","1.14")
+    implementation("com.github.dwp:dataworks-common-logging:0.0.5")
 
     implementation("com.amazonaws", "aws-java-sdk-secretsmanager", "1.11.819") //1.11.316
     implementation("mysql", "mysql-connector-java", "6.0.6")

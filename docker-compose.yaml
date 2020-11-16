@@ -79,6 +79,7 @@ services:
       K2HB_WRITE_TO_METADATA_STORE: "true"
       K2HB_VALIDATOR_SCHEMA: "business_message.schema.json"
       K2HB_KAFKA_TOPIC_REGEX: (db[.]{1}[-\w]+[.]{1}[-.\w]+)
+      K2HB_KAFKA_TOPIC_EXCLUSION_REGEX: db\.excluded\.[-\w]+
       K2HB_QUALIFIED_TABLE_PATTERN: \w+\.([-\w]+)\.([-.\w]+)
       K2HB_AWS_S3_MANIFEST_DIRECTORY: "manifest_prefix"
 

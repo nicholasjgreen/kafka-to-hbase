@@ -104,6 +104,11 @@ integration-test-ucfs-and-equality: ## Run the integration tests in a Docker con
 	docker-compose -f docker-compose.yaml build integration-test
 	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test integration-test-equality -x test -x integration-load-test
 
+integration-tests:
+	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test
+	docker-compose -f docker-compose.yaml run --name integration-test-equality integration-test gradle --no-daemon --rerun-tasks integration-test-equality
+	docker-compose -f docker-compose.yaml run --name integration-load-test integration-test gradle --no-daemon --rerun-tasks integration-load-test
+
 integration-load-test: ## Run the integration load tests in a Docker container
 	@{ \
 		set +e ;\
@@ -115,7 +120,7 @@ integration-load-test: ## Run the integration load tests in a Docker container
 	docker-compose -f docker-compose.yaml run --name integration-load-test integration-test gradle --no-daemon --rerun-tasks integration-load-test -x test -x integration-test -x integration-test-equality
 
 .PHONY: integration-all ## Build and Run all the tests in containers from a clean start
-integration-all: down destroy build up integration-test-ucfs-and-equality
+integration-all: down destroy build up integration-tests
 
 hbase-shell: ## Open an hbase shell in the running hbase container
 	docker exec -it hbase hbase shell

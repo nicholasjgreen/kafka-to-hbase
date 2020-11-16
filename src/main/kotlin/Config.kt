@@ -1,5 +1,4 @@
 
-import LogConfiguration.Companion.start_time_milliseconds
 import com.amazonaws.ClientConfiguration
 import com.amazonaws.Protocol
 import com.amazonaws.auth.AWSStaticCredentialsProvider
@@ -16,9 +15,9 @@ import org.apache.kafka.common.config.SslConfigs
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import java.io.File
+import java.net.InetAddress
 import java.time.Duration
 import java.util.*
-import java.util.regex.Pattern
 import kotlin.time.ExperimentalTime
 import kotlin.time.hours
 
@@ -31,7 +30,6 @@ fun String.toDuration(): Duration = Duration.parse(this)
 fun readFile(fileName: String): String = File(fileName).readText(Charsets.UTF_8)
 
 object Config {
-
     const val metaDataRefreshKey = "metadata.max.age.ms"
     const val schemaFileProperty = "schema.location"
     const val mainSchemaFile = "business_message.schema.json"
@@ -80,12 +78,12 @@ object Config {
         val consumerProps = Properties().apply {
             put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, getEnv("K2HB_KAFKA_BOOTSTRAP_SERVERS") ?: "kafka:9092")
             put(ConsumerConfig.GROUP_ID_CONFIG, getEnv("K2HB_KAFKA_CONSUMER_GROUP") ?: "test")
-            put(ConsumerConfig.CLIENT_ID_CONFIG, "$hostname-$start_time_milliseconds")
+            put(ConsumerConfig.CLIENT_ID_CONFIG, "${InetAddress.getLocalHost().hostName}-${System.currentTimeMillis()}")
             addSslConfig(this)
             put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer::class.java)
             put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer::class.java)
             put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-            put(metaDataRefreshKey, getEnv("K2HB_KAFKA_META_REFRESH_MS") ?: "10000")
+            put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, getEnv("K2HB_KAFKA_META_REFRESH_MS") ?: "10000")
             put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false)
             put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, getEnv("K2HB_KAFKA_MAX_POLL_RECORDS") ?: 500)
             val pollInterval = getEnv("K2HB_KAFKA_MAX_POLL_INTERVAL_MS")
@@ -119,8 +117,14 @@ object Config {
         }
 
         val pollTimeout: Duration = getEnv("K2HB_KAFKA_POLL_TIMEOUT")?.toDuration() ?: Duration.ofSeconds(3)
-        var topicRegex: Pattern = Pattern.compile(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: """^(db[.]{1}[-\w]+[.]{1}[-\w]+)$""")
-        var dlqTopic = getEnv("K2HB_KAFKA_DLQ_TOPIC") ?: "test-dlq-topic"
+        val topicRegex = Regex(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: """^(db[.]{1}[-\w]+[.]{1}[-\w]+)$""")
+
+        val topicExclusionRegex: Regex? = getEnv("K2HB_KAFKA_TOPIC_EXCLUSION_REGEX")?.let {
+            Regex(it)
+        }
+
+        val dlqTopic = getEnv("K2HB_KAFKA_DLQ_TOPIC") ?: "test-dlq-topic"
+
     }
 
     object MetadataStore {

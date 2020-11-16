@@ -1,5 +1,6 @@
 
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import uk.gov.dwp.dataworks.logging.DataworksLogger
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
@@ -12,7 +13,7 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
     open fun recordProcessingAttempt(hbaseId: String, record: ConsumerRecord<ByteArray, ByteArray>, lastUpdated: Long) {
         if (Config.MetadataStore.writeToMetadataStore) {
             val rowsInserted = preparedStatement(hbaseId, lastUpdated, record).executeUpdate()
-            logger.info("Recorded processing attempt", "rows_inserted", "$rowsInserted")
+            logger.info("Recorded processing attempt", "rows_inserted" to "$rowsInserted")
         }
     }
 
@@ -20,7 +21,7 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
     @Throws(SQLException::class)
     open fun recordBatch(payloads: List<HbasePayload>) {
         if (Config.MetadataStore.writeToMetadataStore) {
-            logger.info("Putting batch into metadata store", "size", "${payloads.size}")
+            logger.info("Putting batch into metadata store", "size" to "${payloads.size}")
             val timeTaken = measureTimeMillis {
                 recordProcessingAttemptStatement().use { statement ->
                     payloads.forEach {
@@ -38,10 +39,10 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
                     }
                 }
             }
-            logger.info("Put batch into metadata store", "time_taken", "$timeTaken", "size", "${payloads.size}")
+            logger.info("Put batch into metadata store", "time_taken" to "$timeTaken", "size" to "${payloads.size}")
         }
         else {
-            logger.info("Not putting batch into metadata store", "write_to_metadata_store", "${Config.MetadataStore.writeToMetadataStore}")
+            logger.info("Not putting batch into metadata store", "write_to_metadata_store" to "${Config.MetadataStore.writeToMetadataStore}")
         }
     }
 
@@ -83,7 +84,7 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
             return Pair(jdbcUrl, propertiesWithPassword)
         }
 
-        val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(MetadataStoreClient::class.toString())
+        val logger = DataworksLogger.getLogger(MetadataStoreClient::class.toString())
         val textUtils = TextUtils()
     }
 

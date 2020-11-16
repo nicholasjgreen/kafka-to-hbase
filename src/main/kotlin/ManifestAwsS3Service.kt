@@ -6,6 +6,7 @@ import com.beust.klaxon.JsonObject
 import com.beust.klaxon.KlaxonException
 import com.beust.klaxon.Parser
 import org.apache.commons.text.StringEscapeUtils
+import uk.gov.dwp.dataworks.logging.DataworksLogger
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -21,9 +22,9 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
             val prefix = Config.ManifestS3.manifestDirectory
             val fileName = manifestFileName(payloads)
             val key = "${prefix}/${fileName}"
-            logger.info("Putting manifest into s3", "size", "${payloads.size}", "key", key)
+            logger.info("Putting manifest into s3", "size" to "${payloads.size}", "key" to key)
             val timeTaken = measureTimeMillis { putManifest(key, manifestBody(payloads)) }
-            logger.info("Put manifest into s3", "time_taken", "$timeTaken", "size", "${payloads.size}", "key", key)
+            logger.info("Put manifest into s3", "time_taken" to "$timeTaken", "size" to "${payloads.size}", "key" to key)
         }
     }
 
@@ -108,7 +109,7 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
     companion object {
         fun connect() = ManifestAwsS3Service(s3)
         val textUtils = TextUtils()
-        val logger: JsonLoggerWrapper = JsonLoggerWrapper.getLogger(ManifestAwsS3Service::class.toString())
+        val logger = DataworksLogger.getLogger(ManifestAwsS3Service::class.toString())
         val s3 = Config.AwsS3.s3
         const val MANIFEST_RECORD_SOURCE = "STREAMED"
         const val MANIFEST_RECORD_COMPONENT = "K2HB"
