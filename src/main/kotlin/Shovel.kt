@@ -20,12 +20,21 @@ class Shovel(private val consumer: KafkaConsumer<ByteArray, ByteArray>) {
         val converter = Converter()
         val listProcessor = ListProcessor(validator, converter)
         var batchCount = 0
+
+        logger.info(
+            "Subscription regexes",
+            "includes_regex" to Config.Kafka.topicRegex.pattern,
+            "excludes_regex" to Config.Kafka.topicExclusionRegexText
+        )
+
         while (!closed.get()) {
 
             SubscriberUtility.subscribe(consumer, Config.Kafka.topicRegex, Config.Kafka.topicExclusionRegex)
 
             logger.info("Polling", "timeout" to "$pollTimeout")
+
             val records = consumer.poll(pollTimeout)
+
             if (records.count() > 0) {
                 HbaseClient.connect().use { hbase ->
                     val timeTaken = measureTimeMillis {

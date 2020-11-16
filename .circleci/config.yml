@@ -100,9 +100,7 @@ jobs:
             docker-compose -f docker-compose.yaml build --build-arg K2HB_WRITE_TO_METADATA_STORE=true kafka2hbase
             docker-compose -f docker-compose.yaml up -d kafka2hbase kafka2hbaseequality
             docker-compose -f docker-compose.yaml rm integration-test
-            docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test
-            docker-compose -f docker-compose.yaml run --name integration-test-equality integration-test gradle --no-daemon --rerun-tasks integration-test-equality
-            docker-compose -f docker-compose.yaml run --name integration-load-test integration-test gradle --no-daemon --rerun-tasks integration-load-test
+            docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test integration-test-equality integration-load-test
       - store_test_results:
           path: test-results
       - store_artifacts:

@@ -86,6 +86,7 @@ All the schemas are found in [src/main/resources](src/main/resources)
   * Note that k2hb does not decrypt this, it is for reference only
 
 ### Environment Variables
+|Name|Purpose|
 |----|---|                                                                                                                                                                                    
 | K2HB_AWS_S3_BATCH_PUTS | A toggle for whether to use batch puts for writing to s3, e.g. `true` |                                                                                                                                                                          
 | K2HB_AWS_S3_USE_LOCALSTACK | A toggle for whether to use localstack for local development, e.g. `true` |
@@ -112,7 +113,8 @@ All the schemas are found in [src/main/resources](src/main/resources)
 | K2HB_HBASE_REGION_SPLITS | The number of regions to set when k2hb creates a missing table e.g. `2` | 
 | K2HB_WRITE_TO_METADATA_STORE | Whether the application should write to the metadata store |
 | K2HB_VALIDATOR_SCHEMA | A json file that encompasses the validator schema, e.g. `business_message.schema.json` |
-| K2HB_KAFKA_TOPIC_REGEX | The regex for getting the Kafka topic name, e.g. `(db[.]{1}[-\w]+[.]{1}[-.\w]+)` |
+| K2HB_KAFKA_TOPIC_REGEX | Topics matching this are subscribed to unless they also match the exclusion regex, e.g. `(db[.]{1}[-\w]+[.]{1}[-.\w]+)` |
+| K2HB_KAFKA_TOPIC_EXCLUSION_REGEX | Topics matching this pattern are excluded from the subscription, e.g. `(db[.]{1}[-\w]+[.]{1}[-.\w]+)` |
 | K2HB_QUALIFIED_TABLE_PATTERN | The regex pattern for getting the table name from the topic, e.g. `\w+\.([-\w]+)\.([-.\w]+)` |
 | K2HB_AWS_S3_MANIFEST_DIRECTORY | The name of the directory for the AWS S3 manifest, e.g. `manifest_prefix` |            
 | K2HB_TRUSTSTORE_PATH | The SSL truststore location which is needed if Insecure Kafka is not true |         
@@ -120,4 +122,3 @@ All the schemas are found in [src/main/resources](src/main/resources)
 | K2HB_KEYSTORE_PATH | The SSL keystore path which is needed if Insecure Kafka is not true |     
 | K2HB_KEYSTORE_PASSWORD | The SSL keystore password which is needed if Insecure Kafka is not true |     
 | K2HB_PRIVATE_KEY_PASSWORD | The SSL private key password which is needed if Insecure Kafka is not true |                                                                                                                                                                                            
- 

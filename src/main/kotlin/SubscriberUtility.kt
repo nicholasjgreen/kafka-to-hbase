@@ -14,7 +14,6 @@ object SubscriberUtility {
 
         val topics =  with(includedTopics(consumer, includesRegex)) {
             excludesRegex?.let {
-                logger.info("Filtering", "pattern" to excludesRegex.pattern)
                 filterNot(excludesRegex::matches)
             } ?: this
         }

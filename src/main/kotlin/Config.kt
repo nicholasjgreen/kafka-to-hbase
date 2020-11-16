@@ -119,9 +119,8 @@ object Config {
         val pollTimeout: Duration = getEnv("K2HB_KAFKA_POLL_TIMEOUT")?.toDuration() ?: Duration.ofSeconds(3)
         val topicRegex = Regex(getEnv("K2HB_KAFKA_TOPIC_REGEX") ?: """^(db[.]{1}[-\w]+[.]{1}[-\w]+)$""")
 
-        val topicExclusionRegex: Regex? = getEnv("K2HB_KAFKA_TOPIC_EXCLUSION_REGEX")?.let {
-            Regex(it)
-        }
+        val topicExclusionRegexText = getEnv("K2HB_KAFKA_TOPIC_EXCLUSION_REGEX") ?: "NOT_SET"
+        val topicExclusionRegex: Regex? = if(topicExclusionRegexText != "NOT_SET") Regex(topicExclusionRegexText) else null
 
         val dlqTopic = getEnv("K2HB_KAFKA_DLQ_TOPIC") ?: "test-dlq-topic"
 

@@ -105,19 +105,24 @@ integration-test-ucfs-and-equality: ## Run the integration tests in a Docker con
 	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test integration-test-equality -x test -x integration-load-test
 
 integration-tests:
-	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test
-	docker-compose -f docker-compose.yaml run --name integration-test-equality integration-test gradle --no-daemon --rerun-tasks integration-test-equality
-	docker-compose -f docker-compose.yaml run --name integration-load-test integration-test gradle --no-daemon --rerun-tasks integration-load-test
+	@{ \
+		set +e ;\
+		docker stop integration-test ;\
+		docker rm integration-test ;\
+		set -e ;\
+	}
+	docker-compose -f docker-compose.yaml build integration-test
+	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test integration-test-equality integration-load-test
 
 integration-load-test: ## Run the integration load tests in a Docker container
 	@{ \
 		set +e ;\
-		docker stop integration-load-test ;\
-		docker rm integration-load-test ;\
+		docker stop integration-test ;\
+		docker rm integration-test ;\
 		set -e ;\
 	}
 	docker-compose -f docker-compose.yaml build integration-test
-	docker-compose -f docker-compose.yaml run --name integration-load-test integration-test gradle --no-daemon --rerun-tasks integration-load-test -x test -x integration-test -x integration-test-equality
+	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-load-test -x test -x integration-test -x integration-test-equality
 
 .PHONY: integration-all ## Build and Run all the tests in containers from a clean start
 integration-all: down destroy build up integration-tests
@@ -130,6 +135,12 @@ kafka-shell: ## Open an shell in the running kafka broker container in root
 
 kafka-shell-bin: ## Open an shell in the running kafka broker container in /opt/kafka/bin
 	docker exec -w "/opt/kafka/bin" -it kafka sh -c 'ls'
+
+k2hb-main-logs: ## Follow the k2hb main logs
+	docker exec -it kafka2hbase tail -f /var/log/k2hb/k2hb.log
+
+k2hb-equality-logs: ## Follow the k2hb main logs
+	docker exec -it kafka2hbaseequality tail -f /var/log/k2hb/k2hb.log
 
 build: build-base ## build main images
 	docker-compose build
