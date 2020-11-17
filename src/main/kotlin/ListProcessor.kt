@@ -120,7 +120,9 @@ class ListProcessor(validator: Validator, private val converter: Converter) : Ba
                     "version" to "${it.version}",
                     "version_created_from" to it.versionCreatedFrom,
                     "version_raw" to it.versionRaw,
+                    "size" to "${it.record.serializedValueSize()}",
                     "time_since_last_modified" to "${(it.putTime - it.timeOnQueue) / 1000}"
+
             )
         }
     }

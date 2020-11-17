@@ -18,9 +18,9 @@ class TextUtilsTest : StringSpec({
         actual shouldBe "ucfs:data_encrypted"
     }
 
-    "agent_core:agentToDoArchive is coalesced." {
-        val actual = TextUtils().coalescedName("agent_core:agentToDoArchive")
-        actual shouldBe "agent_core:agentToDo"
+    "agent-core:agentToDoArchive is coalesced." {
+        val actual = TextUtils().coalescedName("agent-core:agentToDoArchive")
+        actual shouldBe "agent-core:agentToDo"
     }
 
     "other_db:agentToDoArchive is not coalesced." {

@@ -3,7 +3,7 @@ import uk.gov.dwp.dataworks.logging.DataworksLogger
 class TextUtils {
 
     private val qualifiedTablePattern = Regex(Config.Hbase.qualifiedTablePattern)
-    private val coalescedNames = mapOf("agent_core:agentToDoArchive" to "agent_core:agentToDo")
+    private val coalescedNames = mapOf("agent-core:agentToDoArchive" to "agent-core:agentToDo")
 
     fun topicNameTableMatcher(topicName: String) = qualifiedTablePattern.find(topicName)
 
@@ -21,11 +21,10 @@ class TextUtils {
     }
 
     fun targetTable(namespace: String, tableName: String) =
-        coalescedName("$namespace:$tableName")
-            ?.replace("-", "_")?.replace(".", "_")
+        coalescedName("$namespace:$tableName").replace("-", "_").replace(".", "_")
 
-    fun coalescedName(tableName: String) =
-        if (coalescedNames[tableName] != null) coalescedNames[tableName] else tableName
+    fun coalescedName(tableName: String): String =
+        if (coalescedNames[tableName] != null) coalescedNames[tableName]!! else tableName
 
     fun printableKey(key: ByteArray) =
             if (key.size > 4) {

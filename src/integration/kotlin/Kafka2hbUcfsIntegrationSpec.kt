@@ -74,13 +74,13 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val producer = KafkaProducer<ByteArray, ByteArray>(Config.Kafka.producerProps)
             val parser = MessageParser()
             val converter = Converter()
-            val topic = "db.agent_core.agentToDoArchive"
+            val topic = "db.agent-core.agentToDoArchive"
             val qualifiedTableName = "agent_core:agentToDo"
 
             verifyMetadataStore(0, topic, true)
 
             hbase.ensureTable(qualifiedTableName)
-            val body = wellFormedValidPayload("agent_core", "agentToDoArchive")
+            val body = wellFormedValidPayload("agent-core", "agentToDoArchive")
             val timestamp = converter.getTimestampAsLong(getISO8601Timestamp())
             val (_, hbaseKey) = parser.generateKey(converter.convertToJson(getId().toByteArray()))
             log.info("Sending well-formed record to kafka topic '$topic'.")
