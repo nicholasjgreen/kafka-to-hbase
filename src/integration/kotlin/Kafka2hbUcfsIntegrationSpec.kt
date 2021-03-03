@@ -1,4 +1,15 @@
 
+import Utility.getISO8601Timestamp
+import Utility.getId
+import Utility.getS3Client
+import Utility.sampleQualifiedTableName
+import Utility.sendRecord
+import Utility.uniqueTopicName
+import Utility.uniqueTopicNameWithDot
+import Utility.verifyHbaseRegions
+import Utility.verifyMetadataStore
+import Utility.waitFor
+import Utility.wellFormedValidPayload
 import com.beust.klaxon.Klaxon
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -7,7 +18,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import lib.*
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.log4j.Logger
 import java.io.BufferedReader
@@ -49,8 +59,9 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             producer.sendRecord(topic.toByteArray(), "key1".toByteArray(), body, timestamp)
             log.info("Sent well-formed record to kafka topic '$topic'.")
             val referenceTimestamp = converter.getTimestampAsLong(getISO8601Timestamp())
-            val storedValue =
-                waitFor { hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp) }
+            val storedValue = waitFor {
+                hbase.getCellBeforeTimestamp(qualifiedTableName, hbaseKey, referenceTimestamp)
+            }
 
             storedValue shouldNotBe null
             val jsonObject = Gson().fromJson(String(storedValue!!), JsonObject::class.java)
@@ -113,9 +124,10 @@ class Kafka2hbUcfsIntegrationSpec : StringSpec() {
             val namespace = matcher.groupValues[1]
             val tableName = matcher.groupValues[2]
             val qualifiedTableName = sampleQualifiedTableName(namespace, tableName)
+            hbase.ensureTable(qualifiedTableName)
             val kafkaTimestamp1 = converter.getTimestampAsLong(getISO8601Timestamp())
             val body1 = wellFormedValidPayload(namespace, tableName)
-            hbase.putVersion(qualifiedTableName, hbaseKey, body1, kafkaTimestamp1)
+            hbase.putRecord(qualifiedTableName, hbaseKey, kafkaTimestamp1, body1)
 
             verifyMetadataStore(0, topic, true)
 

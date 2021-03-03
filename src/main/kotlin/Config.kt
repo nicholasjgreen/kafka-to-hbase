@@ -19,16 +19,10 @@ import java.net.InetAddress
 import java.time.Duration
 import java.util.*
 import kotlin.time.ExperimentalTime
-import kotlin.time.hours
+import kotlin.time.minutes
+import kotlin.time.seconds
 
-fun getEnv(envVar: String): String? {
-    val value = System.getenv(envVar)
-    return if (value.isNullOrEmpty()) null else value
-}
-
-fun String.toDuration(): Duration = Duration.parse(this)
-fun readFile(fileName: String): String = File(fileName).readText(Charsets.UTF_8)
-
+@ExperimentalTime
 object Config {
     const val metaDataRefreshKey = "metadata.max.age.ms"
     const val schemaFileProperty = "schema.location"
@@ -36,6 +30,24 @@ object Config {
     const val equalitySchemaFile = "equality_message.schema.json"
     const val auditSchemaFile = "audit_message.schema.json"
     const val dataworksRegion = "eu-west-2"
+
+    object Metrics {
+        val scrapeInterval: Long = getEnv("K2HB_METRICS_SCRAPE_INTERVAL")?.toLong() ?: 1.minutes.toLongMilliseconds()
+        val deleteMetrics = getEnv("K2HB_METRICS_DELETE_METRICS")?.toBoolean() ?: true
+        val instanceName = getEnv("K2HB_INSTANCE_NAME") ?: ""
+        val pushgateway = getEnv("K2HB_METRICS_PUSHGATEWAY") ?: "pushgateway:9091"
+        val pushMetrics = getEnv("K2HB_METRICS_PUSH_METRICS")?.toBoolean() ?: true
+
+        val pushScheduleInitialDelay = getEnv("K2HB_METRICS_SCHEDULE_INITIAL_DELAY_SECONDS")?.run {
+            toInt().seconds.inMilliseconds.toLong()
+        } ?: 10.seconds.inMilliseconds.toLong()
+
+        val pushSchedulePeriod = getEnv("K2HB_METRICS_SCHEDULE_PERIOD_SECONDS")?.run {
+            toInt().seconds.inMilliseconds.toLong()
+        } ?: 20.seconds.inMilliseconds.toLong()
+
+    }
+
     object Shovel {
         val reportFrequency = getEnv("K2HB_KAFKA_REPORT_FREQUENCY")?.toInt() ?: 100
     }
@@ -60,18 +72,10 @@ object Config {
 
         val columnFamily = getEnv("K2HB_HBASE_COLUMN_FAMILY") ?: "cf"
         val columnQualifier = getEnv("K2HB_HBASE_COLUMN_QUALIFIER") ?: "record"
-        val retryMaxAttempts: Int = getEnv("K2HB_RETRY_MAX_ATTEMPTS")?.toInt() ?: 3
-        val maxExistenceChecks: Int = getEnv("K2HB_MAX_EXISTENCE_CHECKS")?.toInt() ?: 3
-        val checkExistence: Boolean = getEnv("K2HB_CHECK_EXISTENCE")?.toBoolean() ?: true
-        val retryInitialBackoff: Long = getEnv("K2HB_RETRY_INITIAL_BACKOFF")?.toLong() ?: 10000
-        val retryBackoffMultiplier: Long = getEnv("K2HB_RETRY_BACKOFF_MULTIPLIER")?.toLong() ?: 2
         val regionReplication: Int = getEnv("K2HB_HBASE_REGION_REPLICATION")?.toInt() ?: 3
-        val logKeys: Boolean = getEnv("K2HB_HBASE_LOG_KEYS")?.toBoolean() ?: true
         var DEFAULT_QUALIFIED_TABLE_PATTERN = """^\w+\.([-\w]+)\.([-.\w]+)$"""
         var qualifiedTablePattern = getEnv("K2HB_QUALIFIED_TABLE_PATTERN") ?: DEFAULT_QUALIFIED_TABLE_PATTERN
         val regionSplits = getEnv("K2HB_HBASE_REGION_SPLITS") ?: "2"
-        @ExperimentalTime
-        val creationTimeoutSeconds = getEnv("K2HB_HBASE_CREATION_TIMEOUT_SECONDS")?.toInt() ?: 1.hours.inSeconds.toInt()
     }
 
     object Kafka {
@@ -191,16 +195,29 @@ object Config {
         }
     }
 
-    object ArchiveS3 {
+    object CorporateStorage {
         val archiveBucket = getEnv("K2HB_AWS_S3_ARCHIVE_BUCKET") ?: "ucarchive"
         val archiveDirectory = getEnv("K2HB_AWS_S3_ARCHIVE_DIRECTORY") ?: "ucdata_main"
-        val parallelPuts = (getEnv("K2HB_AWS_S3_PARALLEL_PUTS") ?: "false").toBoolean()
-        val batchPuts = (getEnv("K2HB_AWS_S3_BATCH_PUTS") ?: "false").toBoolean()
     }
 
-    object ManifestS3 {
+    object Manifest {
         val manifestBucket = getEnv("K2HB_AWS_S3_MANIFEST_BUCKET") ?: "manifests"
         val manifestDirectory = getEnv("K2HB_AWS_S3_MANIFEST_DIRECTORY") ?: "streaming"
         val writeManifests = (getEnv("K2HB_AWS_S3_WRITE_MANIFESTS") ?: "true").toBoolean()
     }
+
+    object Retry {
+        val maxAttempts: Int = getEnv("K2HB_RETRY_MAX_ATTEMPTS")?.toInt() ?: 3
+        val initialBackoff: Long = getEnv("K2HB_RETRY_INITIAL_BACKOFF")?.toLong() ?: 10000
+        val backoffMultiplier: Long = getEnv("K2HB_RETRY_BACKOFF_MULTIPLIER")?.toLong() ?: 2
+    }
+
+    fun getEnv(envVar: String): String? {
+        val value = System.getenv(envVar)
+        return if (value.isNullOrEmpty()) null else value
+    }
+
+    fun String.toDuration(): Duration = Duration.parse(this)
+    fun readFile(fileName: String): String = File(fileName).readText(Charsets.UTF_8)
+
 }

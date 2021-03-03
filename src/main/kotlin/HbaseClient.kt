@@ -1,117 +1,53 @@
+
+import RetryUtility.retry
+import io.prometheus.client.Counter
+import io.prometheus.client.Summary
 import org.apache.hadoop.hbase.*
-import org.apache.hadoop.hbase.client.*
+import org.apache.hadoop.hbase.client.Connection
+import org.apache.hadoop.hbase.client.ConnectionFactory
+import org.apache.hadoop.hbase.client.Get
+import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.io.TimeRange
 import org.apache.hadoop.hbase.io.compress.Compression.Algorithm
 import uk.gov.dwp.dataworks.logging.DataworksLogger
 import java.io.IOException
 import kotlin.system.measureTimeMillis
+import kotlin.time.ExperimentalTime
 
-open class HbaseClient(
-    val connection: Connection, private val columnFamily: ByteArray,
-    private val columnQualifier: ByteArray, private val hbaseRegionReplication: Int
-) : AutoCloseable {
+@ExperimentalTime
+open class HbaseClient(val connection: Connection, private val columnFamily: ByteArray,
+                       private val columnQualifier: ByteArray,
+                       private val hbaseRegionReplication: Int,
+                       private val successes: Summary,
+                       private val retries: Counter,
+                       private val failures: Counter) : AutoCloseable {
 
     @Throws(IOException::class)
-    open fun putList(tableName: String, payloads: List<HbasePayload>) {
+    open suspend fun putList(tableName: String, payloads: List<HbasePayload>) {
         if (payloads.isNotEmpty()) {
             val timeTaken = measureTimeMillis {
                 logger.info("Putting batch into table", "size" to "${payloads.size}", "table" to tableName)
                 ensureTable(tableName)
-                connection.getTable(TableName.valueOf(tableName)).use { table ->
-                    table.put(payloads.map { payload ->
-                        Put(payload.key).apply {
-                            addColumn(columnFamily, columnQualifier, payload.version, payload.body)
-                        }
-                    })
-                }
+                retry(successes, retries, failures, {
+                    connection.getTable(TableName.valueOf(tableName)).use { table ->
+                        table.put(payloads.map { payload ->
+                            Put(payload.key).apply {
+                                addColumn(columnFamily, columnQualifier, payload.version, payload.body)
+                            }
+                        })
+                    }
+                }, payloads[0].record.topic(), "${payloads[0].record.partition()}")
             }
             logger.info("Put batch into table", "time_taken" to "$timeTaken", "size" to "${payloads.size}", "table" to tableName)
         }
     }
 
-    fun put(table: String, key: ByteArray, body: ByteArray, version: Long) {
-
-        var success = false
-        var attempts = 0
-        var exception: Exception? = null
-        while (!success && attempts < Config.Hbase.retryMaxAttempts) {
-            try {
-                putVersion(table, key, body, version)
-                success = true
-            } catch (e: Exception) {
-                val delay = if (attempts == 0) Config.Hbase.retryInitialBackoff
-                else (Config.Hbase.retryInitialBackoff * attempts * Config.Hbase.retryBackoffMultiplier.toFloat()).toLong()
-                logger.warn("Failed to put batch ${e.message}", "attempt_number" to "${attempts + 1}",
-                    "max_attempts" to "${Config.Hbase.retryMaxAttempts}", "retry_delay" to "$delay", "error_message" to "${e.message}")
-                Thread.sleep(delay)
-                exception = e
-            } finally {
-                attempts++
-            }
-        }
-
-        if (!success && exception != null) {
-            throw exception
-        }
-    }
-
-    @Throws(Exception::class)
-    open fun putVersion(tableName: String, key: ByteArray, body: ByteArray, version: Long) {
-
-        if (connection.isClosed) {
-            throw IOException("HBase connection is closed")
-        }
-
-        ensureTable(tableName)
-
-        val printableKey = textUtils.printableKey(key)
-
-        if (Config.Hbase.logKeys) {
-            logger.info("Putting record", "key" to printableKey, "table" to tableName, "version" to "$version")
-        }
-
-        attemptPut(tableName, key, version, body)
-
-        if (Config.Hbase.logKeys) {
-            logger.info("Put record", "key" to printableKey, "table" to tableName, "version" to "$version")
-        }
-    }
-
-    private fun attemptPut(tableName: String, key: ByteArray, version: Long, body: ByteArray) {
-
+    fun putRecord(tableName: String, key: ByteArray, version: Long, body: ByteArray) =
         connection.getTable(TableName.valueOf(tableName)).use { table ->
-            if (Config.Hbase.checkExistence) {
-                var exists = false
-                var attempts = 0
-                while (!exists) {
-                    putRecord(table, key, version, body)
-
-                    exists = table.exists(Get(key).apply {
-                        setTimeStamp(version)
-                    })
-
-                    if (!exists) {
-                        logger.warn(
-                            "Put record does not exist", "attempts" to "$attempts",
-                            "key" to textUtils.printableKey(key), "table" to tableName, "version" to "$version"
-                        )
-                        if (++attempts >= Config.Hbase.maxExistenceChecks) {
-                            logger.error("Put record does not exist after max retry attempts",
-                                "attempts" to "$attempts", "key" to textUtils.printableKey(key), "table" to tableName, "version" to "$version")
-                            throw Exception("Put record does not exist after max retry attempts: $tableName/${textUtils.printableKey(key)}/$version")
-                        }
-                    }
-                }
-            } else {
-                putRecord(table, key, version, body)
-            }
+            table.put(Put(key).apply {
+                addColumn(columnFamily, columnQualifier, version, body)
+            })
         }
-    }
-
-    private fun putRecord(table: Table, key: ByteArray, version: Long, body: ByteArray) =
-        table.put(Put(key).apply {
-            addColumn(columnFamily, columnQualifier, version, body)
-        })
 
 
     fun getCellAfterTimestamp(tableName: String, key: ByteArray, timestamp: Long): ByteArray? {
@@ -213,23 +149,21 @@ open class HbaseClient(
 
     companion object {
         fun connect(): HbaseClient {
-            logger.info(
-                "Hbase connection configuration",
+            logger.info("Hbase connection configuration",
                 HConstants.ZOOKEEPER_ZNODE_PARENT to Config.Hbase.config.get(HConstants.ZOOKEEPER_ZNODE_PARENT),
                 HConstants.ZOOKEEPER_QUORUM to Config.Hbase.config.get(HConstants.ZOOKEEPER_QUORUM),
-                "hbase.zookeeper.port" to Config.Hbase.config.get("hbase.zookeeper.port")
-            )
+                "hbase.zookeeper.port" to Config.Hbase.config.get("hbase.zookeeper.port"))
 
-            return HbaseClient(
-                ConnectionFactory.createConnection(HBaseConfiguration.create(Config.Hbase.config)),
+            return HbaseClient(ConnectionFactory.createConnection(HBaseConfiguration.create(Config.Hbase.config)),
                 Config.Hbase.columnFamily.toByteArray(),
                 Config.Hbase.columnQualifier.toByteArray(),
-                Config.Hbase.regionReplication
-            )
+                Config.Hbase.regionReplication,
+                MetricsClient.hbaseSuccesses,
+                MetricsClient.hbaseRetries,
+                MetricsClient.hbaseFailures)
         }
 
-        private val logger = DataworksLogger.getLogger(HbaseClient::class.toString())
-        private val textUtils = TextUtils()
+        private val logger = DataworksLogger.getLogger(HbaseClient::class)
     }
 
     override fun close() = connection.close()

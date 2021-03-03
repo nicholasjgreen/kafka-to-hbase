@@ -1,10 +1,17 @@
 
+import MetricsMocks.counter
+import MetricsMocks.summary
+import MetricsMocks.summaryChild
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.nhaarman.mockitokotlin2.*
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.doubles.ToleranceMatcher
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.prometheus.client.Counter
+import io.prometheus.client.Summary
 import kotlinx.coroutines.runBlocking
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -15,35 +22,162 @@ import org.apache.kafka.common.TopicPartition
 import java.io.IOException
 import java.sql.Connection
 import java.sql.PreparedStatement
+import kotlin.time.ExperimentalTime
 
+@ExperimentalTime
 class ListProcessorTest : StringSpec() {
 
     init {
         "Only commits offsets on success, resets position on failure" {
-            val processor = ListProcessor(mock(), Converter())
+            val batchTimer = mock<Summary.Timer>()
+
+            val batchSummaryChild = mock<Summary.Child> {
+                on { startTimer() } doReturn batchTimer
+            }
+
+            val batchSummary = mock<Summary> {
+                on { labels(any(), any()) } doReturn batchSummaryChild
+            }
+
+            val batchFailuresChild = mock<Counter.Child>()
+            val batchFailures = mock<Counter> {
+                on { labels(any()) } doReturn batchFailuresChild
+            }
+
+            val recordSuccessesChild: Counter.Child = mock()
+            val recordSuccesses = mock<Counter> {
+                on { labels(any()) } doReturn recordSuccessesChild
+            }
+
+            val recordFailuresChild: Counter.Child = mock()
+            val recordFailures = mock<Counter> {
+                on { labels(any()) } doReturn recordFailuresChild
+            }
+
+            val processor = ListProcessor(mock(), Converter(), mock(), mock(), mock(),
+                batchSummary, batchFailures, recordSuccesses, recordFailures)
+
             val hbaseClient = hbaseClient()
             val metadataStoreClient = metadataStoreClient()
             val consumer = kafkaConsumer()
-            val s3Service = archiveAwsS3Service()
-            val manifestService = manifestAwsS3Service()
+            val s3Service = corporateStorageService()
+            val manifestService = manifestService()
             processor.processRecords(hbaseClient, consumer, metadataStoreClient, s3Service, manifestService, messageParser(), consumerRecords())
+            verifyBatchSummaryInteractions(batchSummary, batchSummaryChild, batchTimer)
+            verifyBatchFailureInteractions(batchFailures, batchFailuresChild)
+            verifyRecordsSuccessesInteractions(recordSuccesses, recordSuccessesChild)
+            verifyRecordsFailuresInteractions(recordFailures, recordFailuresChild)
             verifyS3Interactions(s3Service)
             verifyHbaseInteractions(hbaseClient)
-            verifyKafkaInteractions(consumer)
             verifyMetadataStoreInteractions(metadataStoreClient)
+            verifyKafkaInteractions(consumer)
         }
     }
 
-    private fun verifyMetadataStoreInteractions(metadataStoreClient: MetadataStoreClient) {
+    private fun verifyBatchSummaryInteractions(summary: Summary,
+                                               summaryChild: Summary.Child,
+                                               summaryTimer: Summary.Timer) {
+        val summaryTopicCaptor = argumentCaptor<String>()
+        val summaryPartitionCaptor = argumentCaptor<String>()
+        verify(summary, times(10)).labels(summaryTopicCaptor.capture(), summaryPartitionCaptor.capture())
+
+        summaryTopicCaptor.allValues.forEachIndexed { index, topic ->
+            topic shouldBe "db.database%02d.collection%02d".format(index + 1, index + 1)
+        }
+
+        summaryPartitionCaptor.allValues.forEachIndexed { index, partition ->
+            partition shouldBe "${10 - (index + 1)}"
+        }
+
+        verifyNoMoreInteractions(summary)
+
+        verify(summaryChild, times(10)).startTimer()
+        verifyNoMoreInteractions(summaryChild)
+        verify(summaryTimer, times(5)).observeDuration()
+        verifyNoMoreInteractions(summaryTimer)
+    }
+
+    private fun verifyBatchFailureInteractions(failureCounter: Counter, child: Counter.Child) {
+        val failedBatchTopicCaptor = argumentCaptor<String>()
+        val failedBatchPartitionCaptor = argumentCaptor<String>()
+        verify(failureCounter, times(5)).labels(failedBatchTopicCaptor.capture(), failedBatchPartitionCaptor.capture())
+
+        failedBatchTopicCaptor.allValues.forEachIndexed { index, topic ->
+            topic shouldBe "db.database%02d.collection%02d".format(index * 2 + 1, index * 2 + 1)
+        }
+
+        failedBatchPartitionCaptor.allValues.forEachIndexed { index, partition ->
+            partition shouldBe "${9 - index * 2}"
+        }
+
+        verifyNoMoreInteractions(failureCounter)
+        verify(child, times(5)).inc()
+        verifyNoMoreInteractions(child)
+    }
+
+    private fun verifyRecordsSuccessesInteractions(recordSuccesses: Counter,
+                                                   recordSuccessesChild: Counter.Child) {
+
+        val successTopicCaptor = argumentCaptor<String>()
+        val successPartitionCaptor = argumentCaptor<String>()
+        verify(recordSuccesses, times(5)).labels(successTopicCaptor.capture(), successPartitionCaptor.capture())
+
+        successTopicCaptor.allValues.forEachIndexed { index, topic ->
+            val topicIndex = index * 2 + 2
+            topic shouldBe "db.database%02d.collection%02d".format(topicIndex, topicIndex)
+        }
+
+        successPartitionCaptor.allValues.forEachIndexed { index, partition ->
+            partition shouldBe "${10 - ((index + 1) * 2)}"
+        }
+
+        verifyNoMoreInteractions(recordSuccesses)
+        argumentCaptor<Double> {
+            verify(recordSuccessesChild, times(5)).inc(capture())
+            allValues.forEach {
+                it shouldBe ToleranceMatcher(100.toDouble(), 0.5)
+            }
+            verifyNoMoreInteractions(recordSuccessesChild)
+        }
+
+    }
+
+    private fun verifyRecordsFailuresInteractions(recordFailures: Counter,
+                                                  recordFailuresChild: Counter.Child) {
+
+        val failureTopicCaptor = argumentCaptor<String>()
+        val failurePartitionCaptor = argumentCaptor<String>()
+        verify(recordFailures, times(5)).labels(failureTopicCaptor.capture(), failurePartitionCaptor.capture())
+
+        failureTopicCaptor.allValues.forEachIndexed { index, topic ->
+            val topicIndex = index * 2 + 1
+            topic shouldBe "db.database%02d.collection%02d".format(topicIndex, topicIndex)
+        }
+
+        failurePartitionCaptor.allValues.forEachIndexed { index, partition ->
+            partition shouldBe "${10 - (index * 2 + 1)}"
+        }
+
+        verifyNoMoreInteractions(recordFailures)
+        argumentCaptor<Double> {
+            verify(recordFailuresChild, times(5)).inc(capture())
+            allValues.forEach {
+                it shouldBe ToleranceMatcher(100.toDouble(), 0.5)
+            }
+            verifyNoMoreInteractions(recordFailuresChild)
+        }
+    }
+
+    private suspend fun verifyMetadataStoreInteractions(metadataStoreClient: MetadataStoreClient) {
         val captor = argumentCaptor<List<HbasePayload>>()
         verify(metadataStoreClient, times(10)).recordBatch(captor.capture())
         validateMetadataHbasePayloads(captor)
     }
 
-    private fun verifyS3Interactions(s3Service: ArchiveAwsS3Service) = runBlocking {
+    private fun verifyS3Interactions(s3Service: CorporateStorageService) = runBlocking {
         val tableCaptor = argumentCaptor<String>()
         val payloadCaptor = argumentCaptor<List<HbasePayload>>()
-        verify(s3Service, times(10)).putObjects(tableCaptor.capture(), payloadCaptor.capture())
+        verify(s3Service, times(10)).putBatch(tableCaptor.capture(), payloadCaptor.capture())
         validateTableNames(tableCaptor)
         validateHbasePayloads(payloadCaptor)
     }
@@ -109,21 +243,17 @@ class ListProcessorTest : StringSpec() {
     }
 
     private fun verifyFailures(consumer: KafkaConsumer<ByteArray, ByteArray>) {
-        val topicPartitionCaptor = argumentCaptor<TopicPartition>()
-        val committedCaptor = argumentCaptor<TopicPartition>()
-        val positionCaptor = argumentCaptor<Long>()
-        verify(consumer, times(5)).committed(committedCaptor.capture())
-
-        committedCaptor.allValues.forEachIndexed { index, topicPartition ->
-            val topic = topicPartition.topic()
-            val partition = topicPartition.partition()
-            val topicNumber = (index * 2 + 1)
-            partition shouldBe 10 - topicNumber
-            topic shouldBe topicName(topicNumber)
+        argumentCaptor<Set<TopicPartition>> {
+            verify(consumer, times(5)).committed(capture())
+            allValues.forEachIndexed { index, topicPartitionSet ->
+                val topicNumber = (index * 2 + 1)
+                topicPartitionSet shouldContainExactly setOf(TopicPartition(topicName(topicNumber), 10 - topicNumber))
+            }
         }
 
+        val positionCaptor = argumentCaptor<Long>()
+        val topicPartitionCaptor = argumentCaptor<TopicPartition>()
         verify(consumer, times(5)).seek(topicPartitionCaptor.capture(), positionCaptor.capture())
-
         topicPartitionCaptor.allValues.zip(positionCaptor.allValues).forEachIndexed { index, pair ->
             val topicNumber = index * 2 + 1
             val topicPartition = pair.first
@@ -158,14 +288,14 @@ class ListProcessorTest : StringSpec() {
             mock<KafkaConsumer<ByteArray, ByteArray>> {
                 repeat(10) { topicNumber ->
                     on {
-                        committed(TopicPartition(topicName(topicNumber), 10 - topicNumber))
-                    } doReturn OffsetAndMetadata((topicNumber * 10).toLong(), "")
+                        committed(setOf(TopicPartition(topicName(topicNumber), 10 - topicNumber)))
+                    } doReturn mapOf(TopicPartition(topicName(topicNumber), 10 - topicNumber) to OffsetAndMetadata((topicNumber * 10).toLong(), ""))
                 }
             }
 
     private fun hbaseClient() =
         mock<HbaseClient> {
-            on { putList(any(), any()) } doAnswer {
+            onBlocking { putList(any(), any()) } doAnswer {
                 val tableName = it.getArgument<String>(0)
                 val matchResult = Regex("""[13579]$""").find(tableName)
                 if (matchResult != null) {
@@ -179,7 +309,16 @@ class ListProcessorTest : StringSpec() {
         val connection = mock<Connection> {
             on {prepareStatement(any())} doReturn statement
         }
-        return spy(MetadataStoreClient(connection))
+
+        val successChild = summaryChild()
+        val successTimer = summary(successChild)
+
+        val retryChild = mock<Counter.Child>()
+        val retryCounter = counter(retryChild)
+        val failureChild = mock<Counter.Child>()
+        val failureCounter = counter(failureChild)
+
+        return spy(MetadataStoreClient(connection, successTimer, retryCounter, failureCounter))
     }
 
     private fun consumerRecords()  =
@@ -189,6 +328,7 @@ class ListProcessorTest : StringSpec() {
                     val key = Bytes.toBytes("${topicNumber + recordNumber}")
                     val offset = (topicNumber * recordNumber * 20).toLong()
                     mock<ConsumerRecord<ByteArray, ByteArray>> {
+                        on { topic() } doReturn topicName(topicNumber)
                         on { value() } doReturn body
                         on { key() } doReturn key
                         on { offset() } doReturn offset
@@ -197,8 +337,8 @@ class ListProcessorTest : StringSpec() {
                 }
             })
 
-    private fun archiveAwsS3Service(): ArchiveAwsS3Service = mock { on { runBlocking { putObjects(any(), any()) } } doAnswer { } }
-    private fun manifestAwsS3Service(): ManifestAwsS3Service = mock { on { runBlocking { putManifestFile(any()) } } doAnswer { } }
+    private fun corporateStorageService(): CorporateStorageService = mock { on { runBlocking { putBatch(any(), any()) } } doAnswer { } }
+    private fun manifestService(): ManifestService = mock { on { runBlocking { putManifestFile(any()) } } doAnswer { } }
     
     private fun json(id: Any) = """{ "message": { "_id": { "id": "$id" } } }"""
     private fun topicName(topicNumber: Int) = "db.database%02d.collection%02d".format(topicNumber, topicNumber)

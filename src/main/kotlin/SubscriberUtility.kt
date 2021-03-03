@@ -42,5 +42,5 @@ object SubscriberUtility {
             .map(Map.Entry<String, List<PartitionInfo>>::key)
             .filter(inclusionRegex::matches)
 
-    private val logger = DataworksLogger.getLogger(SubscriberUtility::class.java.toString())
+    private val logger = DataworksLogger.getLogger(SubscriberUtility::class)
 }

@@ -6,6 +6,7 @@ import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.beInstanceOf
+import io.kotest.property.checkAll
 import java.text.ParseException
 
 
@@ -95,10 +96,10 @@ class ConverterTest : StringSpec({
     }
 
     "generated checksums are four bytes" {
-//        assertAll { input: String ->
-//            val checksum = converter.generateFourByteChecksum(input)
-//            checksum.size shouldBe 4
-//        }
+        checkAll { input: String ->
+            val checksum = converter.generateFourByteChecksum(input)
+            checksum.size shouldBe 4
+        }
     }
 
     "valid timestamp format in the message gets parsed as long correctly" {

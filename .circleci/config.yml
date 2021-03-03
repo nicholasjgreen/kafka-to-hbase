@@ -78,7 +78,7 @@ jobs:
             docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
             VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
             docker-compose -f docker-compose.yaml build --build-arg VERSION=$VERSION zookeeper kafka hbase aws-s3 metadatastore kafka2s3 s3-provision integration-test
-            docker-compose -f docker-compose.yaml up -d zookeeper kafka hbase aws-s3 metadatastore
+            docker-compose -f docker-compose.yaml up -d zookeeper kafka hbase aws-s3 metadatastore prometheus pushgateway
             S3_READY_REGEX=^Ready\.$
             while ! docker logs aws-s3 2> /dev/null | grep -q $S3_READY_REGEX; do
                 echo Waiting for aws-s3.
@@ -136,7 +136,7 @@ jobs:
 #         target-file: Dockerfile
 #         monitor-on-build: false
 #         project: '${CIRCLE_PROJECT_REPONAME}/pr-docker'
-
+#
 #  snyk-master:
 #   docker:
 #     - image: circleci/openjdk:8-jdk
@@ -180,49 +180,6 @@ jobs:
             NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${NEXT_VERSION} ./artifacts/
 
-#  docker-build:
-#    executor: docker-publisher
-#    steps:
-#      - checkout
-#      - setup_remote_docker
-#      - setversion
-#      - run:
-#          name: Build Docker image
-#          command: |
-#            docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
-#            VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
-#            docker build --build-arg VERSION=$VERSION --build-arg K2HB_WRITE_TO_METADATA_STORE=true -t $IMAGE_NAME:latest .
-#      - run:
-#          name: Archive Docker image
-#          command: docker save -o image.tar $IMAGE_NAME
-#      - persist_to_workspace:
-#          root: .
-#          paths:
-#            - ./image.tar
-#
-#  docker-publish:
-#    executor: docker-publisher
-#    steps:
-#      - attach_workspace:
-#          at: /tmp/workspace
-#      - setup_remote_docker
-#      - run:
-#          name: Load archived Docker image
-#          command: docker load -i /tmp/workspace/image.tar
-#      - run:
-#          name: Publish Docker Image to Docker Hub
-#          command: |
-#            LATEST_VERSION=$(curl --silent "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-#            read MAJOR MINOR PATCH \<<< $( echo $LATEST_VERSION | awk -F '[ .]' '{maj = $1+0; min = $2+0; patch = $3+0; print maj, min, patch}' )
-#            docker tag $IMAGE_NAME:latest $IMAGE_NAME:$MAJOR
-#            docker tag $IMAGE_NAME:latest $IMAGE_NAME:$MAJOR.$MINOR
-#            docker tag $IMAGE_NAME:latest $IMAGE_NAME:$MAJOR.$MINOR.$PATCH
-#            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-#            docker push $IMAGE_NAME:latest
-#            docker push $IMAGE_NAME:$MAJOR
-#            docker push $IMAGE_NAME:$MAJOR.$MINOR
-#            docker push $IMAGE_NAME:$MAJOR.$MINOR.$PATCH
-
 workflows:
   version: 2
   "build & test":
@@ -249,15 +206,3 @@ workflows:
           filters:
             branches:
               only: master
-#      - docker-build:
-#          requires:
-#            - test
-#          filters:
-#            branches:
-#              only: master
-#      - docker-publish:
-#          requires:
-#            - docker-build
-#          filters:
-#            branches:
-#              only: master

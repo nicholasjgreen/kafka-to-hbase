@@ -4,12 +4,14 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 fun main() {
+    MetricsClient.startMetricsScheduler()
     runBlocking {
         MetadataStoreClient.connect().use { metadataStore ->
             KafkaConsumer<ByteArray, ByteArray>(Config.Kafka.consumerProps).use { kafka ->
-                val archiveAwsS3Service = ArchiveAwsS3Service.connect()
-                val manifestAwsS3Service = ManifestAwsS3Service.connect()
-                Shovel(kafka).shovel(metadataStore, archiveAwsS3Service, manifestAwsS3Service, Config.Kafka.pollTimeout)
+                Shovel(kafka, MetricsClient.k2hbRunningApplications, MetricsClient.maximumLagGauge).shovel(metadataStore,
+                    CorporateStorageService.connect(),
+                    ManifestService.connect(),
+                    Config.Kafka.pollTimeout)
             }
         }
     }

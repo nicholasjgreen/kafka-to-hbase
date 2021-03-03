@@ -1,8 +1,14 @@
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-data class HbasePayload(val key: ByteArray, val body: ByteArray, val id: String, val version: Long,
-                        val versionCreatedFrom: String, val versionRaw: String,
-                        val record: ConsumerRecord<ByteArray, ByteArray>, val putTime: Long, val timeOnQueue: Long) {
+data class HbasePayload(val key: ByteArray,
+                        val body: ByteArray,
+                        val id: String,
+                        val version: Long,
+                        val versionCreatedFrom: String,
+                        val versionRaw: String,
+                        val record: ConsumerRecord<ByteArray, ByteArray>,
+                        val putTime: Long,
+                        val timeOnQueue: Long) {
 
 
     override fun toString(): String {

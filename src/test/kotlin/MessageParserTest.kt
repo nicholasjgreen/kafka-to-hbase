@@ -9,7 +9,6 @@ class MessageParserTest : StringSpec({
 
     fun validateKeys(jsonOne: JsonObject, jsonTwo: JsonObject, contentShouldBeEqual: Boolean) {
         val parser = MessageParser()
-        val json: JsonObject = convertor.convertToJson("{\"testOne\":\"test1\", \"testTwo\":2}".toByteArray())
 
         val (idOne, keyOne) = parser.generateKey(jsonOne)
         val (idTwo, keyTwo) = parser.generateKey(jsonTwo)

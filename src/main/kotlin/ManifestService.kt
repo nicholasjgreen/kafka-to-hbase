@@ -1,10 +1,13 @@
 
+import RetryUtility.retry
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.amazonaws.services.s3.model.PutObjectRequest
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.KlaxonException
 import com.beust.klaxon.Parser
+import io.prometheus.client.Counter
+import io.prometheus.client.Summary
 import org.apache.commons.text.StringEscapeUtils
 import uk.gov.dwp.dataworks.logging.DataworksLogger
 import java.io.BufferedOutputStream
@@ -14,22 +17,29 @@ import java.nio.charset.Charset
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.system.measureTimeMillis
+import kotlin.time.ExperimentalTime
 
-open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
+@ExperimentalTime
+open class ManifestService(private val amazonS3: AmazonS3,
+                           private val successes: Summary,
+                           private val retries: Counter,
+                           private val failures: Counter) {
 
     open suspend fun putManifestFile(payloads: List<HbasePayload>) {
         if (payloads.isNotEmpty()) {
-            val prefix = Config.ManifestS3.manifestDirectory
-            val fileName = manifestFileName(payloads)
-            val key = "${prefix}/${fileName}"
-            logger.info("Putting manifest into s3", "size" to "${payloads.size}", "key" to key)
-            val timeTaken = measureTimeMillis { putManifest(key, manifestBody(payloads)) }
-            logger.info("Put manifest into s3", "time_taken" to "$timeTaken", "size" to "${payloads.size}", "key" to key)
+            retry(successes, retries, failures, {
+                val prefix = Config.Manifest.manifestDirectory
+                val fileName = manifestFileName(payloads)
+                val key = "${prefix}/${fileName}"
+                logger.info("Putting manifest into s3", "size" to "${payloads.size}", "key" to key)
+                val timeTaken = measureTimeMillis { putManifest(key, manifestBody(payloads)) }
+                logger.info("Put manifest into s3", "time_taken" to "$timeTaken", "size" to "${payloads.size}", "key" to key)
+            }, payloads[0].record.topic(), "${payloads[0].record.partition()}")
         }
     }
 
     private fun putManifest(key: String, body: ByteArray) =
-        amazonS3.putObject(PutObjectRequest(Config.ManifestS3.manifestBucket, key,
+        amazonS3.putObject(PutObjectRequest(Config.Manifest.manifestBucket, key,
                 ByteArrayInputStream(body), objectMetadata(body)))
 
     private fun manifestBody(payloads: List<HbasePayload>) =
@@ -107,9 +117,11 @@ open class ManifestAwsS3Service(private val amazonS3: AmazonS3) {
     private fun escape(value: String) = StringEscapeUtils.escapeCsv(value)
 
     companion object {
-        fun connect() = ManifestAwsS3Service(s3)
+        fun connect() = ManifestService(s3, MetricsClient.manifestSuccesses,
+            MetricsClient.manifestRetries, MetricsClient.manifestFailures)
+
         val textUtils = TextUtils()
-        val logger = DataworksLogger.getLogger(ManifestAwsS3Service::class.toString())
+        val logger = DataworksLogger.getLogger(ManifestService::class)
         val s3 = Config.AwsS3.s3
         const val MANIFEST_RECORD_SOURCE = "STREAMED"
         const val MANIFEST_RECORD_COMPONENT = "K2HB"

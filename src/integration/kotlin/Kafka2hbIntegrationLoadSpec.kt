@@ -1,44 +1,43 @@
 
+import Utility.getISO8601Timestamp
+import Utility.metadataStoreConnection
+import Utility.sampleQualifiedTableName
+import Utility.sendRecord
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.GetObjectRequest
 import com.amazonaws.services.s3.model.ListObjectsV2Request
 import com.amazonaws.services.s3.model.ListObjectsV2Result
 import com.amazonaws.services.s3.model.S3ObjectSummary
 import com.google.gson.Gson
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
+import io.ktor.client.*
+import io.ktor.client.features.json.*
+import io.ktor.client.request.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import lib.getISO8601Timestamp
-import lib.metadataStoreConnection
-import lib.sampleQualifiedTableName
-import lib.sendRecord
 import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.client.Scan
 import org.apache.hadoop.hbase.client.Table
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
+import java.net.URLEncoder
 import java.util.zip.GZIPInputStream
 import kotlin.time.ExperimentalTime
 import kotlin.time.minutes
 import kotlin.time.seconds
 
+@Suppress("BlockingMethodInNonBlockingContext")
 @ExperimentalTime
 class Kafka2hbIntegrationLoadSpec : StringSpec() {
-
-    companion object {
-        private const val TOPIC_COUNT = 10
-        private const val RECORDS_PER_TOPIC = 1_000
-        private const val DB_NAME = "load-test-database"
-        private const val COLLECTION_NAME = "load-test-collection"
-        private val logger = LoggerFactory.getLogger(Kafka2hbIntegrationLoadSpec::class.java)
-    }
 
     init {
         "Many messages sent to many topics" {
@@ -47,6 +46,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
             verifyMetadataStore(TOPIC_COUNT * RECORDS_PER_TOPIC, DB_NAME, COLLECTION_NAME)
             verifyS3()
             verifyManifests()
+            verifyMetrics()
         }
     }
 
@@ -136,7 +136,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
     }
 
     private fun allArchiveObjectContentsAsJson(): List<JsonObject> =
-            objectSummaries(Config.ArchiveS3.archiveBucket, Config.ArchiveS3.archiveDirectory, ArchiveAwsS3Service.s3)
+            objectSummaries(Config.CorporateStorage.archiveBucket, Config.CorporateStorage.archiveDirectory, CorporateStorageService.s3)
                 .filter { it.key.endsWith("jsonl.gz") && it.key.contains("load_test") }
                 .map(S3ObjectSummary::getKey)
                 .map(this@Kafka2hbIntegrationLoadSpec::archiveObjectContents)
@@ -146,19 +146,19 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
                 .map { Gson().fromJson(it, JsonObject::class.java) }
 
     private fun archiveObjectContents(key: String) =
-            GZIPInputStream(ArchiveAwsS3Service.s3.getObject(GetObjectRequest(Config.ArchiveS3.archiveBucket, key)).objectContent).use {
+            GZIPInputStream(CorporateStorageService.s3.getObject(GetObjectRequest(Config.CorporateStorage.archiveBucket, key)).objectContent).use {
                 ByteArrayOutputStream().also { output -> it.copyTo(output) }
             }.toByteArray()
 
     private fun allManifestObjectContentsAsString(): List<String> =
-            objectSummaries(Config.ManifestS3.manifestBucket, Config.ManifestS3.manifestDirectory, ManifestAwsS3Service.s3)
+            objectSummaries(Config.Manifest.manifestBucket, Config.Manifest.manifestDirectory, ManifestService.s3)
                 .filter { it.key.endsWith("txt") && it.key.contains("load-test") }
                 .map(S3ObjectSummary::getKey)
                 .map(this@Kafka2hbIntegrationLoadSpec::manifestObjectContents)
                 .map(::String)
 
     private fun manifestObjectContents(key: String) =
-            ManifestAwsS3Service.s3.getObject(GetObjectRequest(Config.ManifestS3.manifestBucket, key))
+            ManifestService.s3.getObject(GetObjectRequest(Config.Manifest.manifestBucket, key))
                 .objectContent.use {
                     ByteArrayOutputStream().also { output -> it.copyTo(output) }
                 }.toByteArray()
@@ -242,6 +242,69 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
                 }
             }
 
+    private suspend fun verifyMetrics() {
+        verifyMetricNames()
+        validateMetric("""k2hb_running_applications{job="k2hb", instance="k2hb-integration-test-container"}""", "1")
+        validateMetric("""sum(k2hb_record_successes_total{topic=~"db.load-test.+"})""", "10000")
+    }
+
+    private suspend fun verifyMetricNames() {
+        val response = client.get<JsonObject>("http://prometheus:9090/api/v1/targets/metadata")
+        val metricNames = response["data"].asJsonArray
+            .map(JsonElement::getAsJsonObject)
+            .filter {
+                it["target"].asJsonObject["job"].asJsonPrimitive.asString == "pushgateway"
+            }
+            .map {
+                it["metric"].asJsonPrimitive.asString
+            }
+            .filterNot {
+                it.startsWith("go_") || it.startsWith("process_") ||
+                        it.startsWith("pushgateway_") || it.startsWith("push_")
+            }
+
+        metricNames shouldContainAll listOf("k2hb_batch_timer",
+            "k2hb_batch_timer_created",
+            "k2hb_dlq_summary",
+            "k2hb_dlq_summary_created",
+            "k2hb_running_applications",
+            "k2hb_hbase_successes",
+            "k2hb_hbase_successes_created",
+            "k2hb_manifest_successes",
+            "k2hb_manifest_successes_created",
+            "k2hb_maximum_lag",
+            "k2hb_metadatastore_successes",
+            "k2hb_metadatastore_successes_created",
+            "k2hb_record_successes_created",
+            "k2hb_record_successes_total",
+            "k2hb_s3_successes",
+            "k2hb_s3_successes_created",
+            "logback_appender_created",
+            "logback_appender_total")
+    }
+
+    private suspend fun validateMetric(resource: String, expected: String) {
+        val response = client.get<JsonObject>("http://prometheus:9090/api/v1/query?query=${URLEncoder.encode(resource, "ASCII")}")
+        val results = response["data"].asJsonObject["result"].asJsonArray
+        results.size() shouldBe 1
+        val result = results[0].asJsonObject["value"].asJsonArray[1].asJsonPrimitive.asString
+        result shouldBe expected
+    }
+
+    companion object {
+        private const val TOPIC_COUNT = 10
+        private const val RECORDS_PER_TOPIC = 1_000
+        private const val DB_NAME = "load-test-database"
+        private const val COLLECTION_NAME = "load-test-collection"
+        private val logger = LoggerFactory.getLogger(Kafka2hbIntegrationLoadSpec::class.java)
+        val client = HttpClient {
+            install(JsonFeature) {
+                serializer = GsonSerializer {
+                    setPrettyPrinting()
+                }
+            }
+        }
+    }
 }
 
 

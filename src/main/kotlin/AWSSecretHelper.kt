@@ -3,13 +3,15 @@ import com.amazonaws.services.secretsmanager.AWSSecretsManagerClientBuilder
 import com.amazonaws.services.secretsmanager.model.GetSecretValueRequest
 import com.fasterxml.jackson.databind.ObjectMapper
 import uk.gov.dwp.dataworks.logging.DataworksLogger
+import kotlin.time.ExperimentalTime
 
 class AWSSecretHelper: SecretHelperInterface {
 
     companion object {
-        val logger = DataworksLogger.getLogger(AWSSecretHelper::class.toString())
+        val logger = DataworksLogger.getLogger(AWSSecretHelper::class)
     }
 
+    @ExperimentalTime
     override fun getSecret(secretName: String): String? {
 
         logger.info("Getting value from aws secret manager", "secret_name" to secretName)

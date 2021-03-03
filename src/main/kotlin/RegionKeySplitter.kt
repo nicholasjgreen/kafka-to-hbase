@@ -29,5 +29,5 @@ object RegionKeySplitter {
         }
     }
 
-    val logger = DataworksLogger.getLogger(RegionKeySplitter::class.java.toString())
+    val logger = DataworksLogger.getLogger(RegionKeySplitter::class)
 }

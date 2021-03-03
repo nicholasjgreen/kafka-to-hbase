@@ -1,4 +1,6 @@
-
+import RetryUtility.retry
+import io.prometheus.client.Counter
+import io.prometheus.client.Summary
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import uk.gov.dwp.dataworks.logging.DataworksLogger
 import java.sql.Connection
@@ -6,8 +8,13 @@ import java.sql.DriverManager
 import java.sql.SQLException
 import java.util.*
 import kotlin.system.measureTimeMillis
+import kotlin.time.ExperimentalTime
 
-open class MetadataStoreClient(private val connection: Connection): AutoCloseable {
+@ExperimentalTime
+open class MetadataStoreClient(private val connection: Connection,
+                               private val successes: Summary,
+                               private val retries: Counter,
+                               private val failures: Counter): AutoCloseable {
 
     @Synchronized
     open fun recordProcessingAttempt(hbaseId: String, record: ConsumerRecord<ByteArray, ByteArray>, lastUpdated: Long) {
@@ -19,30 +26,36 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
 
     @Synchronized
     @Throws(SQLException::class)
-    open fun recordBatch(payloads: List<HbasePayload>) {
+    open suspend fun recordBatch(payloads: List<HbasePayload>) {
         if (Config.MetadataStore.writeToMetadataStore) {
-            logger.info("Putting batch into metadata store", "size" to "${payloads.size}")
-            val timeTaken = measureTimeMillis {
-                recordProcessingAttemptStatement().use { statement ->
-                    payloads.forEach {
-                        statement.setString(1, textUtils.printableKey(it.key))
-                        statement.setLong(2, it.version)
-                        statement.setString(3, it.record.topic())
-                        statement.setInt(4, it.record.partition())
-                        statement.setLong(5, it.record.offset())
-                        statement.addBatch()
-                    }
-                    statement.executeBatch()
+            if (payloads.isNotEmpty()) {
+                retry(successes, retries, failures, {
+                    logger.info("Putting batch into metadata store", "size" to "${payloads.size}")
+                    val timeTaken = measureTimeMillis {
+                        recordProcessingAttemptStatement().use { statement ->
+                            payloads.forEach {
+                                statement.setString(1, textUtils.printableKey(it.key))
+                                statement.setLong(2, it.version)
+                                statement.setString(3, it.record.topic())
+                                statement.setInt(4, it.record.partition())
+                                statement.setLong(5, it.record.offset())
+                                statement.addBatch()
+                            }
+                            statement.executeBatch()
 
-                    if (!connection.autoCommit) {
-                        connection.commit()
+                            if (!connection.autoCommit) {
+                                connection.commit()
+                            }
+                        }
                     }
-                }
+                    logger.info("Put batch into metadata store",
+                        "time_taken" to "$timeTaken",
+                        "size" to "${payloads.size}")
+                }, payloads[0].record.topic(), "${payloads[0].record.partition()}")
+            } else {
+                logger.info("Not putting batch into metadata store",
+                    "write_to_metadata_store" to "${Config.MetadataStore.writeToMetadataStore}")
             }
-            logger.info("Put batch into metadata store", "time_taken" to "$timeTaken", "size" to "${payloads.size}")
-        }
-        else {
-            logger.info("Not putting batch into metadata store", "write_to_metadata_store" to "${Config.MetadataStore.writeToMetadataStore}")
         }
     }
 
@@ -65,13 +78,14 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
 
     companion object {
         private val isUsingAWS = Config.MetadataStore.isUsingAWS
-        private val secretHelper: SecretHelperInterface =  if (isUsingAWS) AWSSecretHelper() else DummySecretHelper()
+        private val secretHelper: SecretHelperInterface = if (isUsingAWS) AWSSecretHelper() else DummySecretHelper()
 
         fun connect(): MetadataStoreClient {
             val (url, properties) = connectionProperties()
             return MetadataStoreClient(DriverManager.getConnection(url, properties).apply {
                 autoCommit = Config.MetadataStore.autoCommit
-            })
+            }, MetricsClient.metadataStoreSuccesses, MetricsClient.metadataStoreRetries,
+                MetricsClient.metadataStoreFailures)
         }
 
         fun connectionProperties(): Pair<String, Properties> {
@@ -84,7 +98,7 @@ open class MetadataStoreClient(private val connection: Connection): AutoCloseabl
             return Pair(jdbcUrl, propertiesWithPassword)
         }
 
-        val logger = DataworksLogger.getLogger(MetadataStoreClient::class.toString())
+        val logger = DataworksLogger.getLogger(MetadataStoreClient::class)
         val textUtils = TextUtils()
     }
 

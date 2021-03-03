@@ -2,7 +2,9 @@ import org.everit.json.schema.ValidationException
 import org.everit.json.schema.loader.SchemaLoader
 import org.json.JSONObject
 import org.json.JSONTokener
+import kotlin.time.ExperimentalTime
 
+@ExperimentalTime
 open class Validator {
 
     @Throws(InvalidMessageException::class)
@@ -30,5 +32,6 @@ open class Validator {
             JSONObject(JSONTokener(inputStream))
         }
 
-    private fun schemaLocation() = Config.Validator.properties["schema.location"] as String
+    private fun schemaLocation() =
+        Config.Validator.properties["schema.location"] as String
 }

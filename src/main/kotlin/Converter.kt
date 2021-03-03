@@ -74,6 +74,6 @@ open class Converter {
     }
 
     companion object {
-        val logger = DataworksLogger.getLogger(Converter::class.toString())
+        val logger = DataworksLogger.getLogger(Converter::class)
     }
 }

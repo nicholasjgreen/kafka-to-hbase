@@ -1,7 +1,18 @@
 ---
-version: "2.2"
+version: "3"
 
 services:
+  prometheus:
+    build:
+      context: docker/prometheus
+    container_name: prometheus
+
+  pushgateway:
+    image: prom/pushgateway
+    ports:
+      - "9091:9091"
+    container_name: pushgateway
+
   zookeeper:
     image: confluentinc/cp-zookeeper:4.1.0
     container_name: zookeeper
@@ -49,26 +60,31 @@ services:
     environment:
       APP_VERSION: "test"
       APPLICATION: "k2hb-main"
-      ENVIRONMENT: "local-dev"
-      COMPONENT: "jar-file"
-      LOG_LEVEL: "DEBUG"
       AWS_ACCESS_KEY_ID: "aws-access-key"
       AWS_SECRET_ACCESS_KEY: "aws-secret-access-key"
+      COMPONENT: "jar-file"
       DUMMY_SECRET_METASTORE_PASSWORD: "password"
+      ENVIRONMENT: "local-dev"
       INSTANCE_ID: "localhost"
       JAVA_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
       K2HB_AWS_S3_BATCH_PUTS: "true"
+      K2HB_AWS_S3_MANIFEST_DIRECTORY: "manifest_prefix"
       K2HB_AWS_S3_USE_LOCALSTACK: "true"
       K2HB_HBASE_OPERATION_TIMEOUT_MILLISECONDS": "1800"
       K2HB_HBASE_PAUSE_MILLISECONDS: "50"
       K2HB_HBASE_RETRIES": "3"
       K2HB_HBASE_RPC_TIMEOUT_MILLISECONDS: "1200"
       K2HB_IMAGE_DIGEST: "latest"
+      K2HB_INSTANCE_NAME: "k2hb-integration-test-container"
       K2HB_KAFKA_DLQ_TOPIC: "test-dlq-topic"
       K2HB_KAFKA_INSECURE: "true"
       K2HB_KAFKA_MAX_POLL_RECORDS: "10"
       K2HB_KAFKA_META_REFRESH_MS: "1000"
       K2HB_KAFKA_POLL_TIMEOUT: "PT10S"
+      K2HB_KAFKA_TOPIC_EXCLUSION_REGEX: db\.excluded\.[-\w]+
+      K2HB_KAFKA_TOPIC_REGEX: (db[.]{1}[-\w]+[.]{1}[-.\w]+)
+      K2HB_METRICS_DELETE_METRICS: "false"
+      K2HB_QUALIFIED_TABLE_PATTERN: \w+\.([-\w]+)\.([-.\w]+)
       K2HB_RDS_DATABASE_NAME: "metadatastore"
       K2HB_RDS_ENDPOINT: "metadatastore"
       K2HB_RDS_PASSWORD_SECRET_NAME: "password"
@@ -78,12 +94,9 @@ services:
       K2HB_RETRY_INITIAL_BACKOFF: "1"
       K2HB_RETRY_MAX_ATTEMPTS: "3"
       K2HB_USE_AWS_SECRETS: "false"
-      K2HB_WRITE_TO_METADATA_STORE: "true"
       K2HB_VALIDATOR_SCHEMA: "business_message.schema.json"
-      K2HB_KAFKA_TOPIC_REGEX: (db[.]{1}[-\w]+[.]{1}[-.\w]+)
-      K2HB_KAFKA_TOPIC_EXCLUSION_REGEX: db\.excluded\.[-\w]+
-      K2HB_QUALIFIED_TABLE_PATTERN: \w+\.([-\w]+)\.([-.\w]+)
-      K2HB_AWS_S3_MANIFEST_DIRECTORY: "manifest_prefix"
+      K2HB_WRITE_TO_METADATA_STORE: "true"
+      LOG_LEVEL: "DEBUG"
 
   kafka2hbaseequality:
     image: kafka2hbase:latest

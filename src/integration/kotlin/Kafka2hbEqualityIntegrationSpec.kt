@@ -1,3 +1,13 @@
+import Utility.getEqualityId
+import Utility.getISO8601Timestamp
+import Utility.getS3Client
+import Utility.sampleQualifiedTableName
+import Utility.sendRecord
+import Utility.uniqueEqualityTopicName
+import Utility.verifyHbaseRegions
+import Utility.verifyMetadataStore
+import Utility.waitFor
+import Utility.wellFormedValidPayloadEquality
 import com.beust.klaxon.Klaxon
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -6,7 +16,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import lib.*
 import org.apache.kafka.clients.producer.KafkaProducer
 import java.io.BufferedReader
 import java.text.SimpleDateFormat
@@ -61,7 +70,6 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             summaries1.size shouldBe 0
             val summariesManifests1 = s3Client.listObjectsV2("manifests", "streaming").objectSummaries
             summariesManifests1.size shouldBe 0
-
             verifyHbaseRegions(qualifiedTableName, regionReplication, regionServers)
             verifyMetadataStore(1, topic, true)
         }
@@ -83,8 +91,8 @@ class Kafka2hbEqualityIntegrationSpec : StringSpec() {
             val kafkaTimestamp1 = converter.getTimestampAsLong(getISO8601Timestamp())
             val (_, hbaseKey) = parser.generateKey(converter.convertToJson(getEqualityId().toByteArray()))
             val body1 = wellFormedValidPayloadEquality()
-            hbase.putVersion(qualifiedTableName, hbaseKey, body1, kafkaTimestamp1)
-
+            hbase.ensureTable(qualifiedTableName)
+            hbase.putRecord(qualifiedTableName, hbaseKey, kafkaTimestamp1, body1)
             verifyMetadataStore(0, topic, true)
 
             delay(1000)

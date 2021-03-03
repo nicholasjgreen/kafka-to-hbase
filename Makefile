@@ -4,8 +4,6 @@ RDBMS_READY_REGEX='mysqld: ready for connections'
 aws_dev_account=NOT_SET
 temp_image_name=NOT_SET
 aws_default_region=NOT_SET
-tutorial_topic=my-topic4
-tutorial_partitions=2
 
 .PHONY: help
 help:
@@ -28,17 +26,6 @@ git-hooks: ## Set up hooks in .git/hooks
 		done \
 	}
 
-local-build: ## Build Kafka2Hbase with gradle
-	gradle :unit build -x test
-
-local-dist: ## Assemble distribution files in build/dist with gradle
-	gradle assembleDist
-
-local-test: ## Run the unit tests with gradle
-	gradle --rerun-tasks unit
-
-local-all: local-build local-test local-dist ## Build and test with gradle
-
 hbase-up: ## Bring up and provision zookeeper and hbase
 	docker-compose -f docker-compose.yaml up -d zookeeper hbase
 	@{ \
@@ -60,10 +47,16 @@ rdbms: ## Bring up and provision mysql
 		done; \
 		sleep 5; \
 	}
-	docker exec -i metadatastore mysql --host=127.0.0.1 --user=root --password=password metadatastore  < ./docker/metadatastore/create_table.sql
-	docker exec -i metadatastore mysql --host=127.0.0.1 --user=root --password=password metadatastore  < ./docker/metadatastore/grant_user.sql
+	docker exec -i metadatastore mysql --user=root --password=password metadatastore < ./docker/metadatastore/create_table.sql
+	docker exec -i metadatastore mysql --user=root --password=password metadatastore < ./docker/metadatastore/grant_user.sql
 
-services: hbase-up rdbms ## Bring up supporting services in docker
+prometheus:
+	docker-compose up -d prometheus
+
+pushgateway:
+	docker-compose up -d pushgateway
+
+services: hbase-up rdbms prometheus pushgateway ## Bring up supporting services in docker
 	docker-compose -f docker-compose.yaml up --build -d kafka aws-s3
 	@{ \
 		while ! docker logs aws-s3 2> /dev/null | grep -q $(S3_READY_REGEX); do \
@@ -76,74 +69,17 @@ services: hbase-up rdbms ## Bring up supporting services in docker
 
 
 mysql_root: ## Get a client session on the metadatastore database.
-	docker exec -it metadatastore mysql --host=127.0.0.1 --user=root --password=password metadatastore
+	docker exec -it metadatastore mysql --user=root --password=password metadatastore
 
 mysql_k2hbwriter: ## Get a client session on the metadatastore database.
-	docker exec -it metadatastore mysql --host=127.0.0.1 --user=k2hbwriter --password=password metadatastore
+	docker exec -it metadatastore mysql --user=k2hbwriter --password=password metadatastore
 
 up: services ## Bring up Kafka2Hbase in Docker with supporting services
 	docker-compose -f docker-compose.yaml up --build -d kafka2hbase kafka2hbaseequality
 
-restart: ## Restart Kafka2Hbase and all supporting services
-	docker-compose restart
-
-down: ## Bring down the Kafka2Hbase Docker container and support services
-	docker-compose down
-
-destroy: down ## Bring down the Kafka2Hbase Docker container and services then delete all volumes
-	docker network prune -f
-	docker volume prune -f
-
-integration-test-ucfs-and-equality: ## Run the integration tests in a Docker container
-	@{ \
-		set +e ;\
-		docker stop integration-test ;\
-		docker rm integration-test ;\
-		set -e ;\
-	}
-	docker-compose -f docker-compose.yaml build integration-test
-	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test integration-test-equality -x test -x integration-load-test
-
 integration-tests:
-	@{ \
-		set +e ;\
-		docker stop integration-test ;\
-		docker rm integration-test ;\
-		set -e ;\
-	}
-	docker-compose -f docker-compose.yaml build integration-test
-	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test integration-test-equality integration-load-test
-
-integration-load-test: ## Run the integration load tests in a Docker container
-	@{ \
-		set +e ;\
-		docker stop integration-test ;\
-		docker rm integration-test ;\
-		set -e ;\
-	}
-	docker-compose -f docker-compose.yaml build integration-test
-	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-load-test -x test -x integration-test -x integration-test-equality
-
-.PHONY: integration-all ## Build and Run all the tests in containers from a clean start
-integration-all: down destroy build up integration-tests
-
-hbase-shell: ## Open an hbase shell in the running hbase container
-	docker exec -it hbase hbase shell
-
-kafka-shell: ## Open an shell in the running kafka broker container in root
-	docker exec -it kafka sh
-
-kafka-shell-bin: ## Open an shell in the running kafka broker container in /opt/kafka/bin
-	docker exec -w "/opt/kafka/bin" -it kafka sh -c 'ls'
-
-k2hb-main-logs: ## Follow the k2hb main logs
-	docker exec -it kafka2hbase tail -f /var/log/k2hb/k2hb.log
-
-k2hb-equality-logs: ## Follow the k2hb main logs
-	docker exec -it kafka2hbaseequality tail -f /var/log/k2hb/k2hb.log
-
-build: build-base ## build main images
-	docker-compose build
+	docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon \
+		--rerun-tasks integration-test integration-test-equality integration-load-test
 
 build-base: ## Build the base images which certain images extend.
 	@{ \
@@ -156,39 +92,15 @@ build-base: ## Build the base images which certain images extend.
 		popd; \
 	}
 
-push-local-to-ecr: ## Push a temp version of k2hb to AWS DEV ECR
-	@{ \
-		export AWS_DEV_ACCOUNT=$(aws_dev_account); \
-		export TEMP_IMAGE_NAME=$(temp_image_name); \
-		export AWS_DEFAULT_REGION=$(aws_default_region); \
-		aws ecr get-login-password --region ${AWS_DEFAULT_REGION} --profile dataworks-development | docker login --username AWS --password-stdin ${AWS_DEV_ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com; \
-		docker tag kafka2hbase ${AWS_DEV_ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${TEMP_IMAGE_NAME}; \
-		docker push ${AWS_DEV_ACCOUNT}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${TEMP_IMAGE_NAME}; \
-	}
+delete-topics: ## Delete a topic
+	docker exec -it kafka /opt/kafka/bin/kafka-topics.sh --zookeeper zookeeper:2181 --delete --topic '^(db.+|test-dlq-topic)'
+	make list-topics
 
-kafka-command: ## Run an arbitrary command in the kafka server
-	docker exec -w "/opt/kafka/bin" -it kafka sh -c '$(command)'
+list-topics: ## List the topics
+	docker exec -it kafka /opt/kafka/bin/kafka-topics.sh --zookeeper zookeeper:2181 --list
 
-tutorial-list-all: ## List topics in the kafka server
-	make kafka-command command="./kafka-topics.sh --zookeeper zookeeper:2181 --list"
-
-tutorial-list-topic: ## List only tutorial_topic in the kafka server
-	make kafka-command command="./kafka-topics.sh --zookeeper zookeeper:2181 --list | fgrep $(tutorial_topic)"
-
-tutorial-create-topic: ## Create tutorial_topic in the kafka server
-	make kafka-command command="./kafka-topics.sh --if-not-exists --create --topic $(tutorial_topic) --zookeeper zookeeper:2181 --replication-factor 1 --partitions $(tutorial_partition)"
-
-tutorial-describe-topic: ## Describe tutorial_topic in the kafka server
-	make kafka-command command="./kafka-topics.sh --describe --topic $(tutorial_topic) --zookeeper zookeeper:2181"
-
-tutorial-publish-simple: ## Publish to tutorial_topic in the kafka server with just a value, and null key. Starts a shell where we can type commands.
-	make kafka-command command="./kafka-console-producer.sh --broker-list localhost:9092 --topic $(tutorial_topic)"
-
-tutorial-publish-with-key: ## Publish to tutorial_topic in the kafka server with a key:value. Starts a shell where we can type commands.
-	make kafka-command command="./kafka-console-producer.sh --broker-list localhost:9092 --topic $(tutorial_topic) --property parse.key=true --property key.separator=:"
-
-tutorial-subscribe-by-group: ## Subscribe to tutorial_topic:all in the kafka server. Starts a shell where we can observe.
-	make kafka-command command="./kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic $(tutorial_topic) --group my-consumer-group --from-beginning --property print.key=true --property print.value=true"
-
-tutorial-subscribe-by-partition: ## Subscribe to tutorial_topic:tutorial_partition in the kafka server. Starts a shell where we can observe.
-	make kafka-command command="./kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic $(tutorial_topic) --from-beginning --partition $(tutorial_partition) --property print.key=true --property print.value=true"
+restart-prometheus:
+	docker stop prometheus pushgateway
+	docker rm prometheus pushgateway
+	docker-compose build prometheus
+	docker-compose up -d prometheus pushgateway
