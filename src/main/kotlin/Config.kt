@@ -35,7 +35,8 @@ object Config {
         val scrapeInterval: Long = getEnv("K2HB_METRICS_SCRAPE_INTERVAL")?.toLong() ?: 1.minutes.toLongMilliseconds()
         val deleteMetrics = getEnv("K2HB_METRICS_DELETE_METRICS")?.toBoolean() ?: true
         val instanceName = getEnv("K2HB_INSTANCE_NAME") ?: ""
-        val pushgateway = getEnv("K2HB_METRICS_PUSHGATEWAY") ?: "pushgateway:9091"
+        val pushgateway = getEnv("K2HB_METRICS_PUSHGATEWAY") ?: "pushgateway"
+        val pushgatewayPort = getEnv("K2HB_METRICS_PUSHGATEWAY_PORT") ?: "9091"
         val pushMetrics = getEnv("K2HB_METRICS_PUSH_METRICS")?.toBoolean() ?: true
 
         val pushScheduleInitialDelay = getEnv("K2HB_METRICS_SCHEDULE_INITIAL_DELAY_SECONDS")?.run {

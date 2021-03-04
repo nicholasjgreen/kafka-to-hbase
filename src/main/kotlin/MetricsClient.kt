@@ -147,12 +147,17 @@ object MetricsClient {
         groupingKey().entries.map { (k, v) -> Pair(k, v) }.toTypedArray()
 
     private val pushGateway: PushGateway by lazy {
-        PushGateway(Config.Metrics.pushgateway)
+        PushGateway("${Config.Metrics.pushgateway}:${Config.Metrics.pushgatewayPort}")
     }
 
     private fun pushMetrics() {
-        pushGateway.push(CollectorRegistry.defaultRegistry, "k2hb", groupingKey())
-        logger.info("Pushed metrics", *metricsGroupingKeyPairs())
+        try {
+            logger.info("Pushing metrics", *metricsGroupingKeyPairs())
+            pushGateway.push(CollectorRegistry.defaultRegistry, "k2hb", groupingKey())
+            logger.info("Pushed metrics", *metricsGroupingKeyPairs())
+        } catch (e: Exception) {
+            logger.error("Failed to push metrics", e, *metricsGroupingKeyPairs())
+        }
     }
 
     private val metricsScheduler: Timer by lazy {
