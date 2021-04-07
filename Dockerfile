@@ -43,6 +43,8 @@ RUN adduser --system --ingroup ${GROUP_NAME} ${USER_NAME}
 # Add Aurora cert
 RUN mkdir -p /certs /var/log/k2hb
 COPY ./AmazonRootCA1.pem /certs/
+ENV METADATA_TRUSTSTORE_CERTIFICATE=/certs/AmazonRootCA1.pem
+
 RUN chown -R ${GROUP_NAME}:${USER_NAME} /certs /var/log/k2hb
 RUN chmod -R a+rx /certs
 RUN chmod 600 /certs/AmazonRootCA1.pem

@@ -4,7 +4,7 @@ set -e
 
 # If a proxy is requested, set it up
 
-if [ "${INTERNET_PROXY}" ]; then
+if [ -n "${INTERNET_PROXY}" ]; then
     export http_proxy="http://${INTERNET_PROXY}:3128"
     export HTTP_PROXY="http://${INTERNET_PROXY}:3128"
     export https_proxy="http://${INTERNET_PROXY}:3128"
@@ -65,5 +65,13 @@ then
 else
     echo "Skipping cert generation for host ${HOSTNAME}"
 fi
+
+export METADATASTORE_TRUSTSTORE=./truststore.jks
+export METADATASTORE_TRUSTSTORE_PASSWORD="$(uuidgen)"
+
+keytool -noprompt -import \
+  -file "$METADATA_TRUSTSTORE_CERTIFICATE" \
+  -keystore ./truststore.jks \
+  -storepass "$METADATASTORE_TRUSTSTORE_PASSWORD"
 
 exec "${@}"

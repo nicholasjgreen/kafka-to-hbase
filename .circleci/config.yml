@@ -17,6 +17,8 @@ commands:
       - run:
           name: "Fetch current version, set next version"
           command: |
+            echo Fetching current version
+            echo curl --silent "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases/latest"
             CURRENT_VERSION=$(curl --silent "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
             [ -z "$CURRENT_VERSION" ] && CURRENT_VERSION="0.0.0"
             NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')

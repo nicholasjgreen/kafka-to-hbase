@@ -147,11 +147,15 @@ object Config {
             put("rds.endpoint", getEnv("K2HB_RDS_ENDPOINT") ?: "127.0.0.1")
             put("rds.port", getEnv("K2HB_RDS_PORT") ?: "3306")
             put("use.aws.secrets", getEnv("K2HB_USE_AWS_SECRETS") ?: "true")
+            put("trustCertificateKeyStoreUrl", "file:${getEnv("METADATASTORE_TRUSTSTORE") ?: "file:./trustore.jks"}")
+            put("trustCertificateKeyStorePassword", getEnv("METADATASTORE_TRUSTSTORE_PASSWORD") ?: "")
 
             if (isUsingAWS) {
-                put("ssl_ca_path", getEnv("K2HB_RDS_CA_CERT_PATH") ?: "/certs/AmazonRootCA1.pem")
-                put("ssl_ca", readFile(getProperty("ssl_ca_path")))
-                put("ssl_verify_cert", true)
+                put("useSSL", "true")
+                put("enabledTLSProtocols", "TLSv1.2")
+                put("sslMode", "REQUIRED")
+            } else {
+                put("useSSL", "false")
             }
         }
     }
