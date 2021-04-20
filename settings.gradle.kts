@@ -1,7 +1,7 @@
 rootProject.name = "kafka2hbase"
 
 buildCache {
-    local<DirectoryBuildCache>{
+    local{
         directory = File(settingsDir, "build-cache")
     }
 }

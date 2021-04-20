@@ -153,7 +153,7 @@ object MetricsClient {
     private fun pushMetrics() {
         try {
             logger.info("Pushing metrics", *metricsGroupingKeyPairs())
-            pushGateway.push(CollectorRegistry.defaultRegistry, "k2hb", groupingKey())
+            pushGateway.push(CollectorRegistry.defaultRegistry, METRIC_JOB_NAME, groupingKey())
             logger.info("Pushed metrics", *metricsGroupingKeyPairs())
         } catch (e: Exception) {
             logger.error("Failed to push metrics", e, *metricsGroupingKeyPairs())
@@ -169,10 +169,11 @@ object MetricsClient {
     }
 
     private fun deleteMetrics() {
-        pushGateway.delete("htme", groupingKey())
+        pushGateway.delete(METRIC_JOB_NAME, groupingKey())
         logger.info("Deleted metrics",
             "scrape_interval" to "${Config.Metrics.scrapeInterval}", *metricsGroupingKeyPairs())
     }
 
     private val logger = DataworksLogger.getLogger(MetricsClient::class)
+    private const val METRIC_JOB_NAME = "k2hb"
 }
