@@ -1,12 +1,17 @@
 
 import io.prometheus.client.Gauge
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.common.errors.WakeupException
 import sun.misc.Signal
 import uk.gov.dwp.dataworks.logging.DataworksLogger
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.measureTimeMillis
 import kotlin.time.ExperimentalTime
+import kotlin.time.minutes
+import kotlin.time.seconds
 
 @ExperimentalTime
 class Shovel(private val consumer: KafkaConsumer<ByteArray, ByteArray>,
@@ -19,7 +24,7 @@ class Shovel(private val consumer: KafkaConsumer<ByteArray, ByteArray>,
                        manifestService: ManifestService,
                        pollTimeout: Duration) {
         k2hbRunningApplications.inc()
-        listOf("INT", "TERM").forEach(::handleSignal)
+        listOf("INT", "TERM", "HUP").forEach(::handleSignal)
         val parser = MessageParser()
         val validator = Validator()
         val converter = Converter()
@@ -36,37 +41,50 @@ class Shovel(private val consumer: KafkaConsumer<ByteArray, ByteArray>,
             "excludes_regex" to Config.Kafka.topicExclusionRegexText)
 
         while (!closed.get()) {
+            try {
+                SubscriberUtility.subscribe(consumer, Config.Kafka.topicRegex, Config.Kafka.topicExclusionRegex)
 
-            SubscriberUtility.subscribe(consumer, Config.Kafka.topicRegex, Config.Kafka.topicExclusionRegex)
+                logger.info("Polling", "timeout" to "$pollTimeout")
 
-            logger.info("Polling", "timeout" to "$pollTimeout")
+                val records = consumer.poll(pollTimeout)
 
-            val records = consumer.poll(pollTimeout)
-
-            if (records.count() > 0) {
-                HbaseClient.connect().use { hbase ->
-                    val timeTaken = measureTimeMillis {
-                        listProcessor.processRecords(hbase, consumer, metadataClient, corporateStorageService,
-                            manifestService, parser, records)
+                if (records.count() > 0) {
+                    HbaseClient.connect().use { hbase ->
+                        val timeTaken = measureTimeMillis {
+                            listProcessor.processRecords(hbase, consumer, metadataClient, corporateStorageService,
+                                manifestService, parser, records)
+                        }
+                        logger.info("Processed batch", "time_taken" to "$timeTaken", "size" to "${records.count()}")
                     }
-                    logger.info("Processed batch", "time_taken" to "$timeTaken", "size" to "${records.count()}")
                 }
-            }
 
-            if (batchCountIsMultipleOfReportFrequency(batchCount++)) {
-                printLogs(consumer)
+                if (batchCountIsMultipleOfReportFrequency(batchCount++)) {
+                    printLogs(consumer)
+                }
+            } catch (e: WakeupException) {
+                logger.info("Pool awoken")
             }
+        }
+
+
+        withTimeout(Config.Metrics.scrapeInterval + 1.minutes.inMilliseconds.toLong()) {
+            while (!metricsDeleted.get()) {
+                logger.info("Awaiting metrics deletion")
+                delay(1.seconds)
+            }
+            logger.info("Metrics deleted")
         }
     }
 
     private fun handleSignal(signalName: String) {
-        logger.info("Setting up $signalName handler.")
+        logger.info("Setting up signal handler.", "signal" to signalName)
         Signal.handle(Signal(signalName)) {
             logger.info("Signal received, cancelling job.", "signal" to "$it")
-            k2hbRunningApplications.dec()
             closed.set(true)
             consumer.wakeup()
+            k2hbRunningApplications.dec()
             MetricsClient.pushFinalMetrics()
+            metricsDeleted.set(true)
         }
     }
 
@@ -100,5 +118,6 @@ class Shovel(private val consumer: KafkaConsumer<ByteArray, ByteArray>,
     companion object {
         private val logger = DataworksLogger.getLogger(Shovel::class)
         private val closed: AtomicBoolean = AtomicBoolean(false)
+        private val metricsDeleted: AtomicBoolean = AtomicBoolean(false)
     }
 }
