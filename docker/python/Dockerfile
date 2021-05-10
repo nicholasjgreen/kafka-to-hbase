@@ -1,4 +1,4 @@
-FROM python:3.7.3-stretch
+FROM python:3.7.10-stretch
 
 ENV SERVICE_USER=dataworks
 ENV SERVICE_USER_HOME=/home/${SERVICE_USER}
