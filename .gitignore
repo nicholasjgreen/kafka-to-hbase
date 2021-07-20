@@ -13,3 +13,4 @@ out/
 .gitsecret/keys/random_seed
 !*.secret
 venv/
+rad/

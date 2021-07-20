@@ -11,10 +11,24 @@ import kotlin.system.measureTimeMillis
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
-open class MetadataStoreClient(private val connection: Connection,
+open class MetadataStoreClient(private val newConnection: () -> Connection,
                                private val successes: Summary,
                                private val retries: Counter,
                                private val failures: Counter): AutoCloseable {
+
+
+    private var connection: Connection = newConnection()
+        get()  {
+            if (!field.isValid(0)) {
+                if (!field.isClosed) {
+                    logger.info("Closing metadatastore connection")
+                    field.close()
+                }
+                logger.info("Opening metadatastore connection")
+                field = newConnection()
+            }
+            return field
+        }
 
     @Synchronized
     open fun recordProcessingAttempt(hbaseId: String, record: ConsumerRecord<ByteArray, ByteArray>, lastUpdated: Long) {
@@ -82,16 +96,18 @@ open class MetadataStoreClient(private val connection: Connection,
 
         fun connect(): MetadataStoreClient {
             val (url, properties) = connectionProperties()
-            return MetadataStoreClient(DriverManager.getConnection(url, properties).apply {
-                autoCommit = Config.MetadataStore.autoCommit
-            }, MetricsClient.metadataStoreSuccesses, MetricsClient.metadataStoreRetries,
-                MetricsClient.metadataStoreFailures)
+            return MetadataStoreClient({
+                DriverManager.getConnection(url, properties).apply {
+                    autoCommit = Config.MetadataStore.autoCommit
+                }
+            }, MetricsClient.metadataStoreSuccesses, MetricsClient.metadataStoreRetries, MetricsClient.metadataStoreFailures)
         }
+
 
         fun connectionProperties(): Pair<String, Properties> {
             val hostname = Config.MetadataStore.properties["rds.endpoint"]
             val port = Config.MetadataStore.properties["rds.port"]
-            val jdbcUrl = "jdbc:mysql://$hostname:$port/${Config.MetadataStore.properties.getProperty("database")}?autoReconnect=true"
+            val jdbcUrl = "jdbc:mysql://$hostname:$port/${Config.MetadataStore.properties.getProperty("database")}"
             val secretName = Config.MetadataStore.properties.getProperty("rds.password.secret.name")
             val propertiesWithPassword: Properties = Config.MetadataStore.properties.clone() as Properties
             propertiesWithPassword["password"] = secretHelper.getSecret(secretName)

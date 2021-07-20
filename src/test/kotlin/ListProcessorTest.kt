@@ -318,7 +318,7 @@ class ListProcessorTest : StringSpec() {
         val failureChild = mock<Counter.Child>()
         val failureCounter = counter(failureChild)
 
-        return spy(MetadataStoreClient(connection, successTimer, retryCounter, failureCounter))
+        return spy(MetadataStoreClient({ connection }, successTimer, retryCounter, failureCounter))
     }
 
     private fun consumerRecords()  =
