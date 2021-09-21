@@ -74,6 +74,15 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         val dataTableName = TableName.valueOf(tableName)
         val namespace = dataTableName.namespaceAsString
 
+        logger.info(
+            "Ensuring table exists in HBase",
+            "data_table_name" to dataTableName.nameAsString,
+            "table_name" to tableName,
+            "namespace" to namespace,
+            "namespaces" to namespaces.keys.joinToString(prefix = "[", postfix = "]"),
+            "tables" to tables.keys.joinToString(prefix = "[", postfix = "]")
+        )
+
         if (!namespaces.contains(namespace)) {
             try {
                 logger.info("Creating namespace", "namespace" to namespace)
@@ -86,7 +95,10 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         }
 
         if (!tables.contains(tableName)) {
-
+            logger.info(
+                "Table does not exist",
+                "table" to tableName
+            )
             val hbaseTable = HTableDescriptor(dataTableName).apply {
                 addFamily(
                     HColumnDescriptor(columnFamily)
@@ -108,11 +120,11 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
         val regionSplits = Config.Hbase.regionSplits.toInt()
         val splits = RegionKeySplitter.calculateSplits(regionSplits)
 
-        try {
-            logger.info("Creating table",
-                "table_name" to hbaseTable.nameAsString,
-                "region_splits" to "$regionSplits")
+        logger.info("Creating table",
+            "table_name" to hbaseTable.nameAsString,
+            "region_splits" to "$regionSplits")
 
+        try {
             connection.admin.createTable(hbaseTable, splits.toTypedArray())
         } catch (e: TableExistsException) {
             logger.info(
