@@ -32,7 +32,8 @@ class Shovel(private val consumer: KafkaConsumer<ByteArray, ByteArray>,
             ListProcessor(validator, converter, MetricsClient.dlqTimer,
                 MetricsClient.dlqRetries, MetricsClient.dlqFailures,
                 MetricsClient.batchTimer, MetricsClient.batchFailures,
-                MetricsClient.recordSuccesses, MetricsClient.recordFailures)
+                MetricsClient.recordSuccesses, MetricsClient.recordFailures,
+                Config.Hbase.bypass)
 
         var batchCount = 0
 

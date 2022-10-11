@@ -28,6 +28,8 @@ with at least `1` version and at most `10` versions and a TTL of 10 days.
     The name of the column family to store topic message counts in
 * **K2HB_HBASE_TOPIC_QUALIFIER**
     The name of the column qualifier to store topic message counts in
+* **K2HB_HBASE_BYPASS**
+    When set to true no records will be written to HBase, but S3 and manifest writing will continue 
 
 #### Kafka
 

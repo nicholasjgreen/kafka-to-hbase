@@ -77,6 +77,7 @@ object Config {
         var DEFAULT_QUALIFIED_TABLE_PATTERN = """^\w+\.([-\w]+)\.([-.\w]+)$"""
         var qualifiedTablePattern = getEnv("K2HB_QUALIFIED_TABLE_PATTERN") ?: DEFAULT_QUALIFIED_TABLE_PATTERN
         val regionSplits = getEnv("K2HB_HBASE_REGION_SPLITS") ?: "2"
+        val bypass = getEnv("K2HB_HBASE_BYPASS").toBoolean()
     }
 
     object Kafka {

@@ -22,7 +22,8 @@ class ListProcessor(validator: Validator,
                     private val batchTimer: Summary,
                     private val batchFailures: Counter,
                     private val recordSuccesses: Counter,
-                    private val recordFailures: Counter):
+                    private val recordFailures: Counter,
+                    private val bypassHbase: Boolean):
     BaseProcessor(validator, converter, dlqTimer, dlqRetries, dlqFailures) {
 
     fun processRecords(hbase: HbaseClient,
@@ -99,13 +100,20 @@ class ListProcessor(validator: Validator,
 
     private suspend fun putInHbase(hbase: HbaseClient, table: String, payloads: List<HbasePayload>) =
         withContext(Dispatchers.IO) {
-            try {
-                hbase.putList(table, payloads)
+            if(!bypassHbase){
+                try {
+                    if (!bypassHbase) {
+                        hbase.putList(table, payloads)
+                    }
+                    true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    logger.error("Failed to put batch into hbase", e, "error" to (e.message ?: ""))
+                    false
+                }
+            } else {
+                delay(0)
                 true
-            } catch (e: Exception) {
-                e.printStackTrace()
-                logger.error("Failed to put batch into hbase", e, "error" to (e.message ?: ""))
-                false
             }
         }
 

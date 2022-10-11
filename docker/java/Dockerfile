@@ -1,5 +1,7 @@
-FROM centos:latest
-RUN yum -y upgrade
-RUN yum install -y epel-release
-RUN yum install -y java-1.8.0-openjdk wget jq
+FROM debian:bullseye-slim
+RUN apt update && apt upgrade -y
+RUN apt install -y \
+      openjdk-11-jdk \
+      wget \
+      jq
 ENV JAVA_HOME /etc/alternatives/jre

@@ -24,6 +24,9 @@ import java.sql.Connection
 import java.sql.PreparedStatement
 import kotlin.time.ExperimentalTime
 
+const val FULL_BATCH_SIZE = 10
+const val HBASE_FAIL_COUNT = 5
+
 @ExperimentalTime
 class ListProcessorTest : StringSpec() {
 
@@ -55,7 +58,7 @@ class ListProcessorTest : StringSpec() {
             }
 
             val processor = ListProcessor(mock(), Converter(), mock(), mock(), mock(),
-                batchSummary, batchFailures, recordSuccesses, recordFailures)
+                batchSummary, batchFailures, recordSuccesses, recordFailures, false)
 
             val hbaseClient = hbaseClient()
             val metadataStoreClient = metadataStoreClient()
@@ -63,23 +66,69 @@ class ListProcessorTest : StringSpec() {
             val s3Service = corporateStorageService()
             val manifestService = manifestService()
             processor.processRecords(hbaseClient, consumer, metadataStoreClient, s3Service, manifestService, messageParser(), consumerRecords())
-            verifyBatchSummaryInteractions(batchSummary, batchSummaryChild, batchTimer)
-            verifyBatchFailureInteractions(batchFailures, batchFailuresChild)
-            verifyRecordsSuccessesInteractions(recordSuccesses, recordSuccessesChild)
-            verifyRecordsFailuresInteractions(recordFailures, recordFailuresChild)
+            verifyBatchSummaryInteractions(batchSummary, batchSummaryChild, batchTimer, HBASE_FAIL_COUNT)
+            verifyBatchFailureInteractions(batchFailures, batchFailuresChild, HBASE_FAIL_COUNT)
+            verifyRecordsSuccessesInteractions(recordSuccesses, recordSuccessesChild, HBASE_FAIL_COUNT)
+            verifyRecordsFailuresInteractions(recordFailures, recordFailuresChild, HBASE_FAIL_COUNT)
             verifyS3Interactions(s3Service)
-            verifyHbaseInteractions(hbaseClient)
+            verifyHbaseInteractions(hbaseClient, false)
             verifyMetadataStoreInteractions(metadataStoreClient)
-            verifyKafkaInteractions(consumer)
+            verifyKafkaInteractions(consumer, HBASE_FAIL_COUNT)
+        }
+
+        "Does not write to HBase when Bypass applied" {
+            val batchTimer = mock<Summary.Timer>()
+
+            val batchSummaryChild = mock<Summary.Child> {
+                on { startTimer() } doReturn batchTimer
+            }
+
+            val batchSummary = mock<Summary> {
+                on { labels(any(), any()) } doReturn batchSummaryChild
+            }
+
+            val batchFailuresChild = mock<Counter.Child>()
+            val batchFailures = mock<Counter> {
+                on { labels(any()) } doReturn batchFailuresChild
+            }
+
+            val recordSuccessesChild: Counter.Child = mock()
+            val recordSuccesses = mock<Counter> {
+                on { labels(any()) } doReturn recordSuccessesChild
+            }
+
+            val recordFailuresChild: Counter.Child = mock()
+            val recordFailures = mock<Counter> {
+                on { labels(any()) } doReturn recordFailuresChild
+            }
+
+            val processor = ListProcessor(mock(), Converter(), mock(), mock(), mock(),
+                batchSummary, batchFailures, recordSuccesses, recordFailures, true)
+
+            val hbaseClient = hbaseClient()
+            val metadataStoreClient = metadataStoreClient()
+            val consumer = kafkaConsumer()
+            val s3Service = corporateStorageService()
+            val manifestService = manifestService()
+            processor.processRecords(hbaseClient, consumer, metadataStoreClient, s3Service, manifestService, messageParser(), consumerRecords())
+            verifyBatchSummaryInteractions(batchSummary, batchSummaryChild, batchTimer, 0)
+            verifyBatchFailureInteractions(batchFailures, batchFailuresChild, 0)
+            verifyRecordsSuccessesInteractions(recordSuccesses, recordSuccessesChild, 0)
+            verifyRecordsFailuresInteractions(recordFailures, recordFailuresChild, 0)
+            verifyS3Interactions(s3Service)
+            verifyHbaseInteractions(hbaseClient, true)
+            verifyMetadataStoreInteractions(metadataStoreClient)
+            verifyKafkaInteractions(consumer, 0)
         }
     }
 
     private fun verifyBatchSummaryInteractions(summary: Summary,
                                                summaryChild: Summary.Child,
-                                               summaryTimer: Summary.Timer) {
+                                               summaryTimer: Summary.Timer,
+                                               hBaseFailCount: Int) {
         val summaryTopicCaptor = argumentCaptor<String>()
         val summaryPartitionCaptor = argumentCaptor<String>()
-        verify(summary, times(10)).labels(summaryTopicCaptor.capture(), summaryPartitionCaptor.capture())
+        verify(summary, times(FULL_BATCH_SIZE)).labels(summaryTopicCaptor.capture(), summaryPartitionCaptor.capture())
 
         summaryTopicCaptor.allValues.forEachIndexed { index, topic ->
             topic shouldBe "db.database%02d.collection%02d".format(index + 1, index + 1)
@@ -91,16 +140,16 @@ class ListProcessorTest : StringSpec() {
 
         verifyNoMoreInteractions(summary)
 
-        verify(summaryChild, times(10)).startTimer()
+        verify(summaryChild, times(FULL_BATCH_SIZE)).startTimer()
         verifyNoMoreInteractions(summaryChild)
-        verify(summaryTimer, times(5)).observeDuration()
+        verify(summaryTimer, times(FULL_BATCH_SIZE - hBaseFailCount)).observeDuration()
         verifyNoMoreInteractions(summaryTimer)
     }
 
-    private fun verifyBatchFailureInteractions(failureCounter: Counter, child: Counter.Child) {
+    private fun verifyBatchFailureInteractions(failureCounter: Counter, child: Counter.Child, hBaseFailCount: Int) {
         val failedBatchTopicCaptor = argumentCaptor<String>()
         val failedBatchPartitionCaptor = argumentCaptor<String>()
-        verify(failureCounter, times(5)).labels(failedBatchTopicCaptor.capture(), failedBatchPartitionCaptor.capture())
+        verify(failureCounter, times(hBaseFailCount)).labels(failedBatchTopicCaptor.capture(), failedBatchPartitionCaptor.capture())
 
         failedBatchTopicCaptor.allValues.forEachIndexed { index, topic ->
             topic shouldBe "db.database%02d.collection%02d".format(index * 2 + 1, index * 2 + 1)
@@ -111,29 +160,30 @@ class ListProcessorTest : StringSpec() {
         }
 
         verifyNoMoreInteractions(failureCounter)
-        verify(child, times(5)).inc()
+        verify(child, times(hBaseFailCount)).inc()
         verifyNoMoreInteractions(child)
     }
 
     private fun verifyRecordsSuccessesInteractions(recordSuccesses: Counter,
-                                                   recordSuccessesChild: Counter.Child) {
+                                                   recordSuccessesChild: Counter.Child,
+                                                   hBaseFailCount: Int) {
 
         val successTopicCaptor = argumentCaptor<String>()
         val successPartitionCaptor = argumentCaptor<String>()
-        verify(recordSuccesses, times(5)).labels(successTopicCaptor.capture(), successPartitionCaptor.capture())
+        verify(recordSuccesses, times(FULL_BATCH_SIZE - hBaseFailCount)).labels(successTopicCaptor.capture(), successPartitionCaptor.capture())
 
         successTopicCaptor.allValues.forEachIndexed { index, topic ->
-            val topicIndex = index * 2 + 2
+            val topicIndex = if (hBaseFailCount > 0) index * 2 + 2 else index + 1   // Skip odd numbers if hbase is failing
             topic shouldBe "db.database%02d.collection%02d".format(topicIndex, topicIndex)
         }
 
         successPartitionCaptor.allValues.forEachIndexed { index, partition ->
-            partition shouldBe "${10 - ((index + 1) * 2)}"
+            partition shouldBe if (hBaseFailCount > 0) "${10 - ((index + 1) * 2)}" else "${10 - (index + 1)}"
         }
 
         verifyNoMoreInteractions(recordSuccesses)
         argumentCaptor<Double> {
-            verify(recordSuccessesChild, times(5)).inc(capture())
+            verify(recordSuccessesChild, times(FULL_BATCH_SIZE - hBaseFailCount)).inc(capture())
             allValues.forEach {
                 it shouldBe ToleranceMatcher(100.toDouble(), 0.5)
             }
@@ -143,11 +193,12 @@ class ListProcessorTest : StringSpec() {
     }
 
     private fun verifyRecordsFailuresInteractions(recordFailures: Counter,
-                                                  recordFailuresChild: Counter.Child) {
+                                                  recordFailuresChild: Counter.Child,
+                                                  hBaseFailCount: Int) {
 
         val failureTopicCaptor = argumentCaptor<String>()
         val failurePartitionCaptor = argumentCaptor<String>()
-        verify(recordFailures, times(5)).labels(failureTopicCaptor.capture(), failurePartitionCaptor.capture())
+        verify(recordFailures, times(hBaseFailCount)).labels(failureTopicCaptor.capture(), failurePartitionCaptor.capture())
 
         failureTopicCaptor.allValues.forEachIndexed { index, topic ->
             val topicIndex = index * 2 + 1
@@ -160,7 +211,7 @@ class ListProcessorTest : StringSpec() {
 
         verifyNoMoreInteractions(recordFailures)
         argumentCaptor<Double> {
-            verify(recordFailuresChild, times(5)).inc(capture())
+            verify(recordFailuresChild, times(hBaseFailCount)).inc(capture())
             allValues.forEach {
                 it shouldBe ToleranceMatcher(100.toDouble(), 0.5)
             }
@@ -170,36 +221,36 @@ class ListProcessorTest : StringSpec() {
 
     private suspend fun verifyMetadataStoreInteractions(metadataStoreClient: MetadataStoreClient) {
         val captor = argumentCaptor<List<HbasePayload>>()
-        verify(metadataStoreClient, times(10)).recordBatch(captor.capture())
+        verify(metadataStoreClient, times(FULL_BATCH_SIZE)).recordBatch(captor.capture())
         validateMetadataHbasePayloads(captor)
     }
 
     private fun verifyS3Interactions(s3Service: CorporateStorageService) = runBlocking {
         val tableCaptor = argumentCaptor<String>()
         val payloadCaptor = argumentCaptor<List<HbasePayload>>()
-        verify(s3Service, times(10)).putBatch(tableCaptor.capture(), payloadCaptor.capture())
+        verify(s3Service, times(FULL_BATCH_SIZE)).putBatch(tableCaptor.capture(), payloadCaptor.capture())
         validateTableNames(tableCaptor)
-        validateHbasePayloads(payloadCaptor)
+        validateHbasePayloads(payloadCaptor, FULL_BATCH_SIZE)
     }
 
 
-    private fun verifyHbaseInteractions(hbaseClient: HbaseClient) {
-        verifyHBasePuts(hbaseClient)
+    private fun verifyHbaseInteractions(hbaseClient: HbaseClient, bypassApplied: Boolean) {
+        verifyHBasePuts(hbaseClient, if (bypassApplied) 0 else FULL_BATCH_SIZE)
         verifyNoMoreInteractions(hbaseClient)
     }
 
-    private fun verifyHBasePuts(hbaseClient: HbaseClient) = runBlocking {
+    private fun verifyHBasePuts(hbaseClient: HbaseClient, numInvocations: Int) = runBlocking {
         val tableNameCaptor = argumentCaptor<String>()
         val recordCaptor = argumentCaptor<List<HbasePayload>>()
-        verify(hbaseClient, times(10)).putList(tableNameCaptor.capture(), recordCaptor.capture())
+        verify(hbaseClient, times(numInvocations)).putList(tableNameCaptor.capture(), recordCaptor.capture())
         validateTableNames(tableNameCaptor)
-        validateHbasePayloads(recordCaptor)
+        validateHbasePayloads(recordCaptor, numInvocations)
     }
 
-    private fun validateHbasePayloads(captor: KArgumentCaptor<List<HbasePayload>>) {
-        captor.allValues.size shouldBe 10
+    private fun validateHbasePayloads(captor: KArgumentCaptor<List<HbasePayload>>, numInvocations: Int) {
+        captor.allValues.size shouldBe numInvocations
         captor.allValues.forEachIndexed { payloadsNo, payloads ->
-            payloads.size shouldBe 100
+            payloads.size shouldBe numInvocations * 10
             payloads.forEachIndexed { index, payload ->
                 String(payload.key).toInt() shouldBe index + ((payloadsNo) * 100)
                 val body = Gson().fromJson(String(payload.body), JsonObject::class.java)
@@ -236,15 +287,15 @@ class ListProcessorTest : StringSpec() {
 
 
 
-    private fun verifyKafkaInteractions(consumer: KafkaConsumer<ByteArray, ByteArray>) {
-        verifySuccesses(consumer)
-        verifyFailures(consumer)
+    private fun verifyKafkaInteractions(consumer: KafkaConsumer<ByteArray, ByteArray>, hBaseFailCount: Int) {
+        verifySuccesses(consumer, hBaseFailCount)
+        verifyFailures(consumer, hBaseFailCount)
         verifyNoMoreInteractions(consumer)
     }
 
-    private fun verifyFailures(consumer: KafkaConsumer<ByteArray, ByteArray>) {
+    private fun verifyFailures(consumer: KafkaConsumer<ByteArray, ByteArray>, hBaseFailCount: Int) {
         argumentCaptor<Set<TopicPartition>> {
-            verify(consumer, times(5)).committed(capture())
+            verify(consumer, times(hBaseFailCount)).committed(capture())
             allValues.forEachIndexed { index, topicPartitionSet ->
                 val topicNumber = (index * 2 + 1)
                 topicPartitionSet shouldContainExactly setOf(TopicPartition(topicName(topicNumber), 10 - topicNumber))
@@ -253,7 +304,7 @@ class ListProcessorTest : StringSpec() {
 
         val positionCaptor = argumentCaptor<Long>()
         val topicPartitionCaptor = argumentCaptor<TopicPartition>()
-        verify(consumer, times(5)).seek(topicPartitionCaptor.capture(), positionCaptor.capture())
+        verify(consumer, times(hBaseFailCount)).seek(topicPartitionCaptor.capture(), positionCaptor.capture())
         topicPartitionCaptor.allValues.zip(positionCaptor.allValues).forEachIndexed { index, pair ->
             val topicNumber = index * 2 + 1
             val topicPartition = pair.first
@@ -266,11 +317,11 @@ class ListProcessorTest : StringSpec() {
         }
     }
 
-    private fun verifySuccesses(consumer: KafkaConsumer<ByteArray, ByteArray>) {
+    private fun verifySuccesses(consumer: KafkaConsumer<ByteArray, ByteArray>, hBaseFailCount: Int) {
         val commitCaptor = argumentCaptor<Map<TopicPartition, OffsetAndMetadata>>()
-        verify(consumer, times(5)).commitSync(commitCaptor.capture())
+        verify(consumer, times(FULL_BATCH_SIZE - hBaseFailCount)).commitSync(commitCaptor.capture())
         commitCaptor.allValues.forEachIndexed { index, element ->
-            val topicNumber = (index + 1) * 2
+            val topicNumber = if (hBaseFailCount >0) (index + 1) * 2 else index + 1
             element.size shouldBe 1
             val topicPartition = TopicPartition(topicName(topicNumber), 10 - topicNumber)
             element[topicPartition] shouldNotBe null
