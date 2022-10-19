@@ -7,6 +7,7 @@ import com.google.gson.JsonObject
 import com.nhaarman.mockitokotlin2.*
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.doubles.ToleranceMatcher
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -57,8 +58,12 @@ class ListProcessorTest : StringSpec() {
                 on { labels(any()) } doReturn recordFailuresChild
             }
 
+            val hBaseBypassFilter = mock<HBaseBypassFilter> {
+                on { tableShouldWriteToHBase(any()) } doReturn true
+            }
+
             val processor = ListProcessor(mock(), Converter(), mock(), mock(), mock(),
-                batchSummary, batchFailures, recordSuccesses, recordFailures, false)
+                batchSummary, batchFailures, recordSuccesses, recordFailures, hBaseBypassFilter)
 
             val hbaseClient = hbaseClient()
             val metadataStoreClient = metadataStoreClient()
@@ -71,7 +76,7 @@ class ListProcessorTest : StringSpec() {
             verifyRecordsSuccessesInteractions(recordSuccesses, recordSuccessesChild, HBASE_FAIL_COUNT)
             verifyRecordsFailuresInteractions(recordFailures, recordFailuresChild, HBASE_FAIL_COUNT)
             verifyS3Interactions(s3Service)
-            verifyHbaseInteractions(hbaseClient, false)
+            verifyHbaseInteractions(hbaseClient, FULL_BATCH_SIZE)
             verifyMetadataStoreInteractions(metadataStoreClient)
             verifyKafkaInteractions(consumer, HBASE_FAIL_COUNT)
         }
@@ -102,8 +107,12 @@ class ListProcessorTest : StringSpec() {
                 on { labels(any()) } doReturn recordFailuresChild
             }
 
+            val hBaseBypassFilter = mock<HBaseBypassFilter> {
+                on { tableShouldWriteToHBase(any()) } doReturn false
+            }
+
             val processor = ListProcessor(mock(), Converter(), mock(), mock(), mock(),
-                batchSummary, batchFailures, recordSuccesses, recordFailures, true)
+                batchSummary, batchFailures, recordSuccesses, recordFailures, hBaseBypassFilter)
 
             val hbaseClient = hbaseClient()
             val metadataStoreClient = metadataStoreClient()
@@ -116,9 +125,71 @@ class ListProcessorTest : StringSpec() {
             verifyRecordsSuccessesInteractions(recordSuccesses, recordSuccessesChild, 0)
             verifyRecordsFailuresInteractions(recordFailures, recordFailuresChild, 0)
             verifyS3Interactions(s3Service)
-            verifyHbaseInteractions(hbaseClient, true)
+            verifyHbaseInteractions(hbaseClient, 0)
             verifyMetadataStoreInteractions(metadataStoreClient)
             verifyKafkaInteractions(consumer, 0)
+        }
+
+        "Can bypass a single table and keep all others working" {
+            val batchTimer = mock<Summary.Timer>()
+
+            val batchSummaryChild = mock<Summary.Child> {
+                on { startTimer() } doReturn batchTimer
+            }
+
+            val batchSummary = mock<Summary> {
+                on { labels(any(), any()) } doReturn batchSummaryChild
+            }
+
+            val batchFailuresChild = mock<Counter.Child>()
+            val batchFailures = mock<Counter> {
+                on { labels(any()) } doReturn batchFailuresChild
+            }
+
+            val recordSuccessesChild: Counter.Child = mock()
+            val recordSuccesses = mock<Counter> {
+                on { labels(any()) } doReturn recordSuccessesChild
+            }
+
+            val recordFailuresChild: Counter.Child = mock()
+            val recordFailures = mock<Counter> {
+                on { labels(any()) } doReturn recordFailuresChild
+            }
+
+            val hBaseBypassFilter = mock<HBaseBypassFilter> {
+                on { tableShouldWriteToHBase(any()) } doReturn true
+                on { tableShouldWriteToHBase(tableName(5)) } doReturn false
+            }
+
+            val processor = ListProcessor(mock(), Converter(), mock(), mock(), mock(),
+                batchSummary, batchFailures, recordSuccesses, recordFailures, hBaseBypassFilter)
+
+            val hbaseClient = hbaseClient()
+            val metadataStoreClient = metadataStoreClient()
+            val consumer = kafkaConsumer()
+            val s3Service = corporateStorageService()
+            val manifestService = manifestService()
+            processor.processRecords(hbaseClient, consumer, metadataStoreClient, s3Service, manifestService, messageParser(), consumerRecords())
+
+            // Everything written to S3 as per normal
+            verifyS3Interactions(s3Service)
+
+            val tableNameCaptor = argumentCaptor<String>()
+            val recordCaptor = argumentCaptor<List<HbasePayload>>()
+            verify(hbaseClient, times(9)).putList(tableNameCaptor.capture(), recordCaptor.capture())
+
+            // Should have all table except for tableName(5), which was filtered out
+            tableNameCaptor.allValues.size shouldBe 9
+            val goodTableNames = listOf(tableName(1), tableName(2), tableName(3),
+                tableName(4), tableName(6), tableName(7), tableName(8),
+                tableName(9), tableName(10))
+            tableNameCaptor.allValues.shouldContainExactly(goodTableNames)
+            tableNameCaptor.allValues.shouldNotContain(tableName(5))
+
+            // Should have a payload for each table
+            recordCaptor.allValues.size shouldBe tableNameCaptor.allValues.size
+
+            verifyNoMoreInteractions(hbaseClient)
         }
     }
 
@@ -234,8 +305,8 @@ class ListProcessorTest : StringSpec() {
     }
 
 
-    private fun verifyHbaseInteractions(hbaseClient: HbaseClient, bypassApplied: Boolean) {
-        verifyHBasePuts(hbaseClient, if (bypassApplied) 0 else FULL_BATCH_SIZE)
+    private fun verifyHbaseInteractions(hbaseClient: HbaseClient, expectedCount: Int) {
+        verifyHBasePuts(hbaseClient, expectedCount)
         verifyNoMoreInteractions(hbaseClient)
     }
 

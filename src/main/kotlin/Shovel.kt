@@ -28,12 +28,13 @@ class Shovel(private val consumer: KafkaConsumer<ByteArray, ByteArray>,
         val parser = MessageParser()
         val validator = Validator()
         val converter = Converter()
+        val HBaseBypassFilter = HBaseBypassFilter(Config.Hbase.bypassTopics)
         val listProcessor =
             ListProcessor(validator, converter, MetricsClient.dlqTimer,
                 MetricsClient.dlqRetries, MetricsClient.dlqFailures,
                 MetricsClient.batchTimer, MetricsClient.batchFailures,
                 MetricsClient.recordSuccesses, MetricsClient.recordFailures,
-                Config.Hbase.bypass)
+                HBaseBypassFilter)
 
         var batchCount = 0
 
