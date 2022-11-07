@@ -23,8 +23,11 @@ class ListProcessor(validator: Validator,
                     private val batchFailures: Counter,
                     private val recordSuccesses: Counter,
                     private val recordFailures: Counter,
-                    private val bypassHbase: Boolean):
+                    private val HBaseBypassFilter: HBaseBypassFilter):
     BaseProcessor(validator, converter, dlqTimer, dlqRetries, dlqFailures) {
+
+
+
 
     fun processRecords(hbase: HbaseClient,
                        consumer: KafkaConsumer<ByteArray, ByteArray>,
@@ -100,11 +103,9 @@ class ListProcessor(validator: Validator,
 
     private suspend fun putInHbase(hbase: HbaseClient, table: String, payloads: List<HbasePayload>) =
         withContext(Dispatchers.IO) {
-            if(!bypassHbase){
+            if(HBaseBypassFilter.tableShouldWriteToHBase(table)){
                 try {
-                    if (!bypassHbase) {
-                        hbase.putList(table, payloads)
-                    }
+                    hbase.putList(table, payloads)
                     true
                 } catch (e: Exception) {
                     e.printStackTrace()
