@@ -1,0 +1,119 @@
+name: Master
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+
+jobs:
+  get-publish-version:
+    runs-on: ubuntu-latest
+    outputs:
+      publish-version: ${{ steps.get-publish-version.outputs.publish-version }}
+    steps:   
+      - name: Prepare SemVer
+        id: prepare-semver
+        run: |
+          set +o pipefail
+          LATEST_VERSION=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          set -o pipefail
+          [  -z "$LATEST_VERSION" ] && LATEST_VERSION="0.0.0"
+          echo "latest_version_out=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          VERSION=$(echo $LATEST_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+          commit_message=$( echo "${{ github.event.head_commit.message }}" | sed 's/"//g')
+          if [[ "${commit_message,,}" == *"major release"* ]]; then
+            echo "semver_increment='m'" >> $GITHUB_OUTPUT
+          elif [[ "${commit_message,,}" == *"minor release"* ]]; then
+            echo "semver_increment='i'" >> $GITHUB_OUTPUT
+          else
+            echo "semver_increment='p'" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Increment SemVer
+        id: semver
+        uses: matt-FFFFFF/simple-semver@v0.1.0
+        with:
+          semver-input: ${{ steps.prepare-semver.outputs.latest_version_out }}
+          increment: ${{ steps.prepare-semver.outputs.semver_increment }}
+      
+      - name: Get publish version
+        id: get-publish-version
+        run: |
+          echo "publish-version=${{ steps.semver.outputs.semver }}" >> $GITHUB_OUTPUT
+  
+ 
+  build-and-publish-docker-github-release:
+    runs-on: ubuntu-latest
+    needs: [get-publish-version]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build
+        run: |
+          set +o pipefail
+          LATEST_VERSION=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          [  -z "$LATEST_VERSION" ] && LATEST_VERSION="0.0.0"
+          VERSION=$(echo $LATEST_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+          sed -i -e "s/version = \"0.0.0\"/version = \"$VERSION\"/" build.gradle.kts
+          K2HB_WRITE_TO_METADATA_STORE=true gradle :unit build -x test
+          mkdir -p artifacts
+          cp -v README.md artifacts
+          cp -v build/distributions/*.tar artifacts/
+          gzip artifacts/*.tar
+          gradle distTar
+          gzip -9 build/distributions/*.tar
+          
+      # - name: Log in to Docker Hub
+      #   uses: docker/login-action@v2
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_PASS }}
+      
+      # - name: Extract metadata (tags, labels) for Docker
+      #   id: meta
+      #   uses: docker/metadata-action@v4
+      #   with:
+      #     images: dwpdigital/kafka-to-hbase
+      
+      # - name: Build and push Docker image
+      #   uses: docker/build-push-action@v3
+      #   with:
+      #     context: .
+      #     push: true
+      #     tags: dwpdigital/kafka-to-hbase:${{ needs.get-publish-version.outputs.publish-version }},dwpdigital/kafka-to-hbase:latest
+      #     labels: ${{ steps.meta.outputs.labels }}
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.get-publish-version.outputs.publish-version }}
+          release_name: ${{ needs.get-publish-version.outputs.publish-version }}
+          draft: false
+          prerelease: false
+
+      - name: upload kafka2hbase.tar.gz file
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./artifacts/kafka2hbase-${{ needs.get-publish-version.outputs.publish-version }}.tar.gz
+          asset_name: kafka2hbase-${{ needs.get-publish-version.outputs.publish-version }}.tar.gz
+          asset_content_type: application/gzip
+
+      - name: upload README file
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./artifacts/README.md
+          asset_name: README.md
+          asset_content_type: text/plain

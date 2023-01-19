@@ -1,0 +1,79 @@
+name: Perform PR Build and tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - '.github/workflows/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_OPTS: "-Xmx3200m"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: 8
+          java-package: jdk
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Build
+        run: |
+          set +o pipefail
+          LATEST_VERSION=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          [  -z "$LATEST_VERSION" ] && LATEST_VERSION="0.0.0"
+          VERSION=$(echo $LATEST_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+          K2HB_WRITE_TO_METADATA_STORE=true gradle :unit build -x test
+          mkdir -p artifacts
+          cp -v README.md artifacts
+          cp -v build/distributions/*.tar artifacts/
+          gzip artifacts/*.tar
+          gradle distTar
+          gzip -9 build/distributions/*.tar
+
+      - name: Integration tests
+        run: | 
+          sudo pip3 install docker-compose
+          docker-compose -f docker-compose.yaml down
+          docker build --tag dwp-java:latest --file ./docker/java/Dockerfile .
+          docker build --tag dwp-python-preinstall:latest --file ./docker/python/Dockerfile .
+          docker build --tag dwp-kotlin-slim-gradle-k2hb:latest --file ./docker/gradle/Dockerfile .
+          VERSION=$(grep '^version' gradle.properties | cut -f2 -d'=')
+          docker-compose -f docker-compose.yaml build --build-arg VERSION=$VERSION zookeeper kafka hbase aws-s3 metadatastore kafka2s3 s3-provision integration-test
+          docker-compose -f docker-compose.yaml up -d zookeeper kafka hbase aws-s3 metadatastore prometheus pushgateway
+          S3_READY_REGEX=^Ready\.$
+          while ! docker logs aws-s3 2> /dev/null | grep -q $S3_READY_REGEX; do
+              echo Waiting for aws-s3.
+              sleep 2
+          done
+
+          docker-compose -f docker-compose.yaml up s3-provision
+
+          while ! docker logs metadatastore 2>&1 | grep "^Version"; do
+              echo Waiting for metadatastore.
+              sleep 2
+          done
+          sleep 5
+
+          docker exec -i metadatastore mysql --user=root --password=password metadatastore  < ./docker/metadatastore/create_table.sql
+          docker exec -i metadatastore mysql --user=root --password=password metadatastore  < ./docker/metadatastore/grant_user.sql
+
+          docker-compose -f docker-compose.yaml up -d kafka2s3
+          docker-compose -f docker-compose.yaml build --build-arg K2HB_WRITE_TO_METADATA_STORE=true kafka2hbase
+          docker-compose -f docker-compose.yaml up -d kafka2hbase kafka2hbaseequality
+          docker-compose -f docker-compose.yaml rm integration-test
+          docker-compose -f docker-compose.yaml run --name integration-test integration-test gradle --no-daemon --rerun-tasks integration-test integration-test-equality integration-load-test
+
