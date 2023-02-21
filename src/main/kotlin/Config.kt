@@ -98,6 +98,14 @@ object Config {
             }
             put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, getEnv("K2HB_KAFKA_MAX_FETCH_BYTES") ?: 100_000_000)
             put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, getEnv("K2HB_KAFKA_MAX_PARTITION_FETCH_BYTES") ?: 100_000_000)
+            val fetchMinBytes = getEnv("K2HB_KAFKA_FETCH_MIN_BYTES")
+            if (fetchMinBytes != null) {
+                put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, fetchMinBytes)
+            }
+            val fetchMaxWait = getEnv("K2HB_MAX_WAIT_MS")
+            if (fetchMaxWait != null) {
+                put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, fetchMaxWait)
+            }
         }
 
         val producerProps = Properties().apply {
