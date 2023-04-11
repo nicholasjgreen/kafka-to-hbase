@@ -106,6 +106,7 @@ object Config {
             val fetchMinBytes = getEnv("K2HB_KAFKA_FETCH_MIN_BYTES")
             if(fetchMinBytes != null){
                 put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, fetchMinBytes.toInt())
+
             }
         }
 
