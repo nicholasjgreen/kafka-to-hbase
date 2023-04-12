@@ -52,6 +52,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: 8
+          java-package: jdk
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: 7.6
+
       - name: Build
         run: |
           set +o pipefail
@@ -66,26 +83,6 @@ jobs:
           gzip artifacts/*.tar
           gradle distTar
           gzip -9 build/distributions/*.tar
-          
-      # - name: Log in to Docker Hub
-      #   uses: docker/login-action@v2
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_PASS }}
-      
-      # - name: Extract metadata (tags, labels) for Docker
-      #   id: meta
-      #   uses: docker/metadata-action@v4
-      #   with:
-      #     images: dwpdigital/kafka-to-hbase
-      
-      # - name: Build and push Docker image
-      #   uses: docker/build-push-action@v3
-      #   with:
-      #     context: .
-      #     push: true
-      #     tags: dwpdigital/kafka-to-hbase:${{ needs.get-publish-version.outputs.publish-version }},dwpdigital/kafka-to-hbase:latest
-      #     labels: ${{ steps.meta.outputs.labels }}
       
       - name: Create Release
         id: create_release
