@@ -28,7 +28,7 @@ with at least `1` version and at most `10` versions and a TTL of 10 days.
     The name of the column family to store topic message counts in
 * **K2HB_HBASE_TOPIC_QUALIFIER**
     The name of the column qualifier to store topic message counts in
-* **K2HB_HBASE_BYPASS_TOPICS**
+* **K2HB_HBASE_BYPASS_TOPICS** (optional)
   When set to a valid regex, the name of the HBase table (which is formatted differently to the Kafka topic) will be evaluated against this regex. Tables that match will not have any records written to HBase, but S3 and manifest writing will continue. To prevent all tables being written to HBase, set this to .* which will match all table names.
 
 #### Kafka
@@ -56,6 +56,15 @@ consumer group. It will poll the `test-topic` topic with a poll timeout of
 * **K2HB_KAFKA_CERT_MODE**
     If SSL is enabled, either create certs in ACM-PCA with value `CERTGEN` or retrieve
     them from ACM with value `RETRIEVE`
+* **K2HB_KAFKA_FETCH_MIN_BYTES** (Optional)
+    The minimum number of bytes read from a topic, unless the max wait timeout is encountered. Default: 1
+* **K2HB_KAFKA_FETCH_MAX_WAIT_MS** (Optional)
+    Limits the wait when K2HB_KAFKA_FETCH_MIN_BYTES is set
+* **K2HB_KAFKA_MAX_FETCH_BYTES** (Optional)
+    The maximum amount of data the server should return for a fetch request. Default: 100,000,000
+* **K2HB_KAFKA_MAX_PARTITION_FETCH_BYTES** (Optional)
+    The maximum amount of data per-partition the server will return. Default: 100,000,000
+
 
 #### SSL Mutual Authentication (CERTGEN mode)
 
