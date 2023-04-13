@@ -108,6 +108,11 @@ object Config {
                 put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, fetchMinBytes.toInt())
 
             }
+
+            val kafkaRequestTimeoutMs = getEnv("K2HB_KAFKA_CONSUMER_REQUEST_TIMEOUT_MS")
+            if(kafkaRequestTimeoutMs != null) {
+                put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaRequestTimeoutMs.toInt())
+            }
         }
 
         val producerProps = Properties().apply {

@@ -64,6 +64,9 @@ consumer group. It will poll the `test-topic` topic with a poll timeout of
     The maximum amount of data the server should return for a fetch request. Default: 100,000,000
 * **K2HB_KAFKA_MAX_PARTITION_FETCH_BYTES** (Optional)
     The maximum amount of data per-partition the server will return. Default: 100,000,000
+* **K2HB_KAFKA_CONSUMER_REQUEST_TIMEOUT_MS** (Optional)
+    The maximum amount of time the client will wait before it assumes a request to the kafka broker has failed. Default: 30_000
+
 
 
 #### SSL Mutual Authentication (CERTGEN mode)
