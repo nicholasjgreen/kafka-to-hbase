@@ -68,6 +68,7 @@ consumer group. It will poll the `test-topic` topic with a poll timeout of
     The maximum amount of time the client will wait before it assumes a request to the kafka broker has failed. Default: 30_000
 
 
+
 #### SSL Mutual Authentication (CERTGEN mode)
 
 By default the SSL is enabled but has no defaults. These must either be
