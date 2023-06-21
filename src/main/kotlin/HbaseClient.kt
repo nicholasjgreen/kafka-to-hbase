@@ -140,7 +140,7 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
 
     private val namespaces by lazy {
         val extantNamespaces = mutableMapOf<String, Boolean>()
-
+        logger.info("Calling master to list namespaces")
         connection.admin.listNamespaceDescriptors()
             .forEach {
                 extantNamespaces[it.name] = true
@@ -151,7 +151,7 @@ open class HbaseClient(val connection: Connection, private val columnFamily: Byt
 
     private val tables by lazy {
         val names = mutableMapOf<String, Boolean>()
-
+        logger.info("Calling master to list tables")
         connection.admin.listTableNames().forEach {
             names[it.nameAsString] = true
         }

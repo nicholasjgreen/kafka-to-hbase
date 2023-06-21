@@ -1,7 +1,9 @@
 FROM dwp-kotlin-slim-gradle-k2hb:latest
 
 COPY build.gradle.kts .
+RUN true
 COPY settings.gradle.kts .
+RUN true
 COPY src/ ./src
 
 RUN gradle build integrationClasses -x test -x unit

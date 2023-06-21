@@ -103,6 +103,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
     }
 
     private fun verifyS3() {
+        logger.info("Verifying S3")
         val contentsList = allArchiveObjectContentsAsJson()
         contentsList.size shouldBe TOPIC_COUNT * RECORDS_PER_TOPIC
         contentsList.forEach {
@@ -114,9 +115,11 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
             it["message"]!!.asJsonObject!!["dbObject"]!!.asJsonPrimitive shouldNotBe null
             it["message"]!!.asJsonObject!!["dbObject"]!!.asJsonPrimitive!!.asString shouldBe "bubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9AbubHJjhg2Jb0uyidkl867gtFkjl4fgh9A"
         }
+        logger.info("Finished verifying S3")
     }
 
     private fun verifyManifests() {
+        logger.info("Verifying manifests")
         val contentsList = allManifestObjectContentsAsString()
         contentsList.forEach {
             val manifestLines = it.split("\n")
@@ -133,6 +136,7 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
                 fields[7] shouldBe "KAFKA_RECORD"
             }
         }
+        logger.info("Finished verifying manifests")
     }
 
     private fun allArchiveObjectContentsAsJson(): List<JsonObject> =
@@ -230,22 +234,23 @@ class Kafka2hbIntegrationLoadSpec : StringSpec() {
         }
     }""".toByteArray()
 
-
-    private fun verifyMetadataStore(expectedCount: Int, database: String, collection: String) =
-            metadataStoreConnection().use { connection ->
-                connection.createStatement().use { statement ->
-                    val results =
-                            statement.executeQuery("SELECT count(*) FROM ucfs WHERE topic_name like '%$database%' and topic_name like '%$collection%'")
-                    results.next() shouldBe true
-                    val count = results.getLong(1)
-                    count shouldBe expectedCount.toLong()
-                }
-            }
+    private fun verifyMetadataStore(expectedCount: Int, database: String, collection: String) {
+        logger.info("Verifying metadata")
+        val connection = metadataStoreConnection()
+        val statement = connection.createStatement()
+        val results = statement.executeQuery("SELECT count(*) FROM ucfs WHERE topic_name like '%$database%' and topic_name like '%$collection%'")
+        results.next() shouldBe true
+        val count = results.getLong(1)
+        count shouldBe expectedCount.toLong()
+        logger.info("Finished verifying metadata")
+}
 
     private suspend fun verifyMetrics() {
+        logger.info("Verifying metrics")
         verifyMetricNames()
         validateMetric("""k2hb_running_applications{job="k2hb", instance="k2hb-integration-test-container"}""", "1")
         validateMetric("""sum(k2hb_record_successes_total{topic=~"db.load-test.+"})""", "10000")
+        logger.info("Finished verifying metrics")
     }
 
     private suspend fun verifyMetricNames() {
